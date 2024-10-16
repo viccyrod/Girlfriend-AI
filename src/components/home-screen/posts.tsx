@@ -2,15 +2,15 @@ import React from 'react'
 import Post from './post'
 import { Skeleton } from '../ui/skeleton'
 import PostSkeleton from '../skeletons/PostSkeleton'
-import { admin, user } from '@/dummy_data'
+import { admin, user, posts as postsData } from '@/dummy_data'
 
-const posts = () => {
+const Posts = () => {
     
-    const isLoading = true
+    const isLoading = false
   return (
     <div>
 
-    {!isLoading && posts.map(post =>
+    {!isLoading && postsData.map(post =>
         <Post key={post.id} post={post} admin={admin} isSubscribed={user.isSubscribed}/>
     )}
 
@@ -21,7 +21,7 @@ const posts = () => {
                 ))}
             </div>
         )}
-        {!isLoading && posts.length === 0 && (
+        {!isLoading && postsData.length === 0 && (
             <div className="mt-10 px-3">
                 <div className="flex flex-col items-center space-y-3 w-full">
                     <span className="text-lg font-semibold">No posts yet</span>
@@ -35,4 +35,4 @@ const posts = () => {
   )
 }
 
-export default posts
+export default Posts
