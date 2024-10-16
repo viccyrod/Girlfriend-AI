@@ -1,8 +1,12 @@
 import BaseLayout from "../BaseLayout";
+import Posts from "./posts";
+import UserProfile from "./UserProfile";
 
 const HomeScreen = () => {
   return (
-    <BaseLayout> Home Screen Content
+    <BaseLayout> 
+    <UserProfile />
+    <Posts />
  </BaseLayout>
   );
 };

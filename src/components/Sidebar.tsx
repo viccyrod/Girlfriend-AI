@@ -9,6 +9,7 @@ import { DropdownMenuTrigger } from '@radix-ui/react-dropdown-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from './ui/dropdown-menu';
 import { ModeToggle } from './ModeToggle';
 import LogoutButton from './LogoutButton';
+import { user } from '@/dummy_data';
 
 const SIDEBAR_LINKS = [
 	{
@@ -35,10 +36,10 @@ const Sidebar = () => {
         <div className="flex lg:w-1/5 flex-col gap-3 px-2 border-r sticky 
         left-0 top-0 h-screen">
             <Link href="/update-profile" className="max-w-fit">
-                <Avatar className="mt-4" cursor-pointer>
-                    <AvatarImage src="/user-placeholder.png" className="object-cover" />
-                    <AvatarFallback> CN </AvatarFallback>
-                </Avatar>
+            <Avatar className="mt-4 cursor-pointer">
+        <AvatarImage src={user.image} className="object-cover" />
+        <AvatarFallback>CN</AvatarFallback>
+        </Avatar>
             </Link>
             <nav className="flex flex-col gap-3">
                 {SIDEBAR_LINKS.map(link => (
