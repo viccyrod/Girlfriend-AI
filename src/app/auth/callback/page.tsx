@@ -5,15 +5,12 @@ import { Loader } from "lucide-react";
 import { checkAuthStatus } from "@/app/auth/callback/actions";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import prisma from "@/db/prisma";
-
-// import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 
 const Page = () => {
 	const router = useRouter();
-	const { data, isLoading } = useQuery({
+	const { data, isLoading, error } = useQuery({
 		queryKey: ["authCheck"],
-		queryFn: async () => await checkAuthStatus(),
+		queryFn: () => checkAuthStatus(),
 	});
 
 	useEffect(() => {
@@ -39,6 +36,18 @@ const Page = () => {
 		);
 	}
 
+	if (error) {
+		return (
+			<div className='mt-20 w-full flex justify-center'>
+				<div className='flex flex-col items-center gap-2'>
+					<h3 className='text-xl font-bold text-red-500'>Authentication Error</h3>
+					<p>Please try again later.</p>
+				</div>
+			</div>
+		);
+	}
+
 	return null;
 };
+
 export default Page;

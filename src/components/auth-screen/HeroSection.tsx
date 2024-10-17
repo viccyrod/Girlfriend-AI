@@ -6,7 +6,7 @@ const HeroSection = () => {
   return (
     <div className='flex h-screen w-full'>
       <div className='flex-1 overflow-hidden bg-[##000000] relative justify-center items-center z-1 '>
-        <img 
+        <image 
           src="logo.svg" 
           alt="Girlfriend Logo" 
           className='absolute -left-1/4 opacity-15 -bottom-52 lg:scale-150 xl:scale-105 scale-[2]' 

@@ -12,8 +12,9 @@ import { CldUploadWidget, CldVideoPlayer, CloudinaryUploadWidgetInfo } from "nex
 import Image from "next/image";
 import { useState } from "react";
 // import { createPostAction } from "app/creator/Content/actions";
-import { Toast } from "@/components/ui/toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import { createPostAction } from "./actions";
+import { useToast } from "@/hooks/use-toast";
 
 
 const ContentTab = () => {
