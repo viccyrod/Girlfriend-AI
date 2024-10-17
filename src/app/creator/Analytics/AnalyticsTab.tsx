@@ -2,7 +2,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { centsToDollars } from "@/lib/utils";
 import { DollarSign } from "lucide-react";
-import { getDashboardData } from "app/creator/Analytics/actions";
+import { getDashboardData } from "../Content/actions";
+// import { getDashboardData } from "app/creator/Analytics/actions";
 
 const AnalyticsTab = async () => {
 	const { totalRevenue, totalSubscriptions, totalSales } = await getDashboardData();

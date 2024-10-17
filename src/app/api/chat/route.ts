@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createChatRoom, sendMessage, getChatRooms, getChatRoomMessages } from './actions';
+import { createChatRoom, sendMessage, getChatRooms } from './actions';
 
 export async function POST(request: Request) {
   const { action, ...data } = await request.json();
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const chatRooms = await getChatRooms();
     return NextResponse.json(chatRooms);

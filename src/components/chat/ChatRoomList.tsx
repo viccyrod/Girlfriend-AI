@@ -1,6 +1,14 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { SimplifiedChatRoom } from '@/types/chat';
 
-export default function ChatRoomList({ chatRooms, selectedRoom, onSelectRoom }) {
+// Update the component props type
+interface ChatRoomListProps {
+  chatRooms: SimplifiedChatRoom[];
+  selectedRoom: SimplifiedChatRoom | null;
+  onSelectRoom: (room: SimplifiedChatRoom) => void;
+}
+
+export default function ChatRoomList({ chatRooms, selectedRoom, onSelectRoom }: ChatRoomListProps) {
   return (
     <div className="w-64 border-r overflow-y-auto bg-background">
       <h2 className="text-xl font-bold p-4 text-foreground">Chat Rooms</h2>
@@ -15,14 +23,12 @@ export default function ChatRoomList({ chatRooms, selectedRoom, onSelectRoom }) 
           >
             <div className="flex items-center space-x-3">
               <Avatar>
-                <AvatarImage src={room.users[0]?.image} />
-                <AvatarFallback>{room.users[0]?.name[0]}</AvatarFallback>
+                <AvatarImage src="/user-placeholder.png" />
+                <AvatarFallback>{room.name[0]}</AvatarFallback>
               </Avatar>
               <div>
                 <p className="font-medium text-foreground">{room.name}</p>
-                <p className="text-sm text-muted-foreground truncate">
-                  {room.messages[0]?.content || 'No messages yet'}
-                </p>
+                {/* Remove or adjust any references to users or messages */}
               </div>
             </div>
           </li>

@@ -1,7 +1,12 @@
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { user } from '@/dummy_data' // Make sure this import is correct
 
-const SuggestedCreator = ({user}: {user: any}) => {
+interface User {
+  id: string;
+  name: string;
+  image?: string;
+}
+
+const SuggestedCreator: React.FC<{ user: User }> = ({ user }) => {
   return (
     <div>
       <div key={user.id} className="flex items-center gap-2 mb-4">

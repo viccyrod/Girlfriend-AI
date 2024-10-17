@@ -1,5 +1,6 @@
 import prisma from "@/db/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { Message } from "@prisma/client";
 
 export async function createChatRoom(name: string, userIds: string[]) {
   const currentUser = await getCurrentUser();
@@ -23,7 +24,7 @@ export async function createChatRoom(name: string, userIds: string[]) {
   return chatRoom;
 }
 
-export async function sendMessage(content: string, chatRoomId: string) {
+export async function sendMessage(content: string, chatRoomId: string): Promise<Message> {
   const currentUser = await getCurrentUser();
   if (!currentUser) throw new Error('Unauthorized');
 
@@ -72,7 +73,7 @@ export async function getChatRooms() {
   }
 }
 
-export async function getChatRoomMessages(chatRoomId: string) {
+export async function getChatRoomMessages(chatRoomId: string): Promise<Message[]> {
   const currentUser = await getCurrentUser();
   if (!currentUser) throw new Error('Unauthorized');
 

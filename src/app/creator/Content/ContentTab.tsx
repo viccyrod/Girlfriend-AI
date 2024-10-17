@@ -8,13 +8,14 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { useMutation } from "@tanstack/react-query";
 import { TriangleAlert } from "lucide-react";
-import { CldUploadWidget, CldVideoPlayer, CloudinaryUploadWidgetInfo } from "next-cloudinary";
+import { CldUploadWidget} from "next-cloudinary";
 import Image from "next/image";
 import { useState } from "react";
 // import { createPostAction } from "app/creator/Content/actions";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createPostAction } from "./actions";
 import { useToast } from "@/hooks/use-toast";
+import { CldVideoPlayer } from "next-cloudinary";
 
 
 const ContentTab = () => {
@@ -97,18 +98,17 @@ const ContentTab = () => {
 
 						<CldUploadWidget
 							signatureEndpoint={"/api/sign-image"}
-							onSuccess={(result, { widget }) => {
-								setMediaUrl((result.info as CloudinaryUploadWidgetInfo).secure_url);
-								widget.close();
+							onSuccess={(result) => {
+								const info = result.info as { secure_url: string };
+								setMediaUrl(info.secure_url);
+								// Note: widget.close() is not needed as it's automatically handled
 							}}
 						>
-							{({ open }) => {
-								return (
-									<Button onClick={() => open()} variant={"outline"} type='button'>
-										Upload Media
-									</Button>
-								);
-							}}
+							{({ open }) => (
+								<Button onClick={() => open()} variant={"outline"} type='button'>
+									Upload Media
+								</Button>
+							)}
 						</CldUploadWidget>
 
 						{mediaUrl && mediaType === "image" && (

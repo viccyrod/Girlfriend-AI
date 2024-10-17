@@ -3,9 +3,13 @@
 import BaseLayout from '@/components/BaseLayout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import React from 'react'
-import ContentTab from './Content/ContentTab'
+import dynamic from 'next/dynamic';
 import { CldUploadWidget } from "next-cloudinary"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+
+const ContentTab = dynamic(() => import('./Content/ContentTab'), {
+  loading: () => <p>Loading...</p>,
+});
 
 function CreatorPage() {
   const { isAuthenticated, isLoading } = useKindeBrowserClient();
@@ -36,7 +40,7 @@ function CreatorPage() {
             }}
           >
             {({ open }) => {
-              function handleOnClick(e) {
+              function handleOnClick(e: React.MouseEvent<HTMLButtonElement>) {
                 e.preventDefault();
                 open();
               }

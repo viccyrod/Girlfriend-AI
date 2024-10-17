@@ -1,53 +1,47 @@
 "use client";
-
 import { useQuery } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
-import { checkAuthStatus } from "@/app/auth/callback/actions";
+import { checkAuthStatus } from "./actions";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 const Page = () => {
 	const router = useRouter();
-	const { data, isLoading, error } = useQuery({
+
+	const { data, error } = useQuery({
 		queryKey: ["authCheck"],
-		queryFn: () => checkAuthStatus(),
+		queryFn: async () => {
+			try {
+				const result = await checkAuthStatus();
+				console.log("Auth check result:", result);
+				return result;
+			} catch (error) {
+				console.error("Error in auth check:", error);
+				throw error;
+			}
+		},
 	});
 
 	useEffect(() => {
-		if (data?.success) {
-			// User is authenticated and saved in the database
-			console.log("User data:", data.user);
+		if (data?.success !== undefined) {
 			router.push("/");
-		} else if (data?.success === false) {
-			// Authentication failed
-			router.push("/login");
 		}
-	}, [data, router]);
-
-	if (isLoading) {
-		return (
-			<div className='mt-20 w-full flex justify-center'>
-				<div className='flex flex-col items-center gap-2'>
-					<Loader className='w-10 h-10 animate-spin text-muted-foreground' />
-					<h3 className='text-xl font-bold'>Authenticating...</h3>
-					<p>Please wait...</p>
-				</div>
-			</div>
-		);
-	}
+	}, [data?.success, router]);
 
 	if (error) {
-		return (
-			<div className='mt-20 w-full flex justify-center'>
-				<div className='flex flex-col items-center gap-2'>
-					<h3 className='text-xl font-bold text-red-500'>Authentication Error</h3>
-					<p>Please try again later.</p>
-				</div>
-			</div>
-		);
+		console.error("Error in auth callback:", error);
+		return <div>Error: {error.message}</div>;
 	}
 
-	return null;
+	return (
+		<div className='mt-20 w-full flex justify-center'>
+			<div className='flex flex-col items-center gap-2'>
+				<Loader className='w-10 h-10 animate-spin text-muted-foreground' />
+				<h3 className='text-xl font-bold'>Redirecting...</h3>
+				<p>Please wait...</p>
+			</div>
+		</div>
+	);
 };
 
 export default Page;

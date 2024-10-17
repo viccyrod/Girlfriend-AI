@@ -3,7 +3,6 @@
 import prisma from "@/db/prisma";
 import { centsToDollars } from "@/lib/utils";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import openai from '@/lib/openai';
 
 type PostArgs = {
 	text: string;
@@ -19,10 +18,6 @@ export async function createPostAction({ isPublic, mediaUrl, mediaType, text }: 
 		throw new Error("Unauthorized");
 	}
 
-	const embedding = await openai.embeddings.create({
-		model: "text-embedding-ada-002",
-		input: text,
-	});
 
 	const newPost = await prisma.post.create({
 		data: {
@@ -31,11 +26,6 @@ export async function createPostAction({ isPublic, mediaUrl, mediaType, text }: 
 			mediaType,
 			isPublic,
 			userId: admin.id,
-			embedding: {
-				create: {
-					embedding: embedding.data[0].embedding,
-				},
-			},
 		},
 	});
 
