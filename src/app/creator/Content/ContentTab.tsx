@@ -8,10 +8,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { useMutation } from "@tanstack/react-query";
 import { TriangleAlert } from "lucide-react";
-import { CldUploadWidget, CldVideoPlayer, CloudinaryUploadWidgetInfo } from "next-cloudinary";
+import { CldUploadWidget, CldVideoPlayer, CloudinaryUploadWidgetResults } from "next-cloudinary";
 import Image from "next/image";
 import { useState } from "react";
-// import { createPostAction } from "app/creator/Content/actions";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createPostAction } from "./actions";
 import { useToast } from "@/hooks/use-toast";
@@ -98,7 +97,7 @@ const ContentTab = () => {
 						<CldUploadWidget
 							signatureEndpoint={"/api/sign-image"}
 							onSuccess={(result, { widget }) => {
-								setMediaUrl((result.info as CloudinaryUploadWidgetInfo).secure_url);
+								setMediaUrl((result.info as CloudinaryUploadWidgetResults).secure_url);
 								widget.close();
 							}}
 						>

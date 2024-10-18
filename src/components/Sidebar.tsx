@@ -21,7 +21,7 @@ const SIDEBAR_LINKS = [
     {
 		icon: MagnifyingGlassIcon,
 		label: "Community",
-		href: "/Community",
+		href: "/community",
 	},
 	{
 		icon: CameraIcon,
