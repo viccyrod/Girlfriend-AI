@@ -26,7 +26,7 @@ export function ChatRoomList({ chatRooms, selectedRoom, onSelectRoom, onDeleteRo
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
   
   return (
-<div className="w-64 border-r bg-background flex flex-col h-full">
+<div className="w-64 border-r bg-background flex flex-col h-screen">
   {/* Sidebar container with fixed width (64 units), right border, and full height. */}
   
   <h2 className="text-xl font-bold p-4 text-foreground">Chat Rooms</h2>
