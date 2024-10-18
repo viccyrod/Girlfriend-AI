@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import BaseLayout from '@/components/BaseLayout';
-import ChatRoomList from '@/components/chat/ChatRoomList';
+import { ChatRoomList } from '@/components/chat/ChatRoomList';
 import ClientChatMessages from '@/components/chat/ClientChatMessages';
-import { getChatRooms, createChatRoom } from '@/app/api/chat/client-actions';
+import { getChatRooms, createChatRoom, deleteChatRoom } from '@/app/api/chat/client-actions';
 import { useToast } from '@/hooks/use-toast';
 import { ExtendedChatRoom } from '@/types/chat';
 import { fetchAIModel } from '@/lib/api/ai-models';
@@ -47,10 +47,30 @@ export default function ChatPage() {
     fetchChatRooms();
   }, [fetchChatRooms]);
 
+  const handleDeleteRoom = async (roomId: string) => {
+    try {
+      await deleteChatRoom(roomId);
+      setChatRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
+      if (selectedRoom?.id === roomId) {
+        setSelectedRoom(null);
+      }
+      toast({
+        title: "Success",
+        description: "Chat room deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to delete room:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete chat room. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Handle model-specific chat logic if a modelId is present in the URL
   const handleModelChat = useCallback(async (modelId: string) => {
     try {
-      // Check if a room with this model already exists
       const existingRoom = chatRooms.find(room => 
         room.users.some(user => user.id === modelId)
       );
@@ -60,20 +80,19 @@ export default function ChatPage() {
         return;
       }
 
-      // Fetch the AI model details
       const aiModel = await fetchAIModel(modelId);
 
       if (!aiModel) {
         throw new Error('Failed to fetch AI model details');
       }
 
-      const newRoom = await createChatRoom(`Chat with ${aiModel.name}`, [modelId]);
+      const newRoom = await createChatRoom(`Chat with ${aiModel.name}`, modelId);
       const extendedNewRoom: ExtendedChatRoom = {
         ...newRoom,
         users: [{
           id: modelId,
           name: aiModel.name,
-          image: aiModel.imageUrl,
+          image: aiModel.image,
           createdAt: new Date(),
           updatedAt: new Date(),
           email: `${aiModel.name.toLowerCase().replace(/\s+/g, '')}@ai.model`,
@@ -98,37 +117,18 @@ export default function ChatPage() {
   }, [chatRooms, createChatRoom, fetchAIModel, setChatRooms, setSelectedRoom, toast]);
 
   useEffect(() => {
-    const handleModelChat = async (modelId: string) => {
-      try {
-        let roomToSelect: ExtendedChatRoom | null = null;
-        const existingRoom = chatRooms.find(room =>
-          room.users.some(user => user.id === modelId)
-        );
+    if (modelId && !isLoading) {
+      const existingRoom = chatRooms.find(room =>
+        room.users.some(user => user.id === modelId)
+      );
 
-        if (existingRoom) {
-          roomToSelect = existingRoom;
-        } else {
-          const newRoom = await createChatRoom(`Chat with ${modelId}`, [modelId]);
-          const extendedNewRoom = newRoom as ExtendedChatRoom;
-          setChatRooms((prevRooms) => [...prevRooms, extendedNewRoom]);
-          roomToSelect = extendedNewRoom;
-        }
-
-        setSelectedRoom(roomToSelect);
-      } catch (error) {
-        console.error('Failed to create or find chat room:', error);
-        toast({
-          title: "Error",
-          description: "Failed to start chat. Please try again later.",
-          variant: "destructive",
-        });
+      if (existingRoom) {
+        setSelectedRoom(existingRoom);
+      } else {
+        handleModelChat(modelId);
       }
-    };
-
-    if (modelId) {
-      handleModelChat(modelId);
     }
-  }, [modelId, chatRooms, toast, createChatRoom]);
+  }, [modelId, chatRooms, isLoading, handleModelChat]);
 
   // If loading, show a loading screen
   if (isLoading) {
@@ -146,6 +146,7 @@ export default function ChatPage() {
           chatRooms={chatRooms as ExtendedChatRoom[]}
           selectedRoom={selectedRoom as ExtendedChatRoom | null}
           onSelectRoom={(room: ExtendedChatRoom) => setSelectedRoom(room)}
+          onDeleteRoom={handleDeleteRoom}
         />
         <div className="flex-1 flex flex-col">
           {selectedRoom ? (

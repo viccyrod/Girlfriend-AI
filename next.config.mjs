@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['res.cloudinary.com'],
+    domains: ['res.cloudinary.com' , 'localhost'],
   },
   env: {
     CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,

@@ -1,7 +1,8 @@
 import prisma from "@/db/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { EventEmitter } from 'events';
 
-export async function createChatRoom(name: string, userIds: string[]) {
+export async function createChatRoom(name: string, aiModelId: string) {
   const currentUser = await getCurrentUser();
   if (!currentUser) throw new Error('Unauthorized');
 
@@ -9,29 +10,61 @@ export async function createChatRoom(name: string, userIds: string[]) {
   const existingUsers = await prisma.user.findMany({
     where: {
       id: {
-        in: [...userIds, currentUser.id]
+        in: [currentUser.id]
       }
     }
   });
 
   const existingUserIds = existingUsers.map(user => ({ id: user.id }));
 
+  // Check if the AI model user already exists
+  let aiModelUser = await prisma.user.findUnique({
+    where: { id: aiModelId }
+  });
+
+  if (!aiModelUser) {
+    // If the AI model user doesn't exist, create it
+    const aiModel = await prisma.aIModel.findUnique({
+      where: { id: aiModelId }
+    });
+
+    if (!aiModel) {
+      throw new Error('AI Model not found');
+    }
+
+    aiModelUser = await prisma.user.create({
+      data: {
+        id: aiModelId,
+        name: aiModel.name,
+        email: `${aiModel.name.toLowerCase().replace(/\s+/g, '')}@ai.model`,
+        isAI: true,
+        image: aiModel.imageUrl
+      }
+    });
+  }
+
   const chatRoom = await prisma.chatRoom.create({
     data: {
       name,
       users: {
-        connect: existingUserIds
+        connect: [{ id: currentUser.id }]
+      },
+      aiModel: {
+        connect: { id: aiModelId }
       }
     },
     include: {
-      users: true
+      users: true,
+      aiModel: true
     }
   });
+
+  console.log('Created chat room:', JSON.stringify(chatRoom, null, 2));
 
   return chatRoom;
 }
 
-export async function sendMessage(content: string, chatRoomId: string) {
+export async function sendMessage(content: string, chatRoomId: string, aiModelId: string | null) {
   const currentUser = await getCurrentUser();
   if (!currentUser) throw new Error('Unauthorized');
 
@@ -39,10 +72,12 @@ export async function sendMessage(content: string, chatRoomId: string) {
     data: {
       content,
       userId: currentUser.id,
-      chatRoomId
+      chatRoomId,
+      aiModelId
     },
     include: {
-      user: true
+      user: true,
+      aiModel: true
     }
   });
 
@@ -69,10 +104,18 @@ export async function getChatRooms() {
             createdAt: 'desc'
           },
           take: 1
+        },
+        aiModel: {
+          select: {
+            id: true,
+            name: true,
+            imageUrl: true
+          }
         }
       }
     });
-
+// Log the first room to check the data structure
+    console.log('First chat room:', JSON.stringify(chatRooms[0], null, 2));
     return chatRooms;
   } catch (error) {
     console.error('Error in getChatRooms:', error);
@@ -98,3 +141,21 @@ export async function getChatRoomMessages(chatRoomId: string) {
 
   return messages;
 }
+export async function deleteChatRoom(roomId: string) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error('Unauthorized');
+
+  await prisma.chatRoom.delete({
+    where: {
+      id: roomId,
+      users: {
+        some: {
+          id: currentUser.id
+        }
+      }
+    }
+  });
+
+  return { success: true };
+}
+

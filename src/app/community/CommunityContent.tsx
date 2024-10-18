@@ -60,7 +60,7 @@ const fetchaIModels = async (): Promise<aIModel[]> => {
             </CardHeader>
             <CardContent className="flex-grow">
               <Avatar className="w-32 h-32 mx-auto mb-4">
-                <AvatarImage src={aIModel.imageUrl} alt={aIModel.name} />
+                <AvatarImage className="object-cover" src={aIModel.imageUrl} alt={aIModel.name} />
                 <AvatarFallback>{aIModel.name[0]}</AvatarFallback>
               </Avatar>
               <p className="text-sm text-muted-foreground mb-2">{aIModel.personality}</p>

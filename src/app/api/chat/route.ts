@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createChatRoom as createChatRoomAction, sendMessage, getChatRooms as getChatRoomsAction } from './actions';
+import { createChatRoom as createChatRoomAction, sendMessage, getChatRooms as getChatRoomsAction, deleteChatRoom } from './actions';
 
 export async function POST(request: Request) {
   try {
@@ -18,11 +18,19 @@ export async function POST(request: Request) {
         }
       case 'sendMessage':
         try {
-          const message = await sendMessage(data.content, data.chatRoomId);
+          const message = await sendMessage(data.content, data.chatRoomId, data.aiModelId);
           return NextResponse.json(message);
         } catch (error) {
           console.error('Error in sendMessage:', error);
           return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
+        }
+      case 'deleteChatRoom':
+        try {
+          await deleteChatRoom(data.roomId);
+          return NextResponse.json({ success: true });
+        } catch (error) {
+          console.error('Error in deleteChatRoom:', error);
+          return NextResponse.json({ error: 'Failed to delete chat room' }, { status: 500 });
         }
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

@@ -18,10 +18,11 @@ const BaseLayout = ({children, renderRightPanel=true}: {children:ReactNode, rend
     if (isLoading) return <div>Loading...</div>;
 
     return (
-        <div className='flex max-w-2x1 lg:max-w-7x1 mx auto releative'>
+        <div className='flex max-w-2xl lg:max-w-7xl mx-auto relative'>
             <Sidebar />
-            <div className="w-full lg:w-3/5 flex flex-col border-r">{children}</div>
-            {renderRightPanel && "Suggested Products"}
+            <div className="w-full flex flex-col">
+                {children}
+            </div>
         </div>
     )
 }

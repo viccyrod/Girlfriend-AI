@@ -131,14 +131,17 @@ model ShippingAddress {
 model Message {
   id         String   @id @default(cuid())
   content    String
-  userId     String
+  userId     String?
+  aiModelId  String?
   chatRoomId String
-  user       User     @relation(fields: [userId], references: [id])
+  user       User?    @relation(fields: [userId], references: [id])
+  aiModel    AIModel? @relation(fields: [aiModelId], references: [id])
   chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id])
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@index([userId])
+  @@index([aiModelId])
   @@index([chatRoomId])
 }
 
@@ -149,10 +152,12 @@ model ChatRoom {
   messages  Message[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  aiModel   AIModel?  @relation(fields: [aiModelId], references: [id])
+  aiModelId String?
 }
 
 model AIModel {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
   personality String
   appearance  String
@@ -161,10 +166,22 @@ model AIModel {
   likes       String
   dislikes    String
   imageUrl    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  createdBy   User        @relation(fields: [userId], references: [id])
   userId      String
+  aiContent   aIContent[]
+  messages    Message[]
+  chatRooms   ChatRoom[]
 
   @@index([userId])
+}
+
+model aIContent {
+  id        String   @id @default(cuid())
+  content   String
+  aiModelId String
+  aiModel   AIModel  @relation(fields: [aiModelId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
