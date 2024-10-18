@@ -44,6 +44,14 @@ interface ClientChatMessagesProps {
 }
 // TypeScript interface to define the expected props for this component, specifically a chatRoom object.
 
+const TypingIndicator = () => (
+  <div className="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg">
+    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></div>
+    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></div>
+  </div>
+);
+
 export default function ClientChatMessages({ chatRoom, aiModel }: ClientChatMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -89,15 +97,29 @@ export default function ClientChatMessages({ chatRoom, aiModel }: ClientChatMess
 
   useEffect(scrollToBottom, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
     if (!newMessage.trim() || isSending) return;
-  
+
+    const userMessage = {
+      id: `temp-${Date.now()}`,
+      content: newMessage,
+      userId: currentUser?.id || '',
+      chatRoomId: chatRoom.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setMessages(prevMessages => [...prevMessages, userMessage]);
+    setNewMessage('');
     setIsSending(true);
+
     try {
-      const sentMessages = await sendMessage(newMessage, chatRoom.id, chatRoom.users.find(user => user.isAI)?.id || null);
-      setMessages(prevMessages => [...prevMessages, ...(Array.isArray(sentMessages) ? sentMessages : [sentMessages])]);
-      setNewMessage('');
+      const sentMessages = await sendMessage(userMessage.content, chatRoom.id, chatRoom.users.find(user => user.isAI)?.id || null);
+      setMessages(prevMessages => [
+        ...prevMessages.filter(msg => msg.id !== userMessage.id),
+        ...(Array.isArray(sentMessages) ? sentMessages : [sentMessages])
+      ]);
     } catch (error) {
       console.error('Failed to send message:', error);
       toast({
@@ -105,6 +127,7 @@ export default function ClientChatMessages({ chatRoom, aiModel }: ClientChatMess
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
+      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== userMessage.id));
     } finally {
       setIsSending(false);
     }
@@ -124,10 +147,22 @@ export default function ClientChatMessages({ chatRoom, aiModel }: ClientChatMess
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage(e as any);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <div className="flex flex-col h-[calc(100vh)]">
       <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse">
         <div ref={messagesEndRef} />
+        {isSending && (
+          <div className="flex justify-start mb-4">
+            <TypingIndicator />
+          </div>
+        )}
         {messages.slice().reverse().map((message, index) => {
           const isCurrentUser = message.userId === currentUser?.id;
           const messageUser = isCurrentUser ? currentUser : chatRoom.users.find(user => user.id === message.userId);
@@ -176,6 +211,7 @@ export default function ClientChatMessages({ chatRoom, aiModel }: ClientChatMess
           <TextareaAutosize
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             className="flex-1 mr-2 resize-none rounded-md border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             minRows={1}
