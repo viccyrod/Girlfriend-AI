@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { AIModel } from '@/types/AIModel';
@@ -10,15 +11,17 @@ interface AIModelProfileProps {
 }
 
 const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ aIModel, onClose }) => {
+  const router = useRouter();
+
+  const handleMessage = () => {
+    router.push(`/chat?modelId=${aIModel.id}`);
+  };
+
   return (
     <div className="flex flex-col">
-      {/* Cover Image Section */}
       <CoverImage />
-
-      {/* Profile Content */}
       <div className="flex flex-col p-4">
         <div className="flex flex-col md:flex-row gap-4 justify-between">
-          {/* Avatar Section */}
           <Avatar className="w-20 h-20 border-2 -mt-10">
             <AvatarImage 
               src={aIModel.imageUrl ?? ''} 
@@ -27,20 +30,24 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ aIModel, onC
             />
             <AvatarFallback>{aIModel.name ? aIModel.name[0] : 'A'}</AvatarFallback>
           </Avatar>
-
-          {/* Close Button */}
-          <div className="flex">
+          <div className="flex gap-2">
             <Button 
-              className="rounded-full flex gap-10" 
+              className="rounded-full" 
+              onClick={handleMessage}
+              aria-label="Message AI Model"
+            >
+              Message
+            </Button>
+            <Button 
+              className="rounded-full" 
               onClick={onClose} 
+              variant="outline"
               aria-label="Close AI Model Profile"
             >
-              <span className="uppercase font-semibold tracking-wide">Close</span>
+              Close
             </Button>
           </div>
         </div>
-
-        {/* Model Information */}
         <div className="flex flex-col mt-4">
           <p className="text-lg font-semibold">{aIModel.name}</p>
           <p className="text-sm text-muted-foreground">
@@ -51,8 +58,6 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ aIModel, onC
           </p>
         </div>
       </div>
-
-      {/* Divider */}
       <div aria-hidden="true" className="h-2 w-full bg-muted" />
     </div>
   );

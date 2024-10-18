@@ -5,14 +5,22 @@ export async function createChatRoom(name: string, userIds: string[]) {
   const currentUser = await getCurrentUser();
   if (!currentUser) throw new Error('Unauthorized');
 
+  // Filter out any non-existent user IDs
+  const existingUsers = await prisma.user.findMany({
+    where: {
+      id: {
+        in: [...userIds, currentUser.id]
+      }
+    }
+  });
+
+  const existingUserIds = existingUsers.map(user => ({ id: user.id }));
+
   const chatRoom = await prisma.chatRoom.create({
     data: {
       name,
       users: {
-        connect: [
-          { id: currentUser.id },
-          ...userIds.map(id => ({ id }))
-        ]
+        connect: existingUserIds
       }
     },
     include: {

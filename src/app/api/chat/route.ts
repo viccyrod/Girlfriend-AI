@@ -1,28 +1,41 @@
 import { NextResponse } from 'next/server';
-import { createChatRoom, sendMessage, getChatRooms, getChatRoomMessages } from './actions';
+import { createChatRoom as createChatRoomAction, sendMessage, getChatRooms as getChatRoomsAction } from './actions';
 
 export async function POST(request: Request) {
-  const { action, ...data } = await request.json();
-
   try {
+    const { action, ...data } = await request.json();
+    console.log('Received action:', action);
+    console.log('Received data:', data);
+
     switch (action) {
       case 'createChatRoom':
-        const chatRoom = await createChatRoom(data.name, data.userIds);
-        return NextResponse.json(chatRoom);
+        try {
+          const chatRoom = await createChatRoomAction(data.name, data.userIds);
+          return NextResponse.json(chatRoom);
+        } catch (error) {
+          console.error('Error in createChatRoom:', error);
+          return NextResponse.json({ error: 'Failed to create chat room. Some users may not exist.' }, { status: 400 });
+        }
       case 'sendMessage':
-        const message = await sendMessage(data.content, data.chatRoomId);
-        return NextResponse.json(message);
+        try {
+          const message = await sendMessage(data.content, data.chatRoomId);
+          return NextResponse.json(message);
+        } catch (error) {
+          console.error('Error in sendMessage:', error);
+          return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
+        }
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    console.error('Error in POST /api/chat:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const chatRooms = await getChatRooms();
+    const chatRooms = await getChatRoomsAction();
     return NextResponse.json(chatRooms);
   } catch (error) {
     console.error('Error in GET /api/chat:', error);
