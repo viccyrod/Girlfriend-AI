@@ -2,6 +2,7 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import prisma from "@/db/prisma";
 
 export async function getCurrentUser() {
+  
   const { getUser } = getKindeServerSession();
   const user = await getUser();
 
@@ -16,8 +17,8 @@ export async function getCurrentUser() {
     return await prisma.user.create({
       data: {
         id: user.id,
-        email: user.email,
-        name: user.given_name,
+        email: user.email ?? 'No email provided',
+        name: user.given_name ?? 'No name provided',
       },
     });
   }

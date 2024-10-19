@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
   images: {
-    domains: ['res.cloudinary.com' , 'localhost'],
+    domains: [ 'localhost'],
   },
   env: {
     CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,

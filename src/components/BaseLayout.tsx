@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import React, { ReactNode, useEffect } from 'react'
 import Sidebar from './Sidebar'
 
-const BaseLayout = ({children, renderRightPanel=true}: {children:ReactNode, renderRightPanel?:boolean}) => {
+const BaseLayout = ({ children }: { children: ReactNode }) => {
     const { isAuthenticated, isLoading } = useKindeBrowserClient();
     const router = useRouter();
 

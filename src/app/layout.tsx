@@ -1,3 +1,4 @@
+import React from "react";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -10,15 +11,15 @@ const geistSans = localFont({
   variable: "--font-geist-sans",
   weight: "100 900",
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+// const geistMono = localFont({
+//   src: "./fonts/GeistMonoVF.woff",
+//   variable: "--font-geist-mono",
+//   weight: "100 900",
+// });
 
 export const metadata: Metadata = {
   title: "💜 GIRLFRIEND 💜",
-  description: "The most realistic AI CompanionsS",
+  description: "The most realistic AI Companions",
 };
 
 export default function RootLayout({

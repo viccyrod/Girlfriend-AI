@@ -2,14 +2,37 @@
 
 import React, { useState } from 'react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { user } from '@/dummy_data'
-import { ChatBubbleIcon, HeartFilledIcon, HeartIcon, ImageIcon, LockClosedIcon, TrashIcon } from '@radix-ui/react-icons'
+import { ChatBubbleIcon, HeartFilledIcon, HeartIcon, LockClosedIcon, TrashIcon } from '@radix-ui/react-icons'
 import Image from 'next/image'
 import Link from 'next/link'
 import { buttonVariants } from '../ui/button'
-import { cn } from '@/lib/utils'
 
-const Post = ({post, isSubscribed, admin}: {post: any, isSubscribed: boolean, admin: any}) => {
+// Define a proper interface for the post object
+interface PostType {
+  text: string;
+  isPublic: boolean;
+  mediaUrl?: string;
+  mediaType?: string;
+}
+
+// Define a proper interface for the admin object
+interface AdminType {
+  id: string;
+  name: string;
+  image?: string;
+}
+
+// Add user to the component props and its type definition
+interface UserType {
+  id: string;
+}
+
+const Post = ({post, isSubscribed, admin, user}: {
+  post: PostType, 
+  isSubscribed: boolean, 
+  admin: AdminType,
+  user: UserType
+}) => {
   const [isLiked, setIsLiked] = useState(false)
   
   return (
@@ -26,7 +49,7 @@ const Post = ({post, isSubscribed, admin}: {post: any, isSubscribed: boolean, ad
           <p className="text-zinc-400 text-xs md:text-sm tracking-tighter">
             16.10.2024
           </p>
-          {admin.id === user.id && (
+          {admin.id === String(user.id) && (
             <TrashIcon className="w-5 h-5 text-muted-foreground hover:text-red-500 cursor-pointer" />
           )}
         </div>

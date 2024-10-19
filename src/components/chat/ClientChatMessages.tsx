@@ -2,45 +2,25 @@
 // This indicates the file is a client-side component in Next.js, meaning it can use hooks like useState and useEffect.
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-// Importing necessary React hooks. useState manages local state, useEffect handles side effects, 
-// useRef creates a persistent reference, and useCallback memoizes a function to prevent unnecessary re-creations.
-
-import { getChatRoomMessages, sendMessage, deleteMessage } from '@/app/api/chat/client-actions';
-// Importing API functions to fetch chat messages, send new messages, and delete existing messages.
-
+import { getChatRoomMessages, sendMessage, deleteMessage } from 'src/app/api/chat/client-actions'; 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-// UI components for displaying user avatars (images or fallback if unavailable).
-
 import { Button } from '@/components/ui/button';
-// A styled button component.
-
-import { Input } from '@/components/ui/input';
-// A styled input component for user interaction.
-
-import { ToastProvider, Toast } from '@/components/ui/toast';
-// Components for displaying toasts (user notifications).
-
 import { ChatRoom, User } from '@prisma/client';
-// ChatRoom type definition, assuming Prisma is being used for database management.
-
 import { useToast } from '@/hooks/use-toast';
-// A custom hook to trigger toasts for success or error messages.
-
 import { Message } from '@/types/chat'; 
-// Ensures that the Message type is defined and imported for type safety.
-
 import { TrashIcon } from '@radix-ui/react-icons';
-// Icon for deleting messages.
 
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { format } from 'date-fns';
 import TextareaAutosize from 'react-textarea-autosize';
 
+interface ExtendedChatRoom extends ChatRoom {
+  users: User[];
+}
+
 interface ClientChatMessagesProps {
-  chatRoom: ChatRoom;
-  aiModel?: any;
+  chatRoom: ExtendedChatRoom;
+  aiModel?: unknown;
 }
 // TypeScript interface to define the expected props for this component, specifically a chatRoom object.
 
@@ -52,31 +32,41 @@ const TypingIndicator = () => (
   </div>
 );
 
-export default function ClientChatMessages({ chatRoom, aiModel }: ClientChatMessagesProps) {
+export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const currentUser = useCurrentUser();
+  const handleSendMessageRef = useRef<(e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => void>();
 
   const fetchMessages = useCallback(async () => {
-    try {
-      const fetchedMessages = await getChatRoomMessages(chatRoom.id);
-      const messagesWithUser = fetchedMessages.map(msg => ({
-        ...msg,
-        user: { id: msg.userId, name: 'Unknown', image: null } as User
-      }));
-      setMessages(messagesWithUser as Message[]);
-    } catch (error) {
-      console.error('Failed to fetch messages:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load messages. Please try again.",
-        variant: "destructive",
-      });
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        const fetchedMessages = await getChatRoomMessages(chatRoom.id);
+        const messagesWithUser = fetchedMessages.map((msg) => ({
+          ...msg,
+          userId: msg.userId || '', // Ensure userId is always a string
+          user: chatRoom.users.find(user => user.id === msg.userId) || 
+                { id: msg.userId || '', name: 'Unknown User', image: null }
+        }));
+        setMessages(messagesWithUser);
+        return;
+      } catch (error) {
+        retries -= 1;
+        console.error('Failed to fetch messages, retrying...', error);
+        if (retries === 0) {
+          toast({
+            title: "Error",
+            description: "Failed to load messages. Please try again.",
+            variant: "destructive",
+          });
+        }
+      }
     }
-  }, [chatRoom.id, toast]);
+  }, [chatRoom.id, chatRoom.users, toast]);
 
   useEffect(() => {
     fetchMessages();
@@ -91,13 +81,17 @@ export default function ClientChatMessages({ chatRoom, aiModel }: ClientChatMess
     return () => eventSource.close();
   }, [chatRoom.id]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const scrollToBottom = useCallback(() => {
+    const isAtBottom = messagesEndRef.current ? messagesEndRef.current.getBoundingClientRect().bottom <= window.innerHeight : false;
+    if (isAtBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, []);
 
-  useEffect(scrollToBottom, [messages]);
-
-  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => {
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+  const handleSendMessage = useCallback(async (e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
     if (!newMessage.trim() || isSending) return;
 
@@ -106,19 +100,34 @@ export default function ClientChatMessages({ chatRoom, aiModel }: ClientChatMess
       content: newMessage,
       userId: currentUser?.id || '',
       chatRoomId: chatRoom.id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      user: currentUser || { id: 'unknown', name: 'Unknown User', image: null }
     };
 
-    setMessages(prevMessages => [...prevMessages, userMessage]);
+    setMessages(prevMessages => [...prevMessages, userMessage as Message]);
     setNewMessage('');
     setIsSending(true);
 
     try {
       const sentMessages = await sendMessage(userMessage.content, chatRoom.id, chatRoom.users.find(user => user.isAI)?.id || null);
+      const sentMessagesWithUser = Array.isArray(sentMessages) 
+        ? sentMessages.map(msg => ({
+            ...msg,
+            user: chatRoom.users.find(user => user.id === msg.userId) || 
+                  { id: msg.userId, name: 'Unknown User', image: null },
+            userId: msg.userId || '' // Ensure userId is always a string
+          }))
+        : [{
+            ...sentMessages,
+            user: chatRoom.users.find(user => user.id === sentMessages.userId) || 
+                  { id: sentMessages.userId, name: 'Unknown User', image: null },
+            userId: sentMessages.userId || '' // Ensure userId is always a string
+          }];
+      
       setMessages(prevMessages => [
         ...prevMessages.filter(msg => msg.id !== userMessage.id),
-        ...(Array.isArray(sentMessages) ? sentMessages : [sentMessages])
+        ...sentMessagesWithUser as Message[] // Type assertion
       ]);
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -131,9 +140,14 @@ export default function ClientChatMessages({ chatRoom, aiModel }: ClientChatMess
     } finally {
       setIsSending(false);
     }
-  };
+  }, [newMessage, isSending, currentUser, chatRoom, toast]);
+
+  handleSendMessageRef.current = handleSendMessage;
 
   const handleDeleteMessage = async (messageId: string) => {
+    const userConfirmed = window.confirm('Are you sure you want to delete this message?');
+    if (!userConfirmed) return;
+
     try {
       await deleteMessage(messageId);
       setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
@@ -150,12 +164,12 @@ export default function ClientChatMessages({ chatRoom, aiModel }: ClientChatMess
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage(e as any);
+      handleSendMessageRef.current?.(e);
     }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh)]">
+    <div className="flex flex-col" style={{ height: '100dvh' }}>
       <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse">
         <div ref={messagesEndRef} />
         {isSending && (
@@ -163,7 +177,7 @@ export default function ClientChatMessages({ chatRoom, aiModel }: ClientChatMess
             <TypingIndicator />
           </div>
         )}
-        {messages.slice().reverse().map((message, index) => {
+        {messages.slice().reverse().map((message) => {
           const isCurrentUser = message.userId === currentUser?.id;
           const messageUser = isCurrentUser ? currentUser : chatRoom.users.find(user => user.id === message.userId);
 

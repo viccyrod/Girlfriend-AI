@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
-import { checkAuthStatus } from "@/app/auth/callback/actions";
+import { checkAuthStatus } from "./actions";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 

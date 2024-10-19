@@ -13,7 +13,8 @@ interface aIModel {
   personality: string;
   imageUrl: string;
   createdBy: {
-    name: string;
+    name: string
+    id: string;
   };
 }
 
@@ -64,14 +65,16 @@ const fetchaIModels = async (): Promise<aIModel[]> => {
                 <AvatarFallback>{aIModel.name[0]}</AvatarFallback>
               </Avatar>
               <p className="text-sm text-muted-foreground mb-2">{aIModel.personality}</p>
-              <p className="text-xs">Created by: {aIModel.createdBy.name}</p>
+              <p className="text-xs">
+                Created by: {aIModel.createdBy.id === 'kp_e5590b8125e149b5825a3b83dcbe104d' ? 'Dev 🚀' : aIModel.createdBy.name.split(' ')[0]}
+              </p>
             </CardContent>
             <CardFooter>
-            <Button className="w-full" onClick={() => handleViewProfile(aIModel.id)}>View Profile</Button>
+              <Button className="w-full" onClick={() => handleViewProfile(aIModel.id)}>View Profile</Button>
             </CardFooter>
           </Card>
         ))}
       </div>
     </div>
-  );
+  )
 }

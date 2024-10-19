@@ -1,9 +1,9 @@
 import React from 'react';
-import { ChatRoom } from '@prisma/client';
 import dynamic from 'next/dynamic';
+import { ExtendedChatRoom } from '@/types/chat'; // Adjust the import path as needed
 
 interface ChatMessagesProps {
-  chatRoom: ChatRoom;
+  chatRoom: ExtendedChatRoom;
 }
 
 const ClientChatMessages = dynamic(() => import('./ClientChatMessages'), { ssr: false });

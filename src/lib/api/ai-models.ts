@@ -1,4 +1,4 @@
-import { AIModel } from "@/lib/api/types/ai-model";
+import { AIModel } from "@/types/AIModel";
 
 export async function fetchAIModel(modelId: string): Promise<AIModel | null> {
   try {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/db/prisma";
-import { AIModel } from "@/types/AIModel";
+// import { AIModel } from "@/types/AIModel";
 
 /**
  * This function handles the GET request for fetching a specific AI model by its ID.
@@ -18,7 +18,7 @@ export async function GET(
 ) {
   try {
     const id = params.id;
-    const aiModel = await prisma.aIModel.findUnique({
+    const AIModel = await prisma.aIModel.findUnique({
       where: { id },
       include: {
         createdBy: {
@@ -29,11 +29,11 @@ export async function GET(
       },
     });
 
-    if (!aiModel) {
+    if (!AIModel) {
       return NextResponse.json({ error: 'AI Model not found' }, { status: 404 });
     }
 
-    return NextResponse.json(aiModel);
+    return NextResponse.json(AIModel);
   } catch (error) {
     console.error('Error fetching AI model:', error);
     return NextResponse.json({ error: 'Failed to fetch AI model' }, { status: 500 });

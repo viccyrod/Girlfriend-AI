@@ -1,17 +1,25 @@
 export interface CreatedBy {
   name: string;
+  id: string;
 }
 
 export interface AIModel {
+  name: string;
+  id: string;
+  personality: string;
+  appearance: string;
+  backstory: string;
+  hobbies: string;
+  likes: string;
+  dislikes: string;
+  imageUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  userId: string;
+  createdBy: Creator | string;
+}
+
+export interface Creator {
   id: string;
   name: string;
-  personality: string;
-  imageUrl: string;
-  createdBy: {
-    name: string;
-  };
-  description?: string;
-  traits?: string[];
-  followers?: number;
-  posts?: number;
 }

@@ -6,15 +6,15 @@ import { AIModel } from '@/types/AIModel';
 import CoverImage from '@/components/home-screen/CoverImage';
 
 interface AIModelProfileProps {
-  aIModel: AIModel;
+  AIModel: AIModel;
   onClose: () => void;
 }
 
-const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ aIModel, onClose }) => {
+const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ AIModel, onClose }) => {
   const router = useRouter();
 
   const handleMessage = () => {
-    router.push(`/chat?modelId=${aIModel.id}`);
+    router.push(`/chat?modelId=${AIModel.id}`);
   };
 
   return (
@@ -24,11 +24,11 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ aIModel, onC
         <div className="flex flex-col md:flex-row gap-4 justify-between">
           <Avatar className="w-20 h-20 border-2 -mt-10">
             <AvatarImage 
-              src={aIModel.imageUrl ?? ''} 
+              src={AIModel.imageUrl ?? ''} 
               className="object-cover" 
-              alt={`${aIModel.name} avatar`} 
+              alt={`${AIModel.name} avatar`} 
             />
-            <AvatarFallback>{aIModel.name ? aIModel.name[0] : 'A'}</AvatarFallback>
+            <AvatarFallback>{AIModel.name ? AIModel.name[0] : 'A'}</AvatarFallback>
           </Avatar>
           <div className="flex gap-2">
             <Button 
@@ -44,17 +44,23 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ aIModel, onC
               variant="outline"
               aria-label="Close AI Model Profile"
             >
-              Close
+              Back
             </Button>
           </div>
         </div>
         <div className="flex flex-col mt-4">
-          <p className="text-lg font-semibold">{aIModel.name}</p>
+          <p className="text-lg font-semibold">{AIModel.name}</p>
           <p className="text-sm text-muted-foreground">
-            Created by: {aIModel.createdBy?.name ?? 'Unknown'}
+            Created by: {
+              typeof AIModel.createdBy === 'object' && 'id' in AIModel.createdBy
+                ? AIModel.createdBy.id === 'kp_e5590b8125e149b5825a3b83dcbe104d'
+                  ? 'Dev 🚀'
+                  : AIModel.createdBy.name.split(' ')[0]
+                : AIModel.createdBy ?? 'Unknown'
+            }
           </p>
           <p className="text-sm mt-2 md:text-md">
-            {aIModel.personality ?? 'No personality information available.'}
+            {AIModel.personality ?? 'No personality information available.'}
           </p>
         </div>
       </div>
@@ -62,5 +68,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ aIModel, onC
     </div>
   );
 });
+
+AIModelProfile.displayName = 'AIModelProfile';
 
 export default AIModelProfile;

@@ -1,15 +1,23 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChatRoom, User, Message, AIModel } from '@prisma/client';
+import { User, Message, AIModel } from '@prisma/client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 
-interface ExtendedChatRoom extends ChatRoom {
+
+// Export the ExtendedChatRoom type
+export type ExtendedChatRoom = {
+  id: string;  // Add this line
   users: User[];
   messages: Message[] | undefined;
   aiModel: AIModel | null;
-}
-// Extending the ChatRoom interface to include users, messages, and an AI model.
+  aiModelId: string;
+  aiModelImageUrl: string | null;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+};
 
 interface ChatRoomListProps {
   chatRooms: ExtendedChatRoom[];
@@ -54,8 +62,12 @@ export function ChatRoomList({ chatRooms, selectedRoom, onSelectRoom, onDeleteRo
         >
           <div className="flex items-center space-x-3">
             <Avatar>
-              <AvatarImage className="w-10 h-10 cover object-cover" src={aiModel?.imageUrl || aiUser?.image} alt={aiModel?.name || aiUser?.name} />
-              <AvatarFallback>{aiModel?.name?.[0] || aiUser?.name?.[0] || '?'}</AvatarFallback>
+              <AvatarImage 
+                className="w-10 h-10 cover object-cover" 
+                src={aiModel?.imageUrl ?? aiUser?.image ?? ''} 
+                alt={aiModel?.name ?? aiUser?.name ?? ''} 
+              />
+              <AvatarFallback>{aiModel?.name?.[0] ?? aiUser?.name?.[0] ?? '?'}</AvatarFallback>
             </Avatar>
             <div className="overflow-hidden">
               <p className="font-medium text-foreground truncate">{(aiModel?.name?.split(' ')[0] || 'Unknown AI')}</p>

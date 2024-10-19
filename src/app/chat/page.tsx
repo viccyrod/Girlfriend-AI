@@ -3,16 +3,33 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import BaseLayout from '@/components/BaseLayout';
-import { ChatRoomList } from '@/components/chat/ChatRoomList';
+import { ChatRoomList, ExtendedChatRoom as ComponentExtendedChatRoom } from '@/components/chat/ChatRoomList';
 import ClientChatMessages from '@/components/chat/ClientChatMessages';
 import { getChatRooms, createChatRoom, deleteChatRoom } from '@/app/api/chat/client-actions';
 import { useToast } from '@/hooks/use-toast';
-import { ExtendedChatRoom } from '@/types/chat';
+import { ExtendedChatRoom as LocalExtendedChatRoom } from '@/types/chat';
 import { fetchAIModel } from '@/lib/api/ai-models';
+import { getCurrentUser } from '@/lib/session';
+import { AIModel } from '@/types/AIModel';
+
+// Add this function near the top of your component
+const mapComponentToLocalRoom = (room: ComponentExtendedChatRoom): LocalExtendedChatRoom => ({
+  ...room,
+  aiModelId: room.aiModel?.id || '',
+  aiModelImageUrl: room.aiModel?.imageUrl || null,
+  name: room.name || '',
+  createdAt: room.createdAt || new Date(),
+  updatedAt: room.updatedAt || new Date(),
+  messages: room.messages || [],
+  aiModel: room.aiModel ? {
+    ...room.aiModel,
+    createdBy: (room.aiModel as AIModel).createdBy || 'SYSTEM',
+  } : undefined
+});
 
 export default function ChatPage() {
-  const [chatRooms, setChatRooms] = useState<ExtendedChatRoom[]>([]);
-  const [selectedRoom, setSelectedRoom] = useState<ExtendedChatRoom | null>(null);
+  const [chatRooms, setChatRooms] = useState<LocalExtendedChatRoom[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<LocalExtendedChatRoom | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const searchParams = useSearchParams();
   const modelId = searchParams.get('modelId');
@@ -23,10 +40,10 @@ export default function ChatPage() {
     setIsLoading(true);
     try {
       const rooms = await getChatRooms();
-      setChatRooms(rooms as ExtendedChatRoom[]);
+      setChatRooms(rooms as LocalExtendedChatRoom[]);
       
       if (modelId) {
-        const modelRoom = (rooms as ExtendedChatRoom[]).find(room => room.users.some(user => user.id === modelId));
+        const modelRoom = (rooms as LocalExtendedChatRoom[]).find(room => room.users.some(user => user.id === modelId));
         if (modelRoom) {
           setSelectedRoom(modelRoom);
         }
@@ -68,67 +85,84 @@ export default function ChatPage() {
     }
   };
 
-  // Handle model-specific chat logic if a modelId is present in the URL
-  const handleModelChat = useCallback(async (modelId: string) => {
+  const selectOrCreateRoom = useCallback(async (modelId: string) => {
     try {
-      const existingRoom = chatRooms.find(room => 
-        room.users.some(user => user.id === modelId)
-      );
+      if (!modelId) {
+        throw new Error('Model ID is undefined');
+      }
+
+      const existingRoom = chatRooms.find(room => room.aiModelId === modelId);
 
       if (existingRoom) {
         setSelectedRoom(existingRoom);
         return;
       }
 
-      const aiModel = await fetchAIModel(modelId);
+      const AIModel = await fetchAIModel(modelId);
+      if (!AIModel) throw new Error('Failed to fetch AI model details');
 
-      if (!aiModel) {
-        throw new Error('Failed to fetch AI model details');
-      }
+      console.log('Creating new chat room for model:', AIModel);
+      const newRoom = await createChatRoom(`Chat with ${AIModel.name}`, AIModel.id);
+      console.log('New room created:', newRoom);
 
-      const newRoom = await createChatRoom(`Chat with ${aiModel.name}`, modelId);
-      const extendedNewRoom: ExtendedChatRoom = {
+      // Assuming you have a way to get the current user, e.g., from a context or state
+      const currentUser = await getCurrentUser(); // You need to implement this function
+
+      const extendedNewRoom: LocalExtendedChatRoom = {
         ...newRoom,
-        users: [{
-          id: modelId,
-          name: aiModel.name,
-          image: aiModel.image,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          email: `${aiModel.name.toLowerCase().replace(/\s+/g, '')}@ai.model`,
-          isSubscribed: false,
-          customerId: null,
-          bio: null,
-          isAI: true
-        }],
-        messages: []
+        users: [
+          {
+            id: currentUser?.id || '',
+            name: currentUser?.name || '',
+            image: currentUser?.image || null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            email: currentUser?.email || '',
+            isSubscribed: currentUser?.isSubscribed || false,
+            customerId: currentUser?.customerId || null,
+            bio: currentUser?.bio || null,
+            isAI: false
+          },
+          {
+            id: AIModel.id,
+            name: AIModel.name,
+            image: AIModel.imageUrl || null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            email: `${AIModel.name.toLowerCase().replace(/\s+/g, '')}@ai.model`,
+            isSubscribed: false,
+            customerId: null,
+            bio: null,
+            isAI: true
+          }
+        ],
+        messages: [],
+        aiModelId: AIModel.id,
+        aiModel: {
+          ...AIModel,
+          imageUrl: AIModel.imageUrl || null,
+          createdBy: (AIModel as AIModel).createdBy || 'SYSTEM',
+        },
+        aiModelImageUrl: AIModel.imageUrl || null,
       };
 
       setChatRooms(prevRooms => [...prevRooms, extendedNewRoom]);
       setSelectedRoom(extendedNewRoom);
     } catch (error) {
-      console.error('Error in handleModelChat:', error);
+      console.error('Error in selectOrCreateRoom:', error);
       toast({
         title: "Error",
-        description: "Failed to create chat room. Please try again.",
+        description: `Failed to create chat room: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
       });
     }
-  }, [chatRooms, createChatRoom, fetchAIModel, setChatRooms, setSelectedRoom, toast]);
+  }, [chatRooms, toast]);
 
   useEffect(() => {
     if (modelId && !isLoading) {
-      const existingRoom = chatRooms.find(room =>
-        room.users.some(user => user.id === modelId)
-      );
-
-      if (existingRoom) {
-        setSelectedRoom(existingRoom);
-      } else {
-        handleModelChat(modelId);
-      }
+      selectOrCreateRoom(modelId);
     }
-  }, [modelId, chatRooms, isLoading, handleModelChat]);
+  }, [modelId, isLoading, selectOrCreateRoom]);
 
   // If loading, show a loading screen
   if (isLoading) {
@@ -140,12 +174,40 @@ export default function ChatPage() {
   }
 
   return (
-    <BaseLayout renderRightPanel={false}>
+    <BaseLayout>
       <div className="flex h-full bg-background">
         <ChatRoomList
-          chatRooms={chatRooms as ExtendedChatRoom[]}
-          selectedRoom={selectedRoom as ExtendedChatRoom | null}
-          onSelectRoom={(room: ExtendedChatRoom) => setSelectedRoom(room)}
+          chatRooms={chatRooms.map(room => ({
+            ...room,
+            aiModel: room.aiModel ? {
+              ...room.aiModel,
+              imageUrl: room.aiModel.imageUrl || '', // Ensure imageUrl is always a string
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              userId: '',
+              appearance: '',
+              backstory: '',
+              hobbies: '',
+              likes: '',
+              dislikes: ''
+            } : null
+          }))}
+          selectedRoom={selectedRoom && {
+            ...selectedRoom,
+            aiModel: selectedRoom.aiModel ? {
+              ...selectedRoom.aiModel,
+              imageUrl: selectedRoom.aiModel.imageUrl || '', // Ensure imageUrl is always a string
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              userId: '',
+              appearance: '',
+              backstory: '',
+              hobbies: '',
+              likes: '',
+              dislikes: ''
+            } : null
+          }}
+          onSelectRoom={(room: ComponentExtendedChatRoom) => setSelectedRoom(mapComponentToLocalRoom(room))}
           onDeleteRoom={handleDeleteRoom}
         />
         <div className="flex-1 flex flex-col">

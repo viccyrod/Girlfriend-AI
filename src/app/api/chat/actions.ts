@@ -1,48 +1,25 @@
 import prisma from "@/db/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { EventEmitter } from 'events';
+import { NextResponse } from 'next/server';
 
-export async function createChatRoom(name: string, aiModelId: string) {
+export async function createChatRoomAction(name: string, aiModelId: string) {
   const currentUser = await getCurrentUser();
   if (!currentUser) throw new Error('Unauthorized');
 
-  // Filter out any non-existent user IDs
-  const existingUsers = await prisma.user.findMany({
-    where: {
-      id: {
-        in: [currentUser.id]
-      }
-    }
-  });
+  if (!aiModelId) {
+    throw new Error('AI Model ID is required');
+  }
 
-  const existingUserIds = existingUsers.map(user => ({ id: user.id }));
-
-  // Check if the AI model user already exists
-  let aiModelUser = await prisma.user.findUnique({
+  // Fetch the AI model
+  const aiModel = await prisma.aIModel.findUnique({
     where: { id: aiModelId }
   });
 
-  if (!aiModelUser) {
-    // If the AI model user doesn't exist, create it
-    const aiModel = await prisma.aIModel.findUnique({
-      where: { id: aiModelId }
-    });
-
-    if (!aiModel) {
-      throw new Error('AI Model not found');
-    }
-
-    aiModelUser = await prisma.user.create({
-      data: {
-        id: aiModelId,
-        name: aiModel.name,
-        email: `${aiModel.name.toLowerCase().replace(/\s+/g, '')}@ai.model`,
-        isAI: true,
-        image: aiModel.imageUrl
-      }
-    });
+  if (!aiModel) {
+    throw new Error('AI Model not found');
   }
 
+  // Create the chat room
   const chatRoom = await prisma.chatRoom.create({
     data: {
       name,
@@ -60,33 +37,14 @@ export async function createChatRoom(name: string, aiModelId: string) {
   });
 
   console.log('Created chat room:', JSON.stringify(chatRoom, null, 2));
-
   return chatRoom;
 }
 
-export async function sendMessage(content: string, chatRoomId: string, aiModelId: string | null) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) throw new Error('Unauthorized');
 
-  const message = await prisma.message.create({
-    data: {
-      content,
-      userId: currentUser.id,
-      chatRoomId,
-      aiModelId
-    },
-    include: {
-      user: true,
-      aiModel: true
-    }
-  });
-
-  return message;
-}
-
-export async function getChatRooms() {
+export async function getChatRoomsAction() {
   try {
     const currentUser = await getCurrentUser();
+    console.log('Current user:', currentUser);
     if (!currentUser) throw new Error('Unauthorized');
 
     const chatRooms = await prisma.chatRoom.findMany({
@@ -114,11 +72,11 @@ export async function getChatRooms() {
         }
       }
     });
-// Log the first room to check the data structure
-    console.log('First chat room:', JSON.stringify(chatRooms[0], null, 2));
-    return chatRooms;
+
+    console.log('Fetched chat rooms:', JSON.stringify(chatRooms, null, 2));
+    return chatRooms.length > 0 ? chatRooms : [];
   } catch (error) {
-    console.error('Error in getChatRooms:', error);
+    console.error('Error in getChatRoomsAction:', error);
     throw error;
   }
 }
@@ -141,10 +99,19 @@ export async function getChatRoomMessages(chatRoomId: string) {
 
   return messages;
 }
+
 export async function deleteChatRoom(roomId: string) {
   const currentUser = await getCurrentUser();
   if (!currentUser) throw new Error('Unauthorized');
 
+  // Delete all messages in the chat room
+  await prisma.message.deleteMany({
+    where: {
+      chatRoomId: roomId,
+    },
+  });
+
+  // Delete the chat room
   await prisma.chatRoom.delete({
     where: {
       id: roomId,
@@ -159,3 +126,85 @@ export async function deleteChatRoom(roomId: string) {
   return { success: true };
 }
 
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    console.log('Received POST body:', JSON.stringify(body, null, 2));
+    const { action, ...data } = body;
+    console.log('Received action:', action);
+    console.log('Received data:', JSON.stringify(data, null, 2));
+
+    switch (action) {
+      case 'createChatRoom':
+        try {
+          const chatRoom = await createChatRoomAction(data.name, data.aiModelId);
+          return NextResponse.json(chatRoom);
+        } catch (error) {
+          console.error('Error in createChatRoom:', error);
+          return NextResponse.json({ error: 'Failed to create chat room', details: error instanceof Error ? error.message : String(error) }, { status: 400 });
+        }
+      case 'sendMessage':
+        try {
+          const message = await sendMessage(data.content, data.chatRoomId, data.aiModelId);
+          return NextResponse.json(message);
+        } catch (error) {
+          console.error('Error in sendMessage:', error);
+          return NextResponse.json({ error: 'Failed to send message', details: error instanceof Error ? error.message : String(error) }, { status: 400 });
+        }
+      case 'deleteChatRoom':
+        try {
+          await deleteChatRoom(data.roomId);
+          return NextResponse.json({ success: true });
+        } catch (error) {
+          console.error('Error in deleteChatRoom:', error);
+          return NextResponse.json({ error: 'Failed to send message', details: error instanceof Error ? error.message : String(error) }, { status: 400 });
+        }
+      default:
+        console.error('Invalid action:', action);
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    }
+  } catch (error) {
+    console.error('Error in POST /api/chat:', error);
+    return NextResponse.json({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
+}
+
+export async function sendMessage(content: string, chatRoomId: string, aiModelId: string | null) {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) throw new Error('Unauthorized');
+
+    const chatRoom = await prisma.chatRoom.findUnique({
+      where: { id: chatRoomId },
+      include: { users: true }
+    });
+
+    if (!chatRoom) {
+      throw new Error('Chat room not found');
+    }
+
+    if (!chatRoom.users.some(user => user.id === currentUser.id)) {
+      throw new Error('User is not a member of this chat room');
+    }
+
+    const message = await prisma.message.create({
+      data: {
+        content,
+        userId: currentUser.id,
+        chatRoomId,
+        aiModelId
+      },
+      include: {
+        user: true,
+        aiModel: true
+      }
+    });
+
+    console.log('Created message:', JSON.stringify(message, null, 2));
+    return message;
+  } catch (error) {
+    console.error('Error in sendMessage:', error);
+    throw error;
+  }
+}

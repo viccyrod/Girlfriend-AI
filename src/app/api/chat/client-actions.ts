@@ -1,5 +1,11 @@
 import { ChatRoom, Message } from '@prisma/client';
 
+interface RawMessage extends Omit<Message, 'user'> {
+  userId: string;
+  userName: string;
+  userImage: string;
+}
+
 export async function getChatRooms(): Promise<ChatRoom[]> {
   const response = await fetch('/api/chat');
   if (!response.ok) {
@@ -8,13 +14,13 @@ export async function getChatRooms(): Promise<ChatRoom[]> {
   return response.json();
 }
 
-export async function createChatRoom(name: string, userIds: string[]): Promise<ChatRoom> {
+export async function createChatRoom(name: string, aiModelId: string): Promise<ChatRoom> {
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ action: 'createChatRoom', name, userIds }),
+    body: JSON.stringify({ action: 'createChatRoom', name, aiModelId }),
   });
   if (!response.ok) {
     throw new Error('Failed to create chat room');
@@ -22,36 +28,36 @@ export async function createChatRoom(name: string, userIds: string[]): Promise<C
   return response.json();
 }
 
-export async function sendMessage(content: string, chatRoomId: string, aiModelId: string | null): Promise<Message> {
-    const response = await fetch('/api/chat', {
+export async function sendMessage(content: string, chatRoomId: string, aiModelId: string | null): Promise<Message | Message[]> {
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ action: 'sendMessage', content, chatRoomId, aiModelId }),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to send message');
+  }
+  const message = await response.json();
+  
+  if (aiModelId) {
+    const aiResponse = await fetch('/api/chat/chatgpt', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ action: 'sendMessage', content, chatRoomId, aiModelId }),
+      body: JSON.stringify({ content, aiModelId, chatRoomId }),
     });
-    if (!response.ok) {
-      throw new Error('Failed to send message');
+    if (!aiResponse.ok) {
+      throw new Error('Failed to get AI response');
     }
-    const message = await response.json();
-    
-    if (aiModelId) {
-      const aiResponse = await fetch('/api/chat/chatgpt', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content, aiModelId, chatRoomId }),
-      });
-      if (!aiResponse.ok) {
-        throw new Error('Failed to get AI response');
-      }
-      const aiMessage = await aiResponse.json();
-      return [message, aiMessage];
-    }
-    
-    return message;
+    const aiMessage = await aiResponse.json();
+    return [message, aiMessage];
   }
+  
+  return message;
+}
 
 export async function getChatRoomMessages(chatRoomId: string): Promise<Message[]> {
   const response = await fetch(`/api/chat/${chatRoomId}/messages`);
@@ -59,7 +65,7 @@ export async function getChatRoomMessages(chatRoomId: string): Promise<Message[]
     throw new Error('Failed to fetch messages');
   }
   const messages = await response.json();
-  return messages.map((message: any) => ({
+  return messages.map((message: RawMessage) => ({
     ...message,
     user: {
       id: message.userId,
@@ -79,8 +85,12 @@ export async function deleteMessage(messageId: string): Promise<void> {
 }
 
 export async function deleteChatRoom(roomId: string): Promise<void> {
-  const response = await fetch(`/api/chat/rooms/${roomId}`, {
+  const response = await fetch(`/api/chat`, {
     method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ action: 'deleteChatRoom', roomId }),
   });
 
   if (!response.ok) {

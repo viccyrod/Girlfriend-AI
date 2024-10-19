@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import AIModelProfile from '@/app/community/AIModelProfile';
+import AIModelProfile from 'src/app/community/AIModelProfile'; 
 import { fetchAIModel } from '@/lib/api/ai-models/index';
 import BaseLayout from '@/components/BaseLayout';
 import { useQuery } from '@tanstack/react-query';
@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 export default function AIModelProfilePage({ params }: { params: { id: string } }) {
   const router = useRouter();
 
-  const { data: aiModel, isLoading, error } = useQuery({
+  const { data: AIModel, isLoading, error } = useQuery({
     queryKey: ['aiModel', params.id],
     queryFn: () => fetchAIModel(params.id),
   });
@@ -27,7 +27,7 @@ export default function AIModelProfilePage({ params }: { params: { id: string } 
     );
   }
 
-  if (error || !aiModel) {
+  if (error || !AIModel) {
     return (
       <BaseLayout>
         <div>AI Model not found or there was an error fetching the data.</div>
@@ -37,7 +37,7 @@ export default function AIModelProfilePage({ params }: { params: { id: string } 
 
   return (
     <BaseLayout>
-      <AIModelProfile aIModel={aiModel} onClose={handleClose} />
+      <AIModelProfile AIModel={AIModel} onClose={handleClose} />
     </BaseLayout>
   );
 }

@@ -1,6 +1,6 @@
 import React from 'react'
 import Post from './post'
-import { Skeleton } from '../ui/skeleton'
+// import { Skeleton } from '../ui/skeleton'
 import PostSkeleton from '../skeletons/PostSkeleton'
 import { admin, user, posts as postsData } from '@/dummy_data'
 
@@ -11,7 +11,12 @@ const Posts = () => {
     <div>
 
     {!isLoading && postsData.map(post =>
-        <Post key={post.id} post={post} admin={admin} isSubscribed={user.isSubscribed}/>
+        <Post 
+          key={post.id} 
+          post={post} 
+          admin={{...admin, id: admin.id.toString()}} 
+          isSubscribed={user.isSubscribed}
+        />
     )}
 
         {isLoading && (

@@ -40,7 +40,8 @@ model Post {
   likes     Int     @default(0)
   isPublic  Boolean @default(false)
   likedBy   User[]  @relation("LikedPosts")
-  user      User    @relation(fields: [userId], references: [id])
+  authorId  String
+  author    User    @relation(fields: [authorId], references: [id])
 
   comments  Comment[]
   likesList Like[]
