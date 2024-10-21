@@ -6,15 +6,30 @@ import { AIModel } from '@/types/AIModel';
 import CoverImage from '@/components/home-screen/CoverImage';
 
 interface AIModelProfileProps {
-  AIModel: AIModel;
+  AIModel: AIModel | null;
   onClose: () => void;
 }
 
 const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ AIModel, onClose }) => {
   const router = useRouter();
 
+  if (!AIModel) {
+    return <div>No AI Model data available.</div>;
+  }
+
   const handleMessage = () => {
     router.push(`/chat?modelId=${AIModel.id}`);
+  };
+
+  const getCreatorName = () => {
+    if (typeof AIModel.createdBy === 'object' && AIModel.createdBy !== null) {
+      if ('id' in AIModel.createdBy && 'name' in AIModel.createdBy) {
+        return AIModel.createdBy.id === 'kp_e5590b8125e149b5825a3b83dcbe104d'
+          ? 'Dev 🚀'
+          : AIModel.createdBy.name.split(' ')[0];
+      }
+    }
+    return 'Unknown Creator';
   };
 
   return (
@@ -24,7 +39,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ AIModel, onC
         <div className="flex flex-col md:flex-row gap-4 justify-between">
           <Avatar className="w-20 h-20 border-2 -mt-10">
             <AvatarImage 
-              src={AIModel.imageUrl ?? ''} 
+              src={AIModel.imageUrl || ''} 
               className="object-cover" 
               alt={`${AIModel.name} avatar`} 
             />
@@ -51,16 +66,10 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ AIModel, onC
         <div className="flex flex-col mt-4">
           <p className="text-lg font-semibold">{AIModel.name}</p>
           <p className="text-sm text-muted-foreground">
-            Created by: {
-              typeof AIModel.createdBy === 'object' && 'id' in AIModel.createdBy
-                ? AIModel.createdBy.id === 'kp_e5590b8125e149b5825a3b83dcbe104d'
-                  ? 'Dev 🚀'
-                  : AIModel.createdBy.name.split(' ')[0]
-                : AIModel.createdBy ?? 'Unknown'
-            }
+            Created by: {getCreatorName()}
           </p>
           <p className="text-sm mt-2 md:text-md">
-            {AIModel.personality ?? 'No personality information available.'}
+            {AIModel.personality || 'No personality information available.'}
           </p>
         </div>
       </div>

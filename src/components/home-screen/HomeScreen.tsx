@@ -1,3 +1,5 @@
+
+import React from "react";
 import BaseLayout from "../BaseLayout";
 import Posts from "./posts";
 import UserProfile from "./UserProfile";

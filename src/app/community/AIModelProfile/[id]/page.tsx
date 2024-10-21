@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import AIModelProfile from 'src/app/community/AIModelProfile'; 
+import AIModelProfile from '@/app/community/AIModelProfile'; 
 import { fetchAIModel } from '@/lib/api/ai-models/index';
 import BaseLayout from '@/components/BaseLayout';
 import { useQuery } from '@tanstack/react-query';

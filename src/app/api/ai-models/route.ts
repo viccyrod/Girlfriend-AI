@@ -11,15 +11,25 @@ export async function GET() {
         imageUrl: true,
         createdBy: {
           select: {
+            id: true,
             name: true,
           },
         },
       },
     });
 
-    return NextResponse.json(aIModels);
+    // Ensure createdBy always has a name
+    const sanitizedModels = aIModels.map(model => ({
+      ...model,
+      createdBy: {
+        id: model.createdBy?.id || '',
+        name: model.createdBy?.name || 'Unknown Creator'
+      }
+    }));
+
+    return NextResponse.json(sanitizedModels);
   } catch (error) {
-    console.error('Error fetching influencers:', error);
-    return NextResponse.json({ error: 'Failed to fetch aIModels' }, { status: 500 });
+    console.error('Error fetching AI models:', error);
+    return NextResponse.json({ error: 'Failed to fetch AI models' }, { status: 500 });
   }
 }
