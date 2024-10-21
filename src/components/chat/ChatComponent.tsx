@@ -32,6 +32,7 @@ const ChatComponent = () => {
   const searchParams = useSearchParams();
   const modelId = searchParams.get('modelId');
   const { toast } = useToast();
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
   const fetchCurrentUser = useCallback(async () => {
     try {
@@ -105,6 +106,8 @@ const ChatComponent = () => {
   };
 
   const selectOrCreateRoom = useCallback(async (modelId: string) => {
+    if (isCreatingRoom) return;
+    setIsCreatingRoom(true);
     try {
       if (!modelId) {
         throw new Error('Model ID is undefined');
@@ -175,14 +178,16 @@ const ChatComponent = () => {
         description: `Failed to create chat room: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
       });
+    } finally {
+      setIsCreatingRoom(false);
     }
-  }, [chatRooms, toast, currentUser]);
+  }, [chatRooms, toast, currentUser, isCreatingRoom]);
 
   useEffect(() => {
-    if (modelId && !isLoading) {
+    if (modelId && !isLoading && !isCreatingRoom) {
       selectOrCreateRoom(modelId);
     }
-  }, [modelId, isLoading, selectOrCreateRoom]);
+  }, [modelId, isLoading, selectOrCreateRoom, isCreatingRoom]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-full">Loading chat rooms...</div>;

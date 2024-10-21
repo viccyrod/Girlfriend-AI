@@ -3,14 +3,17 @@ import { createChatRoomAction, getChatRoomsAction, deleteChatRoom, sendMessage }
 
 export async function POST(request: Request) {
   try {
-    const { action, content, chatRoomId, aiModelId, name } = await request.json();
-    console.log('Received action:', action);
-    console.log('Received data:', content, chatRoomId, aiModelId, name);
+    const body = await request.json();
+    console.log('Received POST request to /api/chat with body:', JSON.stringify(body, null, 2));
+
+    const { action, content, chatRoomId, aiModelId, name } = body;
 
     switch (action) {
       case 'createChatRoom':
         try {
+          console.log('Creating chat room with name:', name, 'and aiModelId:', aiModelId);
           const chatRoom = await createChatRoomAction(name, aiModelId);
+          console.log('Chat room created:', JSON.stringify(chatRoom, null, 2));
           return NextResponse.json(chatRoom);
         } catch (error) {
           console.error('Error in createChatRoom:', error);
@@ -18,7 +21,9 @@ export async function POST(request: Request) {
         }
       case 'sendMessage':
         try {
+          console.log('Sending message in chatRoomId:', chatRoomId, 'with content:', content);
           const message = await sendMessage(content, chatRoomId, aiModelId);
+          console.log('Message sent:', JSON.stringify(message, null, 2));
           return NextResponse.json(message);
         } catch (error) {
           console.error('Error in sendMessage:', error);
@@ -26,13 +31,16 @@ export async function POST(request: Request) {
         }
       case 'deleteChatRoom':
         try {
+          console.log('Deleting chat room with id:', chatRoomId);
           await deleteChatRoom(chatRoomId);
+          console.log('Chat room deleted successfully');
           return NextResponse.json({ success: true });
         } catch (error) {
           console.error('Error in deleteChatRoom:', error);
           return NextResponse.json({ error: 'Failed to delete chat room' }, { status: 500 });
         }
       default:
+        console.error('Invalid action received:', action);
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {

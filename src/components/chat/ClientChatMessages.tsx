@@ -2,7 +2,7 @@
 // This indicates the file is a client-side component in Next.js, meaning it can use hooks like useState and useEffect.
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getChatRoomMessages, sendMessage, deleteMessage } from 'src/app/api/chat/client-actions'; 
+import { getChatRoomMessages, sendMessage, deleteMessage } from '@/app/api/chat/actions'; 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ChatRoom, User } from '@prisma/client';
@@ -22,7 +22,6 @@ interface ClientChatMessagesProps {
   chatRoom: ExtendedChatRoom;
   aiModel?: unknown;
 }
-// TypeScript interface to define the expected props for this component, specifically a chatRoom object.
 
 const TypingIndicator = () => (
   <div className="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg">
@@ -40,23 +39,24 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
   const { toast } = useToast();
   const currentUser = useCurrentUser();
   const handleSendMessageRef = useRef<(e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => void>();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchMessages = useCallback(async () => {
     let retries = 3;
     while (retries > 0) {
       try {
         const fetchedMessages = await getChatRoomMessages(chatRoom.id);
-        const messagesWithUser = fetchedMessages.map((msg) => ({
+        const messagesWithUser = fetchedMessages.map((msg: Message) => ({
           ...msg,
-          userId: msg.userId || '', // Ensure userId is always a string
-          user: chatRoom.users.find(user => user.id === msg.userId) || 
-                { id: msg.userId || '', name: 'Unknown User', image: null }
+          user: msg.user || chatRoom.users.find(user => user.id === msg.userId) || 
+                { id: msg.userId || '', name: 'Unknown User', image: null },
+          userId: msg.userId || ''
         }));
-        setMessages(messagesWithUser);
+        setMessages(messagesWithUser as Message[]);
         return;
       } catch (error) {
         retries -= 1;
-        console.error('Failed to fetch messages, retrying...', error);
+        console.error('Failed to fetch messages:', error);
         if (retries === 0) {
           toast({
             title: "Error",
@@ -78,8 +78,16 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
       const newMessage = JSON.parse(event.data);
       setMessages((prevMessages) => [...prevMessages, newMessage]);
     };
+    eventSource.onerror = () => {
+      toast({
+        title: "Connection lost",
+        description: "Unable to connect to the server. Please refresh the page.",
+        variant: "destructive",
+      });
+      eventSource.close();
+    };
     return () => eventSource.close();
-  }, [chatRoom.id]);
+  }, [chatRoom.id, toast]);
 
   const scrollToBottom = useCallback(() => {
     const isAtBottom = messagesEndRef.current ? messagesEndRef.current.getBoundingClientRect().bottom <= window.innerHeight : false;
@@ -91,43 +99,53 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // Function to prepare message payload
+  const prepareUserMessage = () => ({
+    content: newMessage.trim(),
+    userId: currentUser?.id || '',
+    chatRoomId: chatRoom.id,
+  });
+
+  // // Function to handle sent message
+  // const handleSentMessage = (sentMessage: Message) => {
+  //   const sentMessageWithUser = {
+  //     ...sentMessage,
+  //     user: chatRoom.users.find(user => user.id === sentMessage.userId) || 
+  //           { id: sentMessage.userId || '', name: 'Unknown User', image: null },
+  //     userId: sentMessage.userId || ''
+  //   };
+    
+  //   setMessages(prevMessages => [
+  //     ...prevMessages.filter(msg => msg.id !== `temp-${sentMessage.createdAt}`), // Adjust if temp id is different
+  //     sentMessageWithUser
+  //   ]);
+  // };
+
   const handleSendMessage = useCallback(async (e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
     if (!newMessage.trim() || isSending) return;
 
-    const userMessage = {
+    const tempMessage: Message = {
       id: `temp-${Date.now()}`,
-      content: newMessage,
+      content: newMessage.trim(),
       userId: currentUser?.id || '',
       chatRoomId: chatRoom.id,
       createdAt: new Date(),
       updatedAt: new Date(),
-      user: currentUser || { id: 'unknown', name: 'Unknown User', image: null }
+      user: currentUser ?? { id: '', name: 'Unknown User', image: null },
     };
 
-    setMessages(prevMessages => [...prevMessages, userMessage as Message]);
+    setMessages(prevMessages => [...prevMessages, tempMessage]);
     setNewMessage('');
     setIsSending(true);
 
     try {
-      const sentMessages = await sendMessage(userMessage.content, chatRoom.id, chatRoom.users.find(user => user.isAI)?.id || null);
-      const sentMessagesWithUser = Array.isArray(sentMessages) 
-        ? sentMessages.map(msg => ({
-            ...msg,
-            user: chatRoom.users.find(user => user.id === msg.userId) || 
-                  { id: msg.userId, name: 'Unknown User', image: null },
-            userId: msg.userId || '' // Ensure userId is always a string
-          }))
-        : [{
-            ...sentMessages,
-            user: chatRoom.users.find(user => user.id === sentMessages.userId) || 
-                  { id: sentMessages.userId, name: 'Unknown User', image: null },
-            userId: sentMessages.userId || '' // Ensure userId is always a string
-          }];
-      
+      const { userMessage: savedUserMessage, aiMessage } = await sendMessage(chatRoom.id, prepareUserMessage());
       setMessages(prevMessages => [
-        ...prevMessages.filter(msg => msg.id !== userMessage.id),
-        ...sentMessagesWithUser as Message[] // Type assertion
+        ...prevMessages.filter(msg => msg.id !== savedUserMessage.id),
+        savedUserMessage,
+        aiMessage
       ]);
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -136,11 +154,10 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
-      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== userMessage.id));
     } finally {
       setIsSending(false);
     }
-  }, [newMessage, isSending, currentUser, chatRoom, toast]);
+  }, [newMessage, isSending, chatRoom.id, prepareUserMessage, sendMessage, toast]);
 
   handleSendMessageRef.current = handleSendMessage;
 
@@ -149,7 +166,7 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
     if (!userConfirmed) return;
 
     try {
-      await deleteMessage(messageId);
+      await deleteMessage(chatRoom.id, messageId);
       setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
     } catch (error) {
       console.error('Failed to delete message:', error);
@@ -162,7 +179,7 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && newMessage.trim()) {
       e.preventDefault();
       handleSendMessageRef.current?.(e);
     }
@@ -179,16 +196,16 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
         )}
         {messages.slice().reverse().map((message) => {
           const isCurrentUser = message.userId === currentUser?.id;
-          const messageUser = isCurrentUser ? currentUser : chatRoom.users.find(user => user.id === message.userId);
+          const messageUser = chatRoom.users.find(user => user.id === message.userId) || { name: 'Unknown User', image: null };
 
           return (
-            <div key={message.id} className="message-container flex items-end mb-4">
-              <div className={`flex ${isCurrentUser ? 'justify-end ml-auto' : 'justify-start'} items-end group max-w-[70%]`}>
+            <div key={message.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-4 group`}>
+              <div className={`flex ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'} items-end`}>
                 {!isCurrentUser && (
-                  <div className="avatar-container min-w-[32px] min-h-[32px] mr-2">
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage className="object-cover" src={messageUser?.image || ''} alt={messageUser?.name || 'User'} />
-                      <AvatarFallback>{messageUser?.name?.[0] || '?'}</AvatarFallback>
+                  <div className="flex-shrink-0 mr-3">
+                    <Avatar>
+                      <AvatarImage src={messageUser.image || ''} alt={messageUser.name || 'Unknown User'} />
+                      <AvatarFallback>{messageUser.name?.[0] || '?'}</AvatarFallback>
                     </Avatar>
                   </div>
                 )}
@@ -200,7 +217,7 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
                     </p>
                   </div>
                   <p className="text-xs text-gray-500 mt-1 group-hover:opacity-100 opacity-0 transition-opacity duration-200">
-                    {messageUser?.name || 'Unknown User'}
+                    {messageUser.name || 'Unknown User'}
                   </p>
                 </div>
                 {isCurrentUser && (
@@ -223,6 +240,7 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
       <form onSubmit={handleSendMessage} className="border-t p-4">
         <div className="flex items-center">
           <TextareaAutosize
+            ref={textareaRef}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -231,7 +249,7 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
             minRows={1}
           />
           <Button type="submit" disabled={isSending}>
-            Send
+            {isSending ? 'Sending...' : 'Send'}
           </Button>
         </div>
       </form>

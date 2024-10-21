@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+
 interface AIModel {
   id: string;
   name: string;
@@ -37,6 +38,7 @@ export default function CommunityContent() {
     router.push(`/community/AIModelProfile/${id}`);
   };
 
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-full">
@@ -60,8 +62,12 @@ export default function CommunityContent() {
             </CardHeader>
             <CardContent className="flex-grow">
               <Avatar className="w-32 h-32 mx-auto mb-4">
-                <AvatarImage className="object-cover" src={aiModel.imageUrl} alt={aiModel.name} />
-                <AvatarFallback>{aiModel.name[0]}</AvatarFallback>
+                <AvatarImage 
+                  src={aiModel.imageUrl || "/user-placeholder.png"}
+                  alt={aiModel.name} 
+                  className="object-cover"
+                />
+                <AvatarFallback>{aiModel.name.split(' ')[0][0]}</AvatarFallback>
               </Avatar>
               <p className="text-sm text-muted-foreground mb-2">{aiModel.personality}</p>
               <p className="text-xs">

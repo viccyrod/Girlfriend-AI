@@ -30,4 +30,8 @@ export interface Message {
       image: string | null;
     };
     createdAt: Date;
+    updatedAt: Date;
+    chatRoomId: string;
   }
+
+  
