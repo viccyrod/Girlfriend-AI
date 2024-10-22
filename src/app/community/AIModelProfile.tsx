@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { AIModel } from '@/types/AIModel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Heart, MessageCircle, User, ImageIcon, VideoIcon } from 'lucide-react';
+import { MessageCircle, User, ImageIcon, VideoIcon, Heart, Bookmark, Share2 } from 'lucide-react';
 
 interface AIModelProfileProps {
   AIModel: AIModel | null;
@@ -40,10 +40,24 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ AIModel, onC
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Card className="w-full max-w-2xl mx-auto overflow-hidden">
-        <div className="relative h-48 sm:h-64 bg-gradient-to-r from-purple-500 to-pink-500">
-          <Avatar className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-24 h-24 sm:w-32 sm:h-32 border-4 border-white">
+    <div className="w-full h-full overflow-auto bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+      <div className="relative h-64 bg-gradient-to-r from-purple-500 to-pink-500">
+        <div className="absolute top-4 right-4 flex items-center gap-4">
+          <Badge variant="secondary" className="bg-white/20">
+            <ImageIcon className="w-4 h-4 mr-1" />
+            <span className="font-bold">45</span>
+          </Badge>
+          <Badge variant="secondary" className="bg-white/20">
+            <VideoIcon className="w-4 h-4 mr-1" />
+            <span className="font-bold">67</span>
+          </Badge>
+          <Badge variant="secondary" className="bg-white/20">
+            <Heart className="w-4 h-4 mr-1" />
+            <span className="font-bold">10k</span>
+          </Badge>
+        </div>
+        <div className="absolute bottom-0 left-8 transform translate-y-1/2">
+          <Avatar className="w-32 h-32 sm:w-40 sm:h-40 border-4 border-gray-800">
             <AvatarImage 
               src={AIModel.imageUrl || ''} 
               className="object-cover" 
@@ -51,76 +65,76 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ AIModel, onC
             />
             <AvatarFallback>{AIModel.name ? AIModel.name[0] : 'A'}</AvatarFallback>
           </Avatar>
-          <div className="absolute top-0 left-0 w-full p-4">
-            <div className="flex justify-between items-center text-white">
-              <div className="flex flex-col">
-                <p className="font-bold text-lg sm:text-xl">{AIModel.name}</p>
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1">
-                    <ImageIcon className="w-4 h-4" />
-                    <span className="font-bold">45</span>
-                  </div>
-                  <span className="text-xs">•</span>
-                  <div className="flex items-center gap-1">
-                    <VideoIcon className="w-4 h-4" />
-                    <span className="font-bold">67</span>
-                  </div>
-                  <span className="text-xs">•</span>
-                  <div className="flex items-center gap-1">
-                    <Heart className="w-4 h-4" />
-                    <span className="font-bold">10k</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
-        <CardContent className="pt-20 pb-6">
-          <div className="text-center mb-6">
-            <h2 className="text-3xl font-bold mb-2">{AIModel.name}</h2>
-            <p className="text-sm text-muted-foreground flex items-center justify-center">
-              <User className="w-4 h-4 mr-1" /> Created by: {getCreatorName()}
-            </p>
-          </div>
-          <div className="flex justify-center space-x-4 mb-6">
-            <Button onClick={handleMessage} className="flex items-center">
-              <MessageCircle className="w-4 h-4 mr-2" /> Message
-            </Button>
-            <Button 
-              variant={isFollowing ? "default" : "outline"} 
-              onClick={handleFollow} 
-              className="flex items-center"
-            >
-              <Heart className="w-4 h-4 mr-2" /> {isFollowing ? 'Following' : 'Follow'}
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <InfoCard title="Personality" content={AIModel.personality} />
-            <InfoCard title="Appearance" content={AIModel.appearance} />
-            <InfoCard title="Backstory" content={AIModel.backstory} />
-            <InfoCard title="Hobbies" content={AIModel.hobbies} />
-          </div>
-          <div className="flex flex-wrap justify-center gap-2">
+      </div>
+      <div className="px-4 sm:px-8 pt-20 sm:pt-24 pb-6">
+        <h2 className="text-2xl sm:text-3xl font-bold mb-1">{AIModel.name}</h2>
+        <p className="text-sm flex items-center mb-4 sm:mb-6">
+          <User className="w-4 h-4 mr-1" /> Created by: {getCreatorName()}
+        </p>
+        <div className="flex flex-wrap gap-2 mb-6 sm:mb-8">
+          <Button 
+            onClick={handleMessage} 
+            className="flex items-center bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-2 px-4 rounded-full transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg group"
+          >
+            <MessageCircle className="w-5 h-5 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110" />
+            <span className="relative z-10">Message</span>
+            <span className="absolute inset-0 h-full w-full bg-white rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-300 ease-in-out"></span>
+          </Button>
+          <Button 
+            variant={isFollowing ? "secondary" : "outline"} 
+            onClick={handleFollow} 
+            className="flex items-center"
+          >
+            <Heart className="w-4 h-4 mr-2" /> {isFollowing ? 'Following' : 'Follow'}
+          </Button>
+          <Button variant="outline" className="flex items-center">
+            <Bookmark className="w-4 h-4 mr-2" /> Save
+          </Button>
+          <Button variant="outline" className="flex items-center">
+            <Share2 className="w-4 h-4 mr-2" /> Share
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <InfoCard title="Personality" content={AIModel.personality} />
+          <InfoCard title="Appearance" content={AIModel.appearance} />
+          <InfoCard title="Backstory" content={AIModel.backstory} />
+          <InfoCard title="Hobbies" content={AIModel.hobbies} />
+        </div>
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold">Likes & Dislikes</h3>
+          <div className="flex flex-wrap gap-2">
             {AIModel.likes.split(',').map((like, index) => (
-              <Badge key={index} variant="secondary">{like.trim()}</Badge>
+              <Badge key={`like-${index}`} variant="secondary" className="bg-green-800 text-green-100">
+                {like.trim()}
+              </Badge>
             ))}
           </div>
-          <button onClick={onClose} className="mt-4 px-4 py-2 bg-blue-500 text-white rounded">
-            Close
-          </button>
-        </CardContent>
-      </Card>
+          <div className="flex flex-wrap gap-2">
+            {AIModel.dislikes.split(',').map((dislike, index) => (
+              <Badge key={`dislike-${index}`} variant="secondary" className="bg-red-800 text-red-100">
+                {dislike.trim()}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 });
 
-const InfoCard: React.FC<{ title: string; content: string }> = ({ title, content }) => (
-  <div className="bg-muted p-4 rounded-lg">
-    <h3 className="font-semibold mb-2">{title}</h3>
-    <p className="text-sm">{content}</p>
-  </div>
-);
+interface InfoCardProps {
+  title: string;
+  content: string;
+}
 
-AIModelProfile.displayName = 'AIModelProfile';
+const InfoCard: React.FC<InfoCardProps> = ({ title, content }) => (
+  <Card className="bg-gray-800 border-gray-700">
+    <CardContent className="p-4">
+      <h3 className="font-semibold text-lg mb-2">{title}</h3>
+      <p className="text-sm text-gray-300">{content}</p>
+    </CardContent>
+  </Card>
+);
 
 export default AIModelProfile;
