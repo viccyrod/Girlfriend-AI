@@ -1,5 +1,3 @@
-"use client";
-
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import Link from 'next/link';
@@ -59,53 +57,53 @@ const Sidebar = () => {
             )}
 
             {/* Sidebar */}
-            <div className={`
-                fixed top-0 left-0 h-full bg-background
-                transform transition-transform duration-300 ease-in-out z-50
-                ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-                lg:translate-x-0 lg:static lg:w-1/5
-                flex flex-col py-6 px-4 border-r
-            `}>
+            <div className={`fixed top-0 left-0 h-full bg-background transform transition-transform duration-300 ease-in-out z-50
+                ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:w-1/5
+                flex flex-col py-6 px-4 border-r`}>
+                
+                {/* Main Content */}
                 <div className="flex flex-col h-full justify-between">
+                    
                     {/* Logo */}
-                    <div>
+                    <div className="flex-shrink-0 mb-6">
                         <Image
                             src="/logo.png"
                             alt="Logo"
-                            width={382}
-                            height={91}
-                            className="mx-auto mb-6"
+                            width={200}
+                            height={60}
+                            className="mx-auto"
                         />
-
-                        {/* Navigation Links */}
-                        <nav className="flex flex-col gap-2">
-                            {SIDEBAR_LINKS.map(link => (
-                                <Link key={link.href} href={link.href}
-                                    className='flex w-full items-center gap-3 hover:bg-primary-foreground font-medium hover:text-primary px-3 py-2 rounded-lg transition-colors'
-                                    onClick={() => setIsOpen(false)}
-                                >
-                                    <link.icon className="w-5 h-5" />
-                                    <span className="lg:block">{link.label}</span>
-                                </Link>
-                            ))}
-                        </nav>
                     </div>
+
+                    {/* Navigation Links */}
+                    <nav className="flex-grow">
+                        {SIDEBAR_LINKS.map(link => (
+                            <Link key={link.href} href={link.href}
+                                className="flex items-center gap-3 p-3 text-sm hover:bg-gray-700 rounded-lg"
+                            >
+                                <link.icon className="w-5 h-5" />
+                                <span>{link.label}</span>
+                            </Link>
+                        ))}
+                    </nav>
 
                     {/* User Info & Settings at the Bottom */}
                     <div className="mt-auto">
-                        <div className="flex items-center justify-between mb-4 p-2 rounded-lg hover:bg-primary-foreground transition-colors">
+                        <div className="flex items-center justify-between p-2 hover:bg-gray-700 rounded-lg">
                             <div className="flex items-center gap-3">
                                 <Avatar className="w-10 h-10">
                                     <AvatarImage src={user?.picture || ""} className="object-cover" />
                                     <AvatarFallback>CN</AvatarFallback>
                                 </Avatar>
-                                <div className="lg:block">
-                                    <p className="font-medium text-sm">{user?.given_name} {user?.family_name}</p>
-                                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                                <div>
+                                    <p className="text-sm">{user?.given_name} {user?.family_name}</p>
+                                    <p className="text-xs text-gray-400">{user?.email}</p>
                                 </div>
                             </div>
+
+                            {/* Gear Icon with Dropdown */}
                             <DropdownMenu>
-                                <DropdownMenuTrigger className="hover:bg-primary/10 p-2 rounded-full">
+                                <DropdownMenuTrigger className="p-2 hover:bg-gray-600 rounded-full">
                                     <GearIcon className="w-5 h-5" />
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
@@ -124,7 +122,7 @@ const Sidebar = () => {
                         </div>
 
                         {/* Mode Toggle */}
-                        <div className="flex justify-center">
+                        <div className="flex justify-center mt-4">
                             <ModeToggle />
                         </div>
                     </div>

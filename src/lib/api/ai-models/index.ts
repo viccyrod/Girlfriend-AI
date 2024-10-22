@@ -2,7 +2,7 @@ import { AIModel } from '@/types/AIModel';
 
 export async function fetchAIModel(modelId: string): Promise<AIModel | null> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://www.girlfriend.cx';
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const url = `${baseUrl}/api/ai-models/${modelId}`;
 
     console.log(`Fetching AI model from: ${url}`);

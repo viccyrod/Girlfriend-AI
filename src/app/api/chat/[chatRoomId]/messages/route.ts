@@ -5,8 +5,10 @@ import { prisma } from '@/db/prisma';
 import { getCurrentUser } from '@/lib/session';
 import OpenAI from "openai";
 import { storeMemory } from '@/utils/memory';
-import { getEmbedding } from '@/utils/embedding';
 import { retrieveMemories } from '@/utils/memory';
+import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+
+
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -89,41 +91,46 @@ export async function POST(request: Request, { params }: { params: { chatRoomId:
       console.log('Relevant memories retrieved:', relevantMemories);
     } catch (error) {
       console.error('Error retrieving memories:', error);
-      // Optionally, you can choose to continue without memories if there's an error
     }
 
-    const memoryContext = relevantMemories.join('\n');
+    console.log('11. Constructing messages with memories');
+    const systemPrompt = `You are ${chatRoom.aiModel.name}, an AI with the following characteristics:
+Personality: ${chatRoom.aiModel.personality}
+Appearance: ${chatRoom.aiModel.appearance}
+Backstory: ${chatRoom.aiModel.backstory}
+Hobbies: ${chatRoom.aiModel.hobbies}
+Likes: ${chatRoom.aiModel.likes}
+Dislikes: ${chatRoom.aiModel.dislikes}`;
 
-    console.log('11. Constructing prompt with memories');
-    const prompt = `Here are some relevant previous interactions:
-      ${memoryContext}.
-      
-      You are ${chatRoom.aiModel.name}, an AI with the following characteristics:
-      Personality: ${chatRoom.aiModel.personality}
-      Appearance: ${chatRoom.aiModel.appearance}
-      Backstory: ${chatRoom.aiModel.backstory}
-      Hobbies: ${chatRoom.aiModel.hobbies}
-      Likes: ${chatRoom.aiModel.likes}
-      Dislikes: ${chatRoom.aiModel.dislikes}
-      
-      
-      
-      Please respond to the following message in character, taking into account the previous interactions:
-      ${currentUser.name}'s message: ${content}
-      
-      Respond in a friendly tone, and in a way that is consistent with the AI's personality and previous interactions.`;
+    const messages = [
+      { role: "system", content: systemPrompt },
+    ];
+
+    for (const memory of relevantMemories) {
+      const [userLine, aiLine] = memory.split('\n');
+      const userContent = userLine.replace('User: ', '').trim();
+      const aiContent = aiLine.replace('AI: ', '').trim();
+
+      if (userContent) {
+        messages.push({ role: "user", content: userContent });
+      }
+      if (aiContent) {
+        messages.push({ role: "assistant", content: aiContent });
+      }
+    }
+
+    messages.push({ role: "user", content: content });
 
     console.log('12. Sending request to OpenAI API');
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: prompt },
-        { role: "user", content: content }
-      ],
-      max_tokens: 150,
+      messages: messages as ChatCompletionMessageParam[],
+      max_tokens: 2000,
+      temperature: 0.7,
     });
 
     const aiResponse = completion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+    console.log('AI Response:', aiResponse);
 
     console.log('14. Saving AI response to database');
     const aiMessage = await prisma.message.create({
@@ -144,23 +151,6 @@ export async function POST(request: Request, { params }: { params: { chatRoomId:
     } catch (error) {
       console.error('Error storing conversation in memory:', error);
     }
-
-    console.log('18. Getting embedding');
-    const embedding = await getEmbedding(conversationText);
-    console.log('19. Embedding received');
-
-    const embeddingString = JSON.stringify(embedding);
-
-    console.log('20. Storing embedding in database');
-    await prisma.conversationEmbedding.create({
-      data: {
-        userId: currentUser.id,
-        aiModelId: chatRoom.aiModel.id,
-        embedding: embeddingString,
-        content: conversationText,
-      },
-    });
-    console.log('21. Embedding stored in database');
 
     console.log('22. Sending response');
     return NextResponse.json({ userMessage, aiMessage }, { status: 201 });

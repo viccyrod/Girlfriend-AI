@@ -38,7 +38,7 @@
     "next": "14.2.15",
     "next-cloudinary": "^6.15.0",
     "next-themes": "^0.3.0",
-    "openai": "^4.67.3",
+    "openai": "^4.68.2",
     "prisma-extension-pgvector": "^0.11.0",
     "react": "^18",
     "react-dom": "^18",
