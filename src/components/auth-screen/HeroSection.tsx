@@ -31,11 +31,11 @@ const HeroSection = () => {
             />
             <div className='space-y-4 md:space-y-6'>
               {/* Main tagline */}
-              <p className="text-2xl md:text-3xl lg:text-4xl text-balance font-semibold">
+              <p className="text-2xl md:text-3xl lg:text-4xl text-balance font-semibold text-white">
                 Meet your new AI companion.
               </p>
               {/* Subheading with highlighted options */}
-              <p className="text-2xl md:text-3xl lg:text-4xl text-balance font-semibold">
+              <p className="text-2xl md:text-3xl lg:text-4xl text-balance font-semibold text-white">
                 <span className="bg-[#9138ab] font-bold px-2 text-white">Friend</span> or{" "}
                 <span className='bg-[#f36198] px-2 font-bold text-white'>Lover</span>- you choose.
               </p>

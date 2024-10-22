@@ -1,14 +1,11 @@
-
 import React from "react";
 import BaseLayout from "../BaseLayout";
-import Posts from "./posts";
-import UserProfile from "./UserProfile";
+import Community from "../../app/community/CommunityContent";
 
 const HomeScreen = () => {
   return (
     <BaseLayout> 
-    <UserProfile />
-    <Posts />
+    <Community />
  </BaseLayout>
   );
 };

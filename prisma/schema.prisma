@@ -8,35 +8,47 @@ datasource db {
 }
 
 model User {
-  id           String  @id @default(cuid())
-  email        String  @unique
-  name         String
-  image        String?
-  isSubscribed Boolean @default(false)
-  customerId   String? @unique // stripe customer id
-  bio          String?
-  posts        Post[]
-
-  subscription    Subscription?
-  orders          Order[]
-  comments        Comment[]
-  likes           Like[]
-  messages        Message[]
-  chatRooms       ChatRoom[]
-  isAI            Boolean                @default(false)
-  likedPosts      Post[]                 @relation("LikedPosts")
-  conversations   Conversation[]
-  customizations  AIModelCustomization[]
-  payments        Payment[]
-  interactionLogs InteractionLog[]
-  notifications   Notification[]
-  activityFeeds   ActivityFeed[]
-  moderationFlags ModerationFlag[]
-  engagements     Engagement[]
+  id                     String                  @id @default(cuid())
+  email                  String                  @unique
+  name                   String
+  image                  String?
+  isSubscribed           Boolean                 @default(false)
+  customerId             String?                 @unique // stripe customer id
+  bio                    String?
+  posts                  Post[]
+  followers              Follow[]                @relation("Followers")
+  following              Follow[]                @relation("Following")
+  subscription           Subscription?
+  orders                 Order[]
+  comments               Comment[]
+  likes                  Like[]
+  messages               Message[]
+  chatRooms              ChatRoom[]
+  isAI                   Boolean                 @default(false)
+  likedPosts             Post[]                  @relation("LikedPosts")
+  conversations          Conversation[]
+  customizations         AIModelCustomization[]
+  payments               Payment[]
+  interactionLogs        InteractionLog[]
+  notifications          Notification[]
+  activityFeeds          ActivityFeed[]
+  moderationFlags        ModerationFlag[]
+  engagements            Engagement[]
+  conversationEmbeddings ConversationEmbedding[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   AIModel   AIModel[]
+}
+
+model Follow {
+  id          String @id @default(cuid())
+  follower    User   @relation("Following", fields: [followerId], references: [id])
+  followerId  String
+  following   User   @relation("Followers", fields: [followingId], references: [id])
+  followingId String
+
+  @@unique([followerId, followingId])
 }
 
 model Post {
@@ -166,25 +178,26 @@ model ChatRoom {
 }
 
 model AIModel {
-  id              String                 @id @default(cuid())
-  name            String
-  personality     String
-  appearance      String
-  backstory       String
-  hobbies         String
-  likes           String
-  dislikes        String
-  imageUrl        String
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-  createdBy       User                   @relation(fields: [userId], references: [id])
-  userId          String
-  aiContent       aIContent[]
-  messages        Message[]
-  chatRooms       ChatRoom[]
-  customizations  AIModelCustomization[]
-  interactionLogs InteractionLog[]
-  engagements     Engagement[]
+  id                    String                  @id @default(cuid())
+  name                  String
+  personality           String
+  appearance            String
+  backstory             String
+  hobbies               String
+  likes                 String
+  dislikes              String
+  imageUrl              String
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  createdBy             User                    @relation(fields: [userId], references: [id])
+  userId                String
+  aiContent             aIContent[]
+  messages              Message[]
+  chatRooms             ChatRoom[]
+  customizations        AIModelCustomization[]
+  interactionLogs       InteractionLog[]
+  engagements           Engagement[]
+  ConversationEmbedding ConversationEmbedding[]
 
   @@index([userId])
 }
@@ -304,4 +317,18 @@ model Engagement {
 
   @@index([userId])
   @@index([aiModelId])
+}
+
+model ConversationEmbedding {
+  id        String   @id @default(cuid())
+  userId    String
+  aiModelId String
+  embedding String // Store the embedding vector as a string
+  content   String
+  timestamp DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  aiModel AIModel @relation(fields: [aiModelId], references: [id])
+
+  @@index([userId, aiModelId])
 }

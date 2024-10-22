@@ -1,11 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
+
 
 
 interface AIModel {
@@ -70,13 +71,13 @@ export default function CommunityContent() {
                 <AvatarFallback>{aiModel.name.split(' ')[0][0]}</AvatarFallback>
               </Avatar>
               <p className="text-sm text-muted-foreground mb-2">{aiModel.personality}</p>
-              <p className="text-xs">
+              <p className="text-xs mb-4">
                 Created by: {aiModel.createdBy.id === 'kp_e5590b8125e149b5825a3b83dcbe104d' ? 'Dev 🚀' : aiModel.createdBy.name.split(' ')[0]}
               </p>
+              <Button onClick={() => handleViewProfile(aiModel.id)} className="w-full">
+                View Profile
+              </Button>
             </CardContent>
-            <CardFooter>
-              <Button className="w-full" onClick={() => handleViewProfile(aiModel.id)}>View Profile</Button>
-            </CardFooter>
           </Card>
         ))}
       </div>

@@ -9,7 +9,7 @@ const aiModels = [
     hobbies: "Travel, extreme sports, nature photography.",
     likes: "Spontaneity, new challenges, camping under the stars.",
     dislikes: "Routine and staying in one place for too long.",
-    imageUrl: "public/ai-models/ava.png",
+    imageUrl: "/ai-models/Ava/Ava.png",
   },
   {
     name: "Sofia the Sophisticate",
@@ -19,7 +19,7 @@ const aiModels = [
     hobbies: "Visiting art galleries, wine tasting, opera, and international cuisine.",
     likes: "Intellectual discussions, classical music, candlelit dinners.",
     dislikes: "Superficial conversations and fast food.",
-    imageUrl: "public/ai-models/sofia.png",
+    imageUrl: "/ai-models/Sofia/Sofia.png",
   },
   {
     name: "Luna the Dreamer",
@@ -29,7 +29,7 @@ const aiModels = [
     hobbies: "Writing, painting, stargazing, reading fantasy novels.",
     likes: "Long walks on the beach, daydreaming, meaningful conversations.",
     dislikes: "Loud environments and big crowds.",
-    imageUrl: "public/ai-models/luna.png",
+    imageUrl: "/ai-models/Luna/Luna.png",
   },
   {
     name: "Riley the Rebel",
@@ -39,7 +39,7 @@ const aiModels = [
     hobbies: "Playing guitar, going to concerts, customizing her motorcycle.",
     likes: "Rock music, freedom, rebellious adventures.",
     dislikes: "Authority, conformity, and boredom.",
-    imageUrl: "public/ai-models/riley.png",
+    imageUrl: "/ai-models/Riley/Riley.png",
   },
   {
     name: "Maya the Minimalist",
@@ -49,7 +49,7 @@ const aiModels = [
     hobbies: "Yoga, meditation, reading about philosophy, minimalistic design.",
     likes: "Serenity, healthy living, eco-friendly practices.",
     dislikes: "Clutter, materialism, and unnecessary drama.",
-    imageUrl: "public/ai-models/maya.png",
+    imageUrl: "/ai-models/Maya/Maya.png",
   },
   {
     name: "Valeria the Vida Alegre",
@@ -59,17 +59,24 @@ const aiModels = [
     hobbies: "Dancing salsa and bachata, cooking traditional Latin dishes, spending time with family, and exploring new places.",
     likes: "Dancing, romantic gestures, traveling, and cultural traditions.",
     dislikes: "Negativity, cold weather, and overly formal settings.",
-    imageUrl: "public/ai-models/Valeria.png",
+    imageUrl: "/ai-models/Valeria/Valeria.png",
   },
 ];
 
 async function seedAIModels() {
   try {
-    const admin = await prisma.user.findFirst({ where: { email: 'victor@hypergrow.ai' } });
+    let admin = await prisma.user.findFirst({ where: { email: 'victor@hypergrow.ai' } });
 
     if (!admin) {
-      console.error('Admin user not found');
-      return;
+      console.log('Admin user not found. Creating a default admin user...');
+      admin = await prisma.user.create({
+        data: {
+          email: 'victor@hypergrow.ai',
+          name: 'Victor Admin',
+          // Add other required fields for your User model
+        },
+      });
+      console.log('Default admin user created.');
     }
 
     for (const model of aiModels) {
