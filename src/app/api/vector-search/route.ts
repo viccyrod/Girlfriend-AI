@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/db/prisma';
+import { prisma } from '@/db/prisma';
 import openai from '@/lib/openai';
 
 export async function POST(req: Request) {

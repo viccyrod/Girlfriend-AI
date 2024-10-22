@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/db/prisma";
+import { prisma } from "@/db/prisma";
 // import { AIModel } from "@/types/AIModel";
 
 /**

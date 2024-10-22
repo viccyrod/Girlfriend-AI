@@ -1,4 +1,4 @@
-import prisma from '../src/db/prisma';
+import { prisma } from '../src/db/prisma';
 
 const aiModels = [
   {

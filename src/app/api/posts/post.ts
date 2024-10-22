@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import prisma from '@/lib/prisma'; // Make sure you import your Prisma client correctly
-
+import { prisma } from '@/db/prisma';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === 'GET') {
         try {
