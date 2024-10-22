@@ -1,7 +1,7 @@
 // src/app/api/chat/[chatRoomId]/messages/route.ts
 
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/db/prisma';
 import { getCurrentUser } from '@/lib/session';
 import OpenAI from "openai";
 import { storeMemory } from '@/utils/memory';

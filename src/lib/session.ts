@@ -1,5 +1,5 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import prisma from "@/db/prisma";
+import { prisma } from "@/db/prisma";
 
 export async function getCurrentUser() {
   try {

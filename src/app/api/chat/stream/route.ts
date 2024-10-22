@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/session';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/db/prisma';
 import openai from '@/lib/openai';
 
 export async function POST(request: Request) {
