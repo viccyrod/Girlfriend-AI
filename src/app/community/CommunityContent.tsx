@@ -30,7 +30,7 @@ const fetchAIModels = async (): Promise<AIModel[]> => {
 export default function CommunityContent() {
   const router = useRouter();
   const { data: aiModels, isLoading, error } = useQuery<AIModel[]>({
-    queryKey: ['aiModels'],
+    queryKey: ['publicAiModels'],
     queryFn: fetchAIModels,
   });
 
@@ -68,7 +68,7 @@ export default function CommunityContent() {
 
   return (
     <div className="container mx-auto py-12 px-4 h-full">
-      <h1 className="text-4xl font-bold mb-12 text-center text-primary">Meet Your New Girlfriends</h1>
+      <h1 className="text-4xl font-bold mb-12 text-center text-primary">Top AI Girlfriends</h1>
       <div className="mb-8 text-center">
         <Button onClick={() => router.push('/community/create-ai-model')} className="bg-primary text-white">
           Create Your Own AI Model
@@ -95,18 +95,12 @@ export default function CommunityContent() {
                 </AvatarFallback>
               </Avatar>
               <p className="text-sm text-card-foreground/80 mb-4 text-center leading-relaxed max-w-[250px]">
-                {aiModel.personality}
+                {aiModel.personality.substring(0, 100)}...
               </p>
               <div className="flex items-center justify-center space-x-2 mb-6 bg-primary/10 px-3 py-1 rounded-full">
                 <Users size={16} className="text-primary" />
                 <span className="text-sm font-medium text-primary">
-                  {aiModel.followerCount !== undefined ? (
-                    <>
-                      {aiModel.followerCount.toLocaleString()} {aiModel.followerCount === 1 ? 'Follower' : 'Followers'}
-                    </>
-                  ) : (
-                    'No followers yet'
-                  )}
+                  {aiModel.followerCount.toLocaleString()} {aiModel.followerCount === 1 ? 'Follower' : 'Followers'}
                 </span>
               </div>
               <Button 

@@ -2,14 +2,25 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/db/prisma';
 import { getCurrentUser } from '@/lib/session';
 import OpenAI from 'openai';
+import { v2 as cloudinary } from 'cloudinary';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Ensure Cloudinary is configured
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
 export async function GET() {
   try {
-    const aIModels = await prisma.aIModel.findMany({
+    const publicModels = await prisma.aIModel.findMany({
+      where: {
+        isPrivate: false
+      },
       select: {
         id: true,
         name: true,
@@ -19,25 +30,20 @@ export async function GET() {
         createdBy: {
           select: {
             id: true,
-            name: true,
-          },
-        },
+            name: true
+          }
+        }
       },
+      orderBy: {
+        followerCount: 'desc'
+      },
+      take: 50 // Limit to top 50 models
     });
 
-    // Ensure createdBy always has a name
-    const sanitizedModels = aIModels.map(model => ({
-      ...model,
-      createdBy: {
-        id: model.createdBy?.id || '',
-        name: model.createdBy?.name || 'Unknown Creator'
-      }
-    }));
-
-    return NextResponse.json(sanitizedModels);
+    return NextResponse.json(publicModels);
   } catch (error) {
-    console.error('Error fetching AI models:', error);
-    return NextResponse.json({ error: 'Failed to fetch AI models' }, { status: 500 });
+    console.error('Error fetching public AI models:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -59,11 +65,22 @@ export async function POST(request: Request) {
       size: "1024x1024",
     });
 
-    const imageUrl = imageResponse.data[0].url;
+    const generatedImageUrl = imageResponse.data[0].url;
 
-    if (!imageUrl) {
+    if (!generatedImageUrl) {
       throw new Error('Failed to generate image');
     }
+
+    // Upload the generated image to Cloudinary
+    const uploadResponse = await cloudinary.uploader.upload(generatedImageUrl, {
+      folder: 'ai-models',
+      resource_type: 'image',
+      public_id: `${name}-${Date.now()}`,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
+    const cloudinaryImageUrl = uploadResponse.secure_url;
 
     const newAIModel = await prisma.aIModel.create({
       data: {
@@ -74,12 +91,10 @@ export async function POST(request: Request) {
         hobbies,
         likes,
         dislikes,
-        imageUrl,
+        imageUrl: cloudinaryImageUrl,
         userId: currentUser.id,
       },
     });
-
-    console.log('New AI Model created:', newAIModel);
 
     return NextResponse.json(newAIModel, { status: 201 });
   } catch (error) {

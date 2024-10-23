@@ -9,7 +9,7 @@ import BaseLayout from '@/components/BaseLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { User, Heart, Trash2 } from 'lucide-react';
+import { User, Heart, Trash2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -125,6 +125,14 @@ export default function EditAIModelPage({ params }: { params: { id: string } }) 
   return (
     <BaseLayout>
       <div className="container mx-auto py-12 px-4">
+        <Button
+          variant="ghost"
+          onClick={() => router.push('/my-models')}
+          className="mb-4 flex items-center text-primary hover:text-primary-dark"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to My Models
+        </Button>
         <Card className="w-full max-w-4xl mx-auto">
           <CardHeader className="pb-2">
             <CardTitle className="text-3xl font-bold text-center">Edit AI Model: {model.name}</CardTitle>

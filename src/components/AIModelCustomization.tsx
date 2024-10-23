@@ -1,5 +1,5 @@
-import React from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -28,18 +28,19 @@ interface AIModelCustomizationProps {
 }
 
 export function AIModelCustomization({ aiModel, onSave }: AIModelCustomizationProps) {
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { control, register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: aiModel,
   });
   const { toast } = useToast();
+  const [isPrivate, setIsPrivate] = useState(aiModel.isPrivate);
 
   const onSubmit = async (data: FormData) => {
     try {
       const response = await fetch(`/api/ai-models/${aiModel.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, isPrivate }),
       });
 
       if (!response.ok) throw new Error('Failed to update AI model');
@@ -84,7 +85,20 @@ export function AIModelCustomization({ aiModel, onSave }: AIModelCustomizationPr
       {errors.dislikes && <p className="text-red-500">{errors.dislikes.message}</p>}
 
       <div className="flex items-center space-x-2">
-        <Switch {...register('isPrivate')} id="isPrivate" />
+        <Controller
+          name="isPrivate"
+          control={control}
+          render={({ field }) => (
+            <Switch
+              checked={isPrivate}
+              onCheckedChange={(checked) => {
+                setIsPrivate(checked);
+                field.onChange(checked);
+              }}
+              id="isPrivate"
+            />
+          )}
+        />
         <label htmlFor="isPrivate">Private Model</label>
       </div>
 

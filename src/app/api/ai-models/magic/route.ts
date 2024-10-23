@@ -2,9 +2,22 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/db/prisma';
 import { getCurrentUser } from '@/lib/session';
 import OpenAI from 'openai';
+import { v2 as cloudinary } from 'cloudinary';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+});
+
+console.log('Cloudinary config:', {
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY ? 'defined' : 'undefined',
+  api_secret: process.env.CLOUDINARY_API_SECRET ? 'defined' : 'undefined',
+});
+
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 export async function POST(request: Request) {
@@ -44,7 +57,7 @@ export async function POST(request: Request) {
     }
 
     console.log('Generating image...');
-    let imageUrl = '';
+    let cloudinaryImageUrl = '';
     try {
       const imagePrompt = `Ultra realistic portrait of ${aiModelDetails.appearance}. Photorealistic, highly detailed, 8k resolution.`;
       const imageResponse = await openai.images.generate({
@@ -54,11 +67,21 @@ export async function POST(request: Request) {
         size: "1024x1024",
       });
 
-      imageUrl = imageResponse.data[0].url || '';
-      console.log('Image URL:', imageUrl);
+      const generatedImageUrl = imageResponse.data[0].url;
+      if (!generatedImageUrl) {
+        throw new Error('Failed to generate image');
+      }
+
+      // Upload the generated image to Cloudinary
+      const uploadResponse = await cloudinary.uploader.upload(generatedImageUrl, {
+        folder: 'ai-models',
+      });
+
+      cloudinaryImageUrl = uploadResponse.secure_url;
+      console.log('Cloudinary Image URL:', cloudinaryImageUrl);
     } catch (error) {
-      console.error('Error generating image:', error);
-      // If image generation fails, we'll continue without an image
+      console.error('Error generating or uploading image:', error);
+      // If image generation or upload fails, we'll continue without an image
     }
 
     console.log('Creating AI model in database...');
@@ -71,7 +94,7 @@ export async function POST(request: Request) {
         hobbies: aiModelDetails.hobbies || '',
         likes: aiModelDetails.likes || '',
         dislikes: aiModelDetails.dislikes || '',
-        imageUrl: imageUrl,
+        imageUrl: cloudinaryImageUrl,
         userId: currentUser.id,
       },
     });
