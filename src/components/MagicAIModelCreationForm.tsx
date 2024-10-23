@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
   description: z.string().min(20, 'Description must be at least 20 characters'),
@@ -25,7 +26,6 @@ export function MagicAIModelCreationForm() {
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
     try {
-      // Here, you would call an API endpoint that uses ChatGPT to generate the AI model details
       const response = await fetch('/api/ai-models/magic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -33,7 +33,8 @@ export function MagicAIModelCreationForm() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create AI model');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create AI model');
       }
 
       const newAIModel = await response.json();
@@ -41,12 +42,11 @@ export function MagicAIModelCreationForm() {
         title: 'Success',
         description: `AI Model "${newAIModel.name}" created successfully!`,
       });
-      // Redirect to the new AI model's page
       window.location.href = `/community/AIModelProfile/${newAIModel.id}`;
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to create AI model. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to create AI model. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -70,8 +70,15 @@ export function MagicAIModelCreationForm() {
             {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>}
           </div>
 
-          <Button type="submit" disabled={isLoading} className="w-full">
-            {isLoading ? 'Creating...' : 'Generate AI Model'}
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              'Create Magic AI Model'
+            )}
           </Button>
         </form>
       </CardContent>

@@ -198,6 +198,7 @@ model AIModel {
   interactionLogs       InteractionLog[]
   engagements           Engagement[]
   ConversationEmbedding ConversationEmbedding[]
+  isPrivate             Boolean                 @default(false)
 
   followers     Follow[]
   followerCount Int      @default(0)

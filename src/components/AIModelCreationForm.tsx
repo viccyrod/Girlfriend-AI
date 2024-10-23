@@ -50,6 +50,7 @@ export function AIModelCreationForm() {
       });
       window.location.href = `/community/AIModelProfile/${newAIModel.id}`;
     } catch (error) {
+      console.error('Failed to create AI model:', error);
       toast({
         title: 'Error',
         description: 'Failed to create AI model. Please try again.',

@@ -19,8 +19,8 @@ const SIDEBAR_LINKS = [
     },
     {
         icon: PersonIcon,
-        label: "AI Models",
-        href: "/community",
+        label: "My Models",
+        href: "/my-models",
     },
     {
         icon: ChatBubbleIcon,
@@ -30,7 +30,7 @@ const SIDEBAR_LINKS = [
     {
         icon: CameraIcon,
         label: "Creator Studio",
-        href: "http://localhost:3000/creator",
+        href: "/creator-studio",
     },
 ];
 

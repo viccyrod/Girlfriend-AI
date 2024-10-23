@@ -19,6 +19,7 @@ export interface AIModel {
   createdBy: Creator | string;
   followerCount: number;
   isFollowing: boolean;
+  isPrivate: boolean;
 }
 
 export interface Creator {
