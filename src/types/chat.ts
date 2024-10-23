@@ -21,17 +21,19 @@ export interface ExtendedMessage extends PrismaMessage {
 }
 
 export interface Message {
+  id: string;
+  content: string;
+  userId: string | null;
+  user: {
     id: string;
-    content: string;
-    userId: string;
-    user: {
-      id: string;
-      name: string | null;
-      image: string | null;
-    };
-    createdAt: Date;
-    updatedAt: Date;
-    chatRoomId: string;
-  }
+    name: string | null;
+    image: string | null;
+  } | null;
+  createdAt: Date;
+  updatedAt: Date;
+  chatRoomId: string;
+  isAIMessage: boolean;
+  aiModelId: string | null;
+}
 
   

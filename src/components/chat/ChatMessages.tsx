@@ -1,13 +1,15 @@
 import React from 'react';
-import dynamic from 'next/dynamic';
-import { ExtendedChatRoom } from '@/types/chat'; // Adjust the import path as needed
+import { ExtendedChatRoom } from '@/types/chat';
+import ClientChatMessages from './ClientChatMessages';
 
 interface ChatMessagesProps {
   chatRoom: ExtendedChatRoom;
 }
 
-const ClientChatMessages = dynamic(() => import('./ClientChatMessages'), { ssr: false });
-
 export default function ChatMessages({ chatRoom }: ChatMessagesProps) {
-  return <ClientChatMessages chatRoom={chatRoom} />;
+  const safeAiModel = chatRoom.aiModel ? {
+    ...chatRoom.aiModel,
+    imageUrl: chatRoom.aiModel.imageUrl ?? ''
+  } : null;
+  return <ClientChatMessages chatRoom={{ ...chatRoom, aiModel: safeAiModel }} />;
 }

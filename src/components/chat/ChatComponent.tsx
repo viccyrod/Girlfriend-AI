@@ -166,11 +166,10 @@ const ChatComponent = () => {
           ...AIModel,
           imageUrl: AIModel.imageUrl || null,
           createdBy: (AIModel as unknown as { createdBy?: string }).createdBy || 'SYSTEM',
-          isFollowing: false, // Add this line
+          isFollowing: false,
         },
         aiModelImageUrl: AIModel.imageUrl || null,
       };
-
       setChatRooms(prevRooms => [...prevRooms, extendedNewRoom]);
       setSelectedRoom(extendedNewRoom);
     } catch (error) {
@@ -204,6 +203,7 @@ const ChatComponent = () => {
           aiModel: room.aiModel ? {
             ...room.aiModel,
             imageUrl: room.aiModel.imageUrl || '',
+            name: room.aiModel.name || 'AI Model',  // Ensure name is set
             createdAt: new Date(),
             updatedAt: new Date(),
             userId: '',
@@ -219,6 +219,7 @@ const ChatComponent = () => {
           aiModel: selectedRoom.aiModel ? {
             ...selectedRoom.aiModel,
             imageUrl: selectedRoom.aiModel.imageUrl || '',
+            name: selectedRoom.aiModel.name || 'AI Model',  // Ensure name is set
             createdAt: new Date(),
             updatedAt: new Date(),
             userId: '',
@@ -234,7 +235,27 @@ const ChatComponent = () => {
       />
       <div className="flex-1 flex flex-col">
         {selectedRoom ? (
-          <ClientChatMessages chatRoom={selectedRoom} />
+          <ClientChatMessages 
+            chatRoom={{
+              ...selectedRoom,
+              aiModel: selectedRoom.aiModel ? {
+                ...selectedRoom.aiModel,
+                name: selectedRoom.aiModel.name || 'AI Model',
+                imageUrl: selectedRoom.aiModel.imageUrl || '',
+                id: selectedRoom.aiModel.id || '',
+                createdAt: selectedRoom.aiModel.createdAt || new Date(),
+                updatedAt: selectedRoom.aiModel.updatedAt || new Date(),
+                personality: selectedRoom.aiModel.personality || '',
+                appearance: selectedRoom.aiModel.appearance || '',
+                backstory: selectedRoom.aiModel.backstory || '',
+                hobbies: selectedRoom.aiModel.hobbies || '',
+                likes: selectedRoom.aiModel.likes || '',
+                dislikes: selectedRoom.aiModel.dislikes || '',
+                userId: selectedRoom.aiModel.userId || '',
+                followerCount: selectedRoom.aiModel.followerCount || 0,
+              } : null
+            }} 
+          />
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-foreground">Select a chat room to start messaging</p>

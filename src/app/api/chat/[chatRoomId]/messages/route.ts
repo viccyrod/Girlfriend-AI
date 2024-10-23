@@ -63,11 +63,21 @@ export async function POST(request: Request, { params }: { params: { chatRoomId:
     const userMessage = await prisma.message.create({
       data: {
         content,
-        userId,
-        chatRoomId,
+        chatRoom: {
+          connect: { id: chatRoomId }
+        },
+        user: {
+          connect: { id: currentUser.id }
+        }
       },
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
       },
     });
     console.log('6. User message created:', userMessage.id);
@@ -163,3 +173,5 @@ Dislikes: ${chatRoom.aiModel.dislikes}`;
     }, { status: 500 });
   }
 }
+
+
