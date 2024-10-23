@@ -132,9 +132,10 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
   const handleSendMessage = useCallback(async (e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
     if (!newMessage.trim() || isSending) return;
-
+  
+    const tempMessageId = `temp-${Date.now()}`;
     const tempMessage: Message = {
-      id: `temp-${Date.now()}`,
+      id: tempMessageId,
       content: newMessage.trim(),
       userId: currentUser?.id || '',
       chatRoomId: chatRoom.id,
@@ -142,20 +143,27 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
       updatedAt: new Date(),
       user: currentUser ?? { id: '', name: 'Unknown User', image: null },
       isAIMessage: false,
-      aiModelId: null, // or provide a default value if required
+      aiModelId: null,
     };
-
+  
     setMessages(prevMessages => [...prevMessages, tempMessage]);
     setNewMessage('');
     setIsSending(true);
-
+  
     try {
       const { userMessage: savedUserMessage, aiMessage } = await sendMessage(chatRoom.id, prepareUserMessage());
-      setMessages(prevMessages => [
-        ...prevMessages.filter(msg => msg.id !== savedUserMessage.id),
-        savedUserMessage,
-        aiMessage
-      ]);
+  
+      // Replace the temporary message with the saved message
+      setMessages(prevMessages => {
+        const index = prevMessages.findIndex(msg => msg.id === tempMessageId);
+        const newMessages = [...prevMessages];
+        if (index !== -1) {
+          newMessages[index] = savedUserMessage;
+        } else {
+          newMessages.push(savedUserMessage);
+        }
+        return [...newMessages, aiMessage];
+      });
     } catch (error) {
       console.error('Failed to send message:', error);
       toast({
@@ -167,6 +175,7 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
       setIsSending(false);
     }
   }, [newMessage, isSending, chatRoom.id, prepareUserMessage, currentUser, toast]);
+  
 
   handleSendMessageRef.current = handleSendMessage;
 
