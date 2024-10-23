@@ -9,6 +9,7 @@ export async function GET() {
         name: true,
         personality: true,
         imageUrl: true,
+        followerCount: true,
         createdBy: {
           select: {
             id: true,

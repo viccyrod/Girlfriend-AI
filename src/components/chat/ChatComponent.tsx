@@ -21,6 +21,7 @@ const mapComponentToLocalRoom = (room: ComponentExtendedChatRoom): LocalExtended
   aiModel: room.aiModel ? {
     ...room.aiModel,
     createdBy: (room.aiModel as unknown as { createdBy?: string }).createdBy || 'SYSTEM',
+    isFollowing: false, // Add this line
   } : undefined
 });
 
@@ -165,6 +166,7 @@ const ChatComponent = () => {
           ...AIModel,
           imageUrl: AIModel.imageUrl || null,
           createdBy: (AIModel as unknown as { createdBy?: string }).createdBy || 'SYSTEM',
+          isFollowing: false, // Add this line
         },
         aiModelImageUrl: AIModel.imageUrl || null,
       };
@@ -196,6 +198,7 @@ const ChatComponent = () => {
   return (
     <div className="flex h-full bg-background">
       <ChatRoomList
+        isLoading={isLoading}
         chatRooms={chatRooms.map(room => ({
           ...room,
           aiModel: room.aiModel ? {

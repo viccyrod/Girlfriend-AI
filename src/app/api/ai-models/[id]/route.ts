@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 // import { AIModel } from "@/types/AIModel";
 
@@ -13,29 +13,33 @@ import { prisma } from "@/db/prisma";
  * @returns {NextResponse} - The response object containing the AI model data or an error message.
  */
 export async function GET(
-  request: Request,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const aiModelId = params.id;
+  
   try {
-    const id = params.id;
-    const AIModel = await prisma.aIModel.findUnique({
-      where: { id },
+    const aiModel = await prisma.aIModel.findUnique({
+      where: { id: aiModelId },
       include: {
-        createdBy: {
-          select: {
-            name: true,
-          },
-        },
-      },
+        createdBy: true,
+      }
     });
 
-    if (!AIModel) {
+    if (!aiModel) {
       return NextResponse.json({ error: 'AI Model not found' }, { status: 404 });
     }
 
-    return NextResponse.json(AIModel);
+    return NextResponse.json(aiModel);
   } catch (error) {
-    console.error('Error fetching AI model:', error);
-    return NextResponse.json({ error: 'Failed to fetch AI model' }, { status: 500 });
+    console.error('Error fetching AI Model:', error);
+    return NextResponse.json({ error: 'Failed to fetch AI Model' }, { status: 500 });
   }
+}
+
+export async function POST() {
+  // Handle the POST request here
+  // For example, update the AI model's follower count
+  
+  return NextResponse.json({ success: true });
 }

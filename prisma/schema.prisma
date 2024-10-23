@@ -16,8 +16,6 @@ model User {
   customerId             String?                 @unique // stripe customer id
   bio                    String?
   posts                  Post[]
-  followers              Follow[]                @relation("Followers")
-  following              Follow[]                @relation("Following")
   subscription           Subscription?
   orders                 Order[]
   comments               Comment[]
@@ -36,19 +34,21 @@ model User {
   engagements            Engagement[]
   conversationEmbeddings ConversationEmbedding[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  AIModel   AIModel[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  AIModel          AIModel[]
+  followedAIModels Follow[]
 }
 
 model Follow {
-  id          String @id @default(cuid())
-  follower    User   @relation("Following", fields: [followerId], references: [id])
-  followerId  String
-  following   User   @relation("Followers", fields: [followingId], references: [id])
-  followingId String
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  aiModel   AIModel  @relation(fields: [aiModelId], references: [id])
+  aiModelId String
+  createdAt DateTime @default(now())
 
-  @@unique([followerId, followingId])
+  @@unique([userId, aiModelId])
 }
 
 model Post {
@@ -198,6 +198,9 @@ model AIModel {
   interactionLogs       InteractionLog[]
   engagements           Engagement[]
   ConversationEmbedding ConversationEmbedding[]
+
+  followers     Follow[]
+  followerCount Int      @default(0)
 
   @@index([userId])
 }

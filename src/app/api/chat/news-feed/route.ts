@@ -12,9 +12,9 @@ export async function GET() {
     const posts = await prisma.post.findMany({
       where: {
         author: {
-          followers: {
+          followedAIModels: {
             some: {
-              followerId: currentUser.id
+              userId: currentUser.id
             }
           }
         }

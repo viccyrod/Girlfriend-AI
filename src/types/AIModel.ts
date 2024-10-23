@@ -17,6 +17,8 @@ export interface AIModel {
   updatedAt: Date;
   userId: string;
   createdBy: Creator | string;
+  followerCount: number;
+  isFollowing: boolean;
 }
 
 export interface Creator {
