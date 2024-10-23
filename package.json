@@ -10,6 +10,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.9.0",
     "@kinde-oss/kinde-auth-nextjs": "^2.3.11",
     "@langchain/community": "^0.3.7",
     "@pinecone-database/pinecone": "^3.0.3",
@@ -43,6 +44,7 @@
     "prisma-extension-pgvector": "^0.11.0",
     "react": "^18",
     "react-dom": "^18",
+    "react-hook-form": "^7.53.1",
     "react-textarea-autosize": "^8.5.4",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
