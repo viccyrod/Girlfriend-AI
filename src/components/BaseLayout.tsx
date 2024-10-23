@@ -18,9 +18,9 @@ const BaseLayout = ({ children }: { children: ReactNode }) => {
     if (isLoading) return <div>Loading...</div>;
 
     return (
-        <div className='flex max-w-2xl lg:max-w-7xl mx-auto relative'>
+        <div className='flex h-screen w-full'>
             <Sidebar />
-            <div className="w-full flex flex-col">
+            <div className="flex-1 overflow-auto max-w-7xl mx-auto">
                 {children}
             </div>
         </div>

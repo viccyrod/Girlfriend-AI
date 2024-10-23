@@ -1,8 +1,10 @@
+"use client";
+
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import Link from 'next/link';
 import React, { useState } from 'react';
-import { HomeIcon, CameraIcon, PersonIcon, GearIcon, ChatBubbleIcon, HamburgerMenuIcon, Cross1Icon } from '@radix-ui/react-icons';
+import { HomeIcon, CameraIcon, PersonIcon, GearIcon, ChatBubbleIcon, HamburgerMenuIcon, Cross1Icon, LayoutIcon } from '@radix-ui/react-icons';
 import { DropdownMenuTrigger } from '@radix-ui/react-dropdown-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from './ui/dropdown-menu';
 import { ModeToggle } from './ModeToggle';
@@ -35,6 +37,7 @@ const SIDEBAR_LINKS = [
 const Sidebar = () => {
     const { user } = useKindeBrowserClient();
     const [isOpen, setIsOpen] = useState(false);
+    const isAdmin = user?.email === process.env.ADMIN_EMAIL;
 
     const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -42,6 +45,7 @@ const Sidebar = () => {
         <>
             {/* Hamburger menu for mobile */}
             <button
+                aria-label="Toggle sidebar"
                 className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-background rounded-md"
                 onClick={toggleSidebar}
             >
@@ -57,12 +61,12 @@ const Sidebar = () => {
             )}
 
             {/* Sidebar */}
-            <div className={`fixed top-0 left-0 h-full bg-background transform transition-transform duration-300 ease-in-out z-50
-                ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:w-1/5
+            <div className={`fixed top-0 left-0 h-full bg-background transform transition-transform duration-300 ease-in-out z-50 shadow-lg
+                ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:w-64
                 flex flex-col py-6 px-4 border-r`}>
                 
                 {/* Main Content */}
-                <div className="flex flex-col h-full justify-between">
+                <div className="flex flex-col h-full">
                     
                     {/* Logo */}
                     <div className="flex-shrink-0 mb-6">
@@ -76,34 +80,43 @@ const Sidebar = () => {
                     </div>
 
                     {/* Navigation Links */}
-                    <nav className="flex-grow">
+                    <nav className="flex-grow mb-6">
                         {SIDEBAR_LINKS.map(link => (
                             <Link key={link.href} href={link.href}
-                                className="flex items-center gap-3 p-3 text-sm hover:bg-gray-700 rounded-lg"
+                                className="flex items-center gap-3 p-3 text-sm hover:bg-primary-foreground hover:text-primary rounded-lg transition-colors"
                             >
                                 <link.icon className="w-5 h-5" />
                                 <span>{link.label}</span>
                             </Link>
                         ))}
+                        {isAdmin && (
+                            <Link
+                                href="/secret-dashboard"
+                                className='flex items-center gap-3 p-3 text-sm hover:bg-primary-foreground hover:text-primary rounded-lg transition-colors'
+                            >
+                                <LayoutIcon className='w-5 h-5' />
+                                <span>Dashboard</span>
+                            </Link>
+                        )}
                     </nav>
 
                     {/* User Info & Settings at the Bottom */}
                     <div className="mt-auto">
-                        <div className="flex items-center justify-between p-2 hover:bg-gray-700 rounded-lg">
+                        <div className="flex items-center justify-between p-2 hover:bg-primary-foreground rounded-lg transition-colors">
                             <div className="flex items-center gap-3">
                                 <Avatar className="w-10 h-10">
                                     <AvatarImage src={user?.picture || ""} className="object-cover" />
                                     <AvatarFallback>CN</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <p className="text-sm">{user?.given_name} {user?.family_name}</p>
-                                    <p className="text-xs text-gray-400">{user?.email}</p>
+                                    <p className="text-sm font-medium">{user?.given_name} {user?.family_name}</p>
+                                    <p className="text-xs text-muted-foreground">{user?.email}</p>
                                 </div>
                             </div>
 
                             {/* Gear Icon with Dropdown */}
                             <DropdownMenu>
-                                <DropdownMenuTrigger className="p-2 hover:bg-gray-600 rounded-full">
+                                <DropdownMenuTrigger className="p-2 hover:bg-gray-600 rounded-full transition-colors">
                                     <GearIcon className="w-5 h-5" />
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">

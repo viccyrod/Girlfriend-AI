@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { AIModel } from '@/types/AIModel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, User, Heart, Bookmark, Share2 } from 'lucide-react';
+import { MessageCircle, User, Heart } from 'lucide-react';
 
 interface AIModelProfileProps {
   aiModel: AIModel;
