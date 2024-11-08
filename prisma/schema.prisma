@@ -13,74 +13,69 @@ model User {
   name                   String
   image                  String?
   isSubscribed           Boolean                 @default(false)
-  customerId             String?                 @unique // stripe customer id
+  customerId             String?                 @unique
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  isAI                   Boolean                 @default(false)
   bio                    String?
-  posts                  Post[]
-  subscription           Subscription?
-  orders                 Order[]
+  AIModel                AIModel[]
+  customizations         AIModelCustomization[]
+  activityFeeds          ActivityFeed[]
   comments               Comment[]
+  conversations          Conversation[]
+  conversationEmbeddings ConversationEmbedding[]
+  engagements            Engagement[]
+  followedAIModels       Follow[]
+  interactionLogs        InteractionLog[]
   likes                  Like[]
   messages               Message[]
-  chatRooms              ChatRoom[]
-  isAI                   Boolean                 @default(false)
-  likedPosts             Post[]                  @relation("LikedPosts")
-  conversations          Conversation[]
-  customizations         AIModelCustomization[]
-  payments               Payment[]
-  interactionLogs        InteractionLog[]
-  notifications          Notification[]
-  activityFeeds          ActivityFeed[]
   moderationFlags        ModerationFlag[]
-  engagements            Engagement[]
-  conversationEmbeddings ConversationEmbedding[]
-
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  AIModel          AIModel[]
-  followedAIModels Follow[]
+  notifications          Notification[]
+  orders                 Order[]
+  payments               Payment[]
+  posts                  Post[]
+  subscription           Subscription?
+  chatRooms              ChatRoom[]              @relation("ChatRoomToUser")
+  likedPosts             Post[]                  @relation("LikedPosts")
 }
 
 model Follow {
   id        String   @id @default(cuid())
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  aiModel   AIModel  @relation(fields: [aiModelId], references: [id])
   aiModelId String
+  userId    String
   createdAt DateTime @default(now())
+  aiModel   AIModel  @relation(fields: [aiModelId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, aiModelId])
 }
 
 model Post {
-  id        String  @id @default(cuid())
+  id        String    @id @default(cuid())
   mediaUrl  String?
   mediaType String?
   text      String
   userId    String
-  likes     Int     @default(0)
-  isPublic  Boolean @default(false)
-  likedBy   User[]  @relation("LikedPosts")
+  likes     Int       @default(0)
+  isPublic  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   authorId  String
-  author    User    @relation(fields: [authorId], references: [id])
-
   comments  Comment[]
   likesList Like[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  author    User      @relation(fields: [authorId], references: [id])
+  likedBy   User[]    @relation("LikedPosts")
 }
 
 model Comment {
-  id     String @id @default(cuid())
-  text   String
-  userId String
-  postId String
-
-  post Post @relation(fields: [postId], references: [id])
-  user User @relation(fields: [userId], references: [id])
-
+  id        String   @id @default(cuid())
+  text      String
+  userId    String
+  postId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  post      Post     @relation(fields: [postId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([postId])
 }
@@ -89,9 +84,8 @@ model Like {
   id     String @id @default(cuid())
   userId String
   postId String
-
-  user User @relation(fields: [userId], references: [id])
-  post Post @relation(fields: [postId], references: [id])
+  post   Post   @relation(fields: [postId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
 
   @@index([postId])
   @@index([userId])
@@ -105,8 +99,7 @@ model Subscription {
   startDate DateTime @default(now())
   endDate   DateTime
   aiModelId String?
-
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -117,25 +110,23 @@ model Product {
   image      String
   price      Int
   isArchived Boolean @default(false)
-
-  orders Order[]
+  orders     Order[]
 }
 
 model Order {
-  id                String   @id @default(cuid())
+  id                String           @id @default(cuid())
   userId            String
   productId         String
   price             Int
-  isPaid            Boolean  @default(false)
+  isPaid            Boolean          @default(false)
   size              String
-  orderDate         DateTime @default(now())
+  orderDate         DateTime         @default(now())
   shippingAddressId String?
   paymentId         String?
-
-  user            User             @relation(fields: [userId], references: [id])
-  product         Product          @relation(fields: [productId], references: [id])
-  shippingAddress ShippingAddress? @relation(fields: [shippingAddressId], references: [id])
-  Payment         Payment[]
+  product           Product          @relation(fields: [productId], references: [id])
+  shippingAddress   ShippingAddress? @relation(fields: [shippingAddressId], references: [id])
+  user              User             @relation(fields: [userId], references: [id])
+  Payment           Payment[]
 
   @@index([userId])
   @@index([productId])
@@ -148,33 +139,37 @@ model ShippingAddress {
   state      String?
   postalCode String
   country    String
-
-  order Order[]
+  order      Order[]
 }
 
 model Message {
   id          String   @id @default(cuid())
   content     String
+  userId      String?
+  chatRoomId  String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  chatRoom    ChatRoom @relation(fields: [chatRoomId], references: [id])
-  chatRoomId  String
-  user        User?    @relation(fields: [userId], references: [id])
-  userId      String?
-  aiModel     AIModel? @relation(fields: [aiModelId], references: [id])
   aiModelId   String?
-  isAIMessage Boolean  @default(false) // New field
+  isAIMessage Boolean  @default(false)
+  metadata    Json?
+  role        String   @default("user")
+  aiModel     AIModel? @relation(fields: [aiModelId], references: [id])
+  chatRoom    ChatRoom @relation(fields: [chatRoomId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([chatRoomId])
+  @@index([userId])
 }
 
 model ChatRoom {
   id        String    @id @default(cuid())
   name      String
-  users     User[]
-  messages  Message[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  aiModel   AIModel?  @relation(fields: [aiModelId], references: [id])
   aiModelId String?
+  aiModel   AIModel?  @relation(fields: [aiModelId], references: [id])
+  messages  Message[]
+  users     User[]    @relation("ChatRoomToUser")
 }
 
 model AIModel {
@@ -186,22 +181,25 @@ model AIModel {
   hobbies               String
   likes                 String
   dislikes              String
+  age                   Int?
   imageUrl              String
+  images                Image[]
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
-  createdBy             User                    @relation(fields: [userId], references: [id])
   userId                String
-  aiContent             aIContent[]
-  messages              Message[]
-  chatRooms             ChatRoom[]
-  customizations        AIModelCustomization[]
-  interactionLogs       InteractionLog[]
-  engagements           Engagement[]
-  ConversationEmbedding ConversationEmbedding[]
+  followerCount         Int                     @default(0)
   isPrivate             Boolean                 @default(false)
-
-  followers     Follow[]
-  followerCount Int      @default(0)
+  isAnime               Boolean                 @default(false)
+  isHumanX              Boolean                 @default(false)
+  createdBy             User?                   @relation(fields: [userId], references: [id])
+  customizations        AIModelCustomization[]
+  chatRooms             ChatRoom[]
+  ConversationEmbedding ConversationEmbedding[]
+  engagements           Engagement[]
+  followers             Follow[]
+  interactionLogs       InteractionLog[]
+  messages              Message[]
+  aiContent             aIContent[]
 
   @@index([userId])
 }
@@ -210,33 +208,42 @@ model aIContent {
   id        String   @id @default(cuid())
   content   String
   aiModelId String
-  aiModel   AIModel  @relation(fields: [aiModelId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  aiModel   AIModel  @relation(fields: [aiModelId], references: [id])
+}
+
+model Image {
+  id        String   @id @default(cuid())
+  imageData String? // Base64 image data
+  imageUrl  String? // URL reference
+  aiModel   AIModel  @relation(fields: [aiModelId], references: [id], onDelete: Cascade)
+  aiModelId String
+  isNSFW    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([aiModelId])
 }
 
 model Conversation {
   id        String   @id @default(cuid())
   userId    String
   content   String
-  // embedding String   // Optional: Store the embedding vector here if needed
   timestamp DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model AIModelCustomization {
-  id              String @id @default(cuid())
+  id              String   @id @default(cuid())
   userId          String
   aiModelId       String
   preferenceKey   String
   preferenceValue String
-
-  aiModel AIModel @relation(fields: [aiModelId], references: [id])
-  user    User    @relation(fields: [userId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  aiModel         AIModel  @relation(fields: [aiModelId], references: [id])
+  user            User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([aiModelId])
@@ -250,9 +257,8 @@ model Payment {
   currency    String
   status      String   @default("pending")
   paymentDate DateTime @default(now())
-
-  user  User   @relation(fields: [userId], references: [id])
-  order Order? @relation(fields: [orderId], references: [id])
+  order       Order?   @relation(fields: [orderId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([orderId])
@@ -264,9 +270,8 @@ model InteractionLog {
   aiModelId   String
   interaction String
   timestamp   DateTime @default(now())
-
-  user    User    @relation(fields: [userId], references: [id])
-  aiModel AIModel @relation(fields: [aiModelId], references: [id])
+  aiModel     AIModel  @relation(fields: [aiModelId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([aiModelId])
@@ -278,8 +283,7 @@ model Notification {
   message   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -289,8 +293,7 @@ model ActivityFeed {
   userId    String
   activity  String
   timestamp DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -302,8 +305,7 @@ model ModerationFlag {
   reason    String
   status    String   @default("pending")
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([contentId])
@@ -315,9 +317,8 @@ model Engagement {
   aiModelId String
   eventType String
   timestamp DateTime @default(now())
-
-  user    User    @relation(fields: [userId], references: [id])
-  aiModel AIModel @relation(fields: [aiModelId], references: [id])
+  aiModel   AIModel  @relation(fields: [aiModelId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([aiModelId])
@@ -327,12 +328,21 @@ model ConversationEmbedding {
   id        String   @id @default(cuid())
   userId    String
   aiModelId String
-  embedding String // Store the embedding vector as a string
+  embedding String
   content   String
   timestamp DateTime @default(now())
-
-  user    User    @relation(fields: [userId], references: [id])
-  aiModel AIModel @relation(fields: [aiModelId], references: [id])
+  aiModel   AIModel  @relation(fields: [aiModelId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId, aiModelId])
+}
+
+model ModelTraining {
+  id                  String   @id @default(cuid())
+  userId              String
+  modelName           String
+  replicateTrainingId String
+  status              String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }

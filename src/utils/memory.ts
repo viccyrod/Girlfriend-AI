@@ -2,10 +2,27 @@ import { OpenAIEmbeddings } from "@langchain/openai";
 import { PineconeStore } from "@langchain/community/vectorstores/pinecone";
 import { Pinecone } from "@pinecone-database/pinecone";
 
-const pinecone = new Pinecone({
-  apiKey: process.env.PINECONE_API_KEY!,
+// Add debugging logs at the top of the file
+console.log('Environment variables check:', {
+  hasPineconeKey: !!process.env.PINECONE_API_KEY,
+  envKeys: Object.keys(process.env).filter(key => key.includes('PINE')),
 });
 
+// Validate environment variables
+if (!process.env.PINECONE_API_KEY) {
+  throw new Error('PINECONE_API_KEY is not defined in environment variables');
+}
+
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error('OPENAI_API_KEY is not defined in environment variables');
+}
+
+// Initialize Pinecone client
+const pinecone = new Pinecone({
+  apiKey: process.env.PINECONE_API_KEY,
+});
+
+// Initialize OpenAI embeddings with correct API key
 const embeddings = new OpenAIEmbeddings({
   openAIApiKey: process.env.OPENAI_API_KEY,
 });
@@ -36,16 +53,15 @@ export async function storeMemory(aiModelId: string, userId: string, content: st
   }
 }
 
-export async function retrieveMemories(aiModelId: string, userId: string, query: string): Promise<string[]> {
-  console.log('retrieveMemories: Start');
-  console.log('Params:', { aiModelId, userId, query });
-
+export async function retrieveMemories(
+  aiModelId: string, 
+  userId: string, 
+  query: string,
+  limit: number = 5
+): Promise<string[]> {
   try {
     const index = pinecone.Index(INDEX_NAME);
-    console.log('retrieveMemories: Pinecone index obtained');
-
     const vectorStore = await PineconeStore.fromExistingIndex(embeddings, { pineconeIndex: index });
-    console.log('retrieveMemories: Vector store created');
 
     const filter = {
       $and: [
@@ -53,15 +69,11 @@ export async function retrieveMemories(aiModelId: string, userId: string, query:
         { userId: { $eq: userId } }
       ]
     };
-    console.log('retrieveMemories: Filter constructed:', JSON.stringify(filter));
 
-    const results = await vectorStore.similaritySearch(query, 5, filter);
-    console.log('retrieveMemories: Similarity search completed');
-    console.log('Results:', results);
-
+    const results = await vectorStore.similaritySearch(query || ' ', limit, filter);
     return results.map((result) => result.pageContent);
   } catch (error) {
     console.error('Error in retrieveMemories:', error);
-    throw error;
+    return []; // Return empty array instead of throwing
   }
 }

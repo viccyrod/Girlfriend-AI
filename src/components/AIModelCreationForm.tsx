@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -25,32 +27,61 @@ type FormData = z.infer<typeof formSchema>;
 
 export function AIModelCreationForm() {
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema)
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [images, setImages] = useState<File[]>([]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setImages(Array.from(e.target.files));
+    }
+  };
 
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
     try {
+      // Upload images to Cloudinary first
+      const imageUrls = await Promise.all(
+        images.map(async (image) => {
+          const formData = new FormData();
+          formData.append('file', image);
+          formData.append('upload_preset', 'your_cloudinary_upload_preset');
+
+          const response = await fetch(
+            `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+            {
+              method: 'POST',
+              body: formData,
+            }
+          );
+
+          const data = await response.json();
+          return data.secure_url;
+        })
+      );
+
+      // Then create the AI model with both form data and image URLs
       const response = await fetch('/api/ai-models', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...data, imageUrls }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create AI model');
-      }
+      if (!response.ok) throw new Error('Failed to create AI model');
 
-      const newAIModel = await response.json();
       toast({
         title: 'Success',
-        description: `AI Model "${newAIModel.name}" created successfully!`,
+        description: 'AI model created successfully!',
       });
-      window.location.href = `/community/AIModelProfile/${newAIModel.id}`;
+
+      router.push('/my-models');
     } catch (error) {
-      console.error('Failed to create AI model:', error);
+      console.error('Error creating AI model:', error);
       toast({
         title: 'Error',
         description: 'Failed to create AI model. Please try again.',
@@ -103,8 +134,35 @@ export function AIModelCreationForm() {
             {errors.dislikes && <p className="text-red-500 text-sm mt-1">{errors.dislikes.message}</p>}
           </div>
 
-          <Button type="submit" disabled={isLoading} className="w-full">
-            {isLoading ? 'Creating...' : 'Create AI Model'}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Upload Photos (minimum 10 recommended)
+            </label>
+            <Input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageUpload}
+              className="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100"
+            />
+            <p className="text-sm text-muted-foreground">
+              Upload clear, high-quality photos for better results
+            </p>
+          </div>
+
+          <Button 
+            type="submit" 
+            className="w-full"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              'Create AI Model'
+            )}
           </Button>
         </form>
       </CardContent>

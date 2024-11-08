@@ -5,9 +5,11 @@ const nextConfig = {
     domains: ['localhost', 'res.cloudinary.com' , 'girlfriendcx.kinde.com', 'www.girlfriend.cx'], // Add Cloudinary domain if you're using it
   },
   env: {
+    PINECONE_API_KEY: process.env.PINECONE_API_KEY, // Add this line
     CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
     NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   },
   // Add any other necessary configurations here
 };

@@ -1,13 +1,14 @@
-import React from "react";
-import BaseLayout from "../BaseLayout";
-import Community from "../../app/community/CommunityContent";
+"use client"
+
+import BaseLayout from "../BaseLayout"
+import Community from "../../app/community/CommunityContent"
 
 const HomeScreen = () => {
   return (
-    <BaseLayout> 
-    <Community />
- </BaseLayout>
-  );
-};
+    <BaseLayout>
+      <Community filterIsAnime={false} />
+    </BaseLayout>
+  )
+}
 
 export default HomeScreen

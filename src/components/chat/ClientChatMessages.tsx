@@ -1,89 +1,173 @@
-'use client'; 
-// This indicates the file is a client-side component in Next.js, meaning it can use hooks like useState and useEffect.
+'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getChatRoomMessages, sendMessage } from '@/app/api/chat/actions'; 
+import { getChatRoomMessages } from '@/app/api/chat/actions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { AIModel, ChatRoom, User } from '@prisma/client';
+import { AIModel, User } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Message } from '@/types/chat'; 
-
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import Image from 'next/image';
 import { format } from 'date-fns';
 import TextareaAutosize from 'react-textarea-autosize';
+import { Send } from 'lucide-react';
+import ImageGenerationMenu from './ImageGenerationMenu';
 
-interface ExtendedChatRoom extends ChatRoom {
-  users: User[];
-  aiModel: AIModel | null;
+// Message and ChatRoom Interfaces
+interface Message {
+  id: string;
+  content: string;
+  userId: string | null;
+  chatRoomId: string;
+  createdAt: string;
+  updatedAt: string;
+  aiModelId: string | null;
+  isAIMessage: boolean;
+  metadata?: {
+    type?: string;
+    imageData?: string;
+  };
+  role?: 'user' | 'assistant' | 'system';
 }
 
 interface ClientChatMessagesProps {
-  chatRoom: ExtendedChatRoom;
+  chatRoom: {
+    id: string;
+    users: User[];
+    aiModel: AIModel | null;
+  };
+  onSendMessage: (content: string) => Promise<void>;
+  _isLoading: boolean;
 }
 
-type MessageUser = {
-  id: string;
-  name: string | null;
-  image: string | null;
-  imageUrl?: string;
-};
-
+// Typing Indicator Component
 const TypingIndicator = () => (
   <div className="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg">
-    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></div>
-    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></div>
+    {Array.from({ length: 3 }).map((_, idx) => (
+      <div
+        key={idx}
+        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+        style={{ animationDelay: `${idx * 200}ms` }}
+      />
+    ))}
   </div>
 );
 
-export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps) {
+// MessageBubble Component for rendering each message
+const MessageBubble = ({ message }: { message: Message }) => {
+  const isAIMessage = message.isAIMessage;
+  const hasImage = message.metadata?.type === 'image';
+  const imageData = message.metadata?.imageData;
+
+  return (
+    <div className={`flex ${isAIMessage ? 'justify-start' : 'justify-end'} mb-4 group`}>
+      <div className={`flex ${isAIMessage ? 'flex-row' : 'flex-row-reverse'} items-end max-w-[80%]`}>
+        <Avatar className={`flex-shrink-0 ${isAIMessage ? 'mr-2' : 'ml-2'}`}>
+          <AvatarImage src="/default-avatar.png" alt="Avatar" />
+          <AvatarFallback>?</AvatarFallback>
+        </Avatar>
+        
+        <div className={`flex flex-col ${isAIMessage ? 'items-start' : 'items-end'}`}>
+          <div className={`rounded-lg px-4 py-2 ${
+            isAIMessage 
+              ? 'bg-secondary text-secondary-foreground' 
+              : 'bg-primary text-primary-foreground'
+          }`}>
+            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+            
+            {hasImage && imageData && (
+              <div className="mt-2 relative w-[512px] h-[512px]">
+                <Image
+                  src={`data:image/jpeg;base64,${imageData}`}
+                  alt={message.content}
+                  fill
+                  className="rounded-lg object-contain"
+                  sizes="(max-width: 768px) 100vw, 512px"
+                />
+              </div>
+            )}
+            
+            <p className="text-xs mt-1 opacity-70 text-right">
+              {format(new Date(message.createdAt), 'HH:mm')}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Helper Functions
+const shouldGenerateImage = (message: string) => {
+  const triggerWords = ['send me', 'generate', 'create image', 'show me'];
+  return triggerWords.some(trigger => message.toLowerCase().includes(trigger));
+};
+
+const generateImage = async (prompt: string, chatRoomId: string) => {
+  const response = await fetch('/api/image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, chatRoomId }),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to generate image');
+  }
+  
+  return response.json();
+};
+
+// Main Component
+export default function ClientChatMessages({ chatRoom, onSendMessage, _isLoading }: ClientChatMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [isSending, setIsSending] = useState(false);
+  const [isLoadingResponse, setIsLoadingResponse] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const currentUser = useCurrentUser();
-  const handleSendMessageRef = useRef<(e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => void>();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const fetchMessages = useCallback(async () => {
-    let retries = 3;
-    while (retries > 0) {
-      try {
-        const fetchedMessages = await getChatRoomMessages(chatRoom.id);
-        const messagesWithUser = fetchedMessages.map((msg: Message) => ({
-          ...msg,
-          user: msg.user || chatRoom.users.find(user => user.id === msg.userId) || 
-                { id: msg.userId || '', name: 'Unknown User', image: null },
-          userId: msg.userId || ''
-        }));
-        setMessages(messagesWithUser as Message[]);
-        return;
-      } catch (error) {
-        retries -= 1;
-        console.error('Failed to fetch messages:', error);
-        if (retries === 0) {
-          toast({
-            title: "Error",
-            description: "Failed to load messages. Please try again.",
-            variant: "destructive",
-          });
-        }
-      }
+  // Scroll to bottom utility
+  const scrollToBottom = useCallback(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
-  }, [chatRoom.id, chatRoom.users, toast]);
+  }, []);
 
+  // Fetch Messages
+  const fetchMessages = useCallback(async () => {
+    try {
+      const fetchedMessages = await getChatRoomMessages(chatRoom.id);
+      const formattedMessages = fetchedMessages.map(msg => ({
+        ...msg,
+        createdAt: msg.createdAt.toISOString(),
+        updatedAt: msg.updatedAt.toISOString(),
+        userId: msg.user?.id || null,
+        aiModelId: null,
+        isAIMessage: msg.role === 'assistant'
+      }));
+      setMessages(formattedMessages);
+    } catch (error) {
+      console.error('Failed to fetch messages:', error);
+    }
+  }, [chatRoom.id]);
+
+  // Initial fetch and SSE setup
   useEffect(() => {
     fetchMessages();
-  }, [fetchMessages]);
-
-  useEffect(() => {
+    
+    // Set up SSE for real-time updates
     const eventSource = new EventSource(`/api/chat/${chatRoom.id}/sse`);
+    
     eventSource.onmessage = (event) => {
       const newMessage = JSON.parse(event.data);
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setMessages((prevMessages) => {
+        const messageExists = prevMessages.some(msg => msg.id === newMessage.id);
+        if (!messageExists) {
+          scrollToBottom();
+          return [...prevMessages, newMessage];
+        }
+        return prevMessages;
+      });
     };
+
     eventSource.onerror = () => {
       toast({
         title: "Connection lost",
@@ -92,178 +176,99 @@ export default function ClientChatMessages({ chatRoom }: ClientChatMessagesProps
       });
       eventSource.close();
     };
+    
     return () => eventSource.close();
-  }, [chatRoom.id, toast]);
+  }, [chatRoom.id, fetchMessages, scrollToBottom, toast]);
 
-  const scrollToBottom = useCallback(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-    }
-  }, []);
-
+  // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Function to prepare message payload
-  const prepareUserMessage = () => ({
-    content: newMessage.trim(),
-    userId: currentUser?.id || '',
-    chatRoomId: chatRoom.id,
-    aiModelId: null,
-    isAIMessage: false,
-  });
-
-  // // Function to handle sent message
-  // const handleSentMessage = (sentMessage: Message) => {
-  //   const sentMessageWithUser = {
-  //     ...sentMessage,
-  //     user: chatRoom.users.find(user => user.id === sentMessage.userId) || 
-  //           { id: sentMessage.userId || '', name: 'Unknown User', image: null },
-  //     userId: sentMessage.userId || ''
-  //   };
-    
-  //   setMessages(prevMessages => [
-  //     ...prevMessages.filter(msg => msg.id !== `temp-${sentMessage.createdAt}`), // Adjust if temp id is different
-  //     sentMessageWithUser
-  //   ]);
-  // };
-
-  const handleSendMessage = useCallback(async (e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || isSending) return;
-  
-    const tempMessageId = `temp-${Date.now()}`;
-    const tempMessage: Message = {
-      id: tempMessageId,
-      content: newMessage.trim(),
-      userId: currentUser?.id || '',
-      chatRoomId: chatRoom.id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      user: currentUser ?? { id: '', name: 'Unknown User', image: null },
-      isAIMessage: false,
-      aiModelId: null,
-    };
-  
-    setMessages(prevMessages => [...prevMessages, tempMessage]);
-    setNewMessage('');
-    setIsSending(true);
-  
+    if (!newMessage.trim() || isLoadingResponse) return;
+
     try {
-      const { userMessage: savedUserMessage, aiMessage } = await sendMessage(chatRoom.id, prepareUserMessage());
-  
-      // Replace the temporary message with the saved message
-      setMessages(prevMessages => {
-        const index = prevMessages.findIndex(msg => msg.id === tempMessageId);
-        const newMessages = [...prevMessages];
-        if (index !== -1) {
-          newMessages[index] = savedUserMessage;
-        } else {
-          newMessages.push(savedUserMessage);
-        }
-        return [...newMessages, aiMessage];
-      });
-    } catch (error) {
-      console.error('Failed to send message:', error);
+      setIsLoadingResponse(true);
+
+      // Check for image generation request
+      if (shouldGenerateImage(newMessage)) {
+        const prompt = newMessage.replace(/^(send me|generate|create image|show me)/i, '').trim();
+        const response = await generateImage(prompt, chatRoom.id);
+        setMessages(prev => [...prev, response.message]);
+      } else {
+        await onSendMessage(newMessage);
+      }
+
+      setNewMessage(''); // Clear input after sending
+      scrollToBottom();
+    } catch (err) {
+      console.error('Error sending message:', err);
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsSending(false);
+      setIsLoadingResponse(false);
     }
-  }, [newMessage, isSending, chatRoom.id, prepareUserMessage, currentUser, toast]);
-  
-
-  handleSendMessageRef.current = handleSendMessage;
-
-  // const handleDeleteMessage = async (messageId: string) => {
-  //   const userConfirmed = window.confirm('Are you sure you want to delete this message?');
-  //   if (!userConfirmed) return;
-
-  //   try {
-  //     await deleteMessage(chatRoom.id, messageId);
-  //     setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
-  //   } catch (error) {
-  //     console.error('Failed to delete message:', error);
-  //     toast({
-  //       title: "Error",
-  //       description: "Failed to delete message. Please try again.",
-  //       variant: "destructive",
-  //     });
-  //   }
-  // };
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && newMessage.trim()) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessageRef.current?.(e);
+      handleSendMessage(e);
     }
   };
 
   return (
-    <div className="flex flex-col" style={{ height: '100dvh' }}>
-      <div 
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 flex flex-col"
-      >
-        {messages.map((message) => {
-          const isAIMessage = message.isAIMessage;
-          const messageUser = isAIMessage ? chatRoom.aiModel : (message.user || { name: 'Unknown User', image: null });
-
-          return (
-            <div key={message.id} className={`flex ${!isAIMessage ? 'justify-end' : 'justify-start'} mb-4 group`}>
-              <div className={`flex ${!isAIMessage ? 'flex-row-reverse' : 'flex-row'} items-end`}>
-                <div className="flex-shrink-0 mr-3">
-                  <Avatar>
-                    <AvatarImage 
-                      className="object-cover w-10 h-10" 
-                      src={(messageUser as MessageUser).imageUrl ?? (messageUser as MessageUser).image ?? '/default-avatar.png'}
-                      alt={(messageUser as MessageUser).name ?? 'Unknown'} 
-                    />
-                    <AvatarFallback>{(messageUser as MessageUser).name?.[0] ?? '?'}</AvatarFallback>
-                  </Avatar>
-                </div>
-                <div className={`flex flex-col ${!isAIMessage ? 'items-end' : 'items-start'}`}>
-                  <div className={`rounded-2xl px-4 py-2 ${!isAIMessage ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black'}`}>
-                    <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-                    <p className="text-xs mt-1 opacity-70 text-right">
-                      {format(new Date(message.createdAt), 'HH:mm')}
-                    </p>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1 group-hover:opacity-100 opacity-0 transition-opacity duration-200">
-                    {messageUser?.name ?? 'Unknown'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        {isSending && (
-          <div className="flex justify-start mb-4">
-            <TypingIndicator />
-          </div>
-        )}
+    <div className="flex flex-col h-full">
+      {/* Message Display */}
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((message) => (
+          <MessageBubble key={message.id} message={message} />
+        ))}
+        {isLoadingResponse && <TypingIndicator />}
       </div>
-      
-      <form onSubmit={handleSendMessage} className="border-t p-4">
-        <div className="flex items-center">
+
+      {/* Message Input */}
+      <div className="p-4 border-t border-gray-800 bg-[#0a0a0a]">
+        <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
+          <ImageGenerationMenu 
+            onSelect={async (prompt) => {
+              try {
+                setIsLoadingResponse(true);
+                const response = await generateImage(prompt, chatRoom.id);
+                setMessages(prev => [...prev, response.message]);
+                scrollToBottom();
+              } catch (error) {
+                toast({
+                  title: "Error",
+                  description: error instanceof Error ? error.message : "Failed to generate image. Please try again.",
+                  variant: "destructive",
+                });
+              } finally {
+                setIsLoadingResponse(false);
+              }
+            }} 
+          />
           <TextareaAutosize
-            ref={textareaRef}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            className="flex-1 mr-2 resize-none rounded-md border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            minRows={1}
+            className="flex-1 bg-[#2a2a2a] text-white rounded-full px-4 py-2 min-h-[40px] max-h-32 resize-none focus:outline-none focus:ring-2 focus:ring-[#ff4d8d]"
           />
-          <Button type="submit" disabled={isSending}>
-            {isSending ? 'Sending...' : 'Send'}
+          <Button
+            type="submit"
+            className="bg-[#ff4d8d] hover:bg-[#ff3377] text-white rounded-full p-2 h-10 w-10"
+            disabled={isLoadingResponse}
+          >
+            <Send className="h-5 w-5" />
           </Button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

@@ -1,267 +1,463 @@
+// src/components/chat/ChatComponent.tsx
+
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { ChatRoomList, ExtendedChatRoom as ComponentExtendedChatRoom } from '@/components/chat/ChatRoomList';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { debounce, DebouncedFunc } from 'lodash';
+
+import {
+  ChatRoomList,
+  ExtendedChatRoom as ComponentExtendedChatRoom,
+} from '@/components/chat/ChatRoomList';
 import ClientChatMessages from '@/components/chat/ClientChatMessages';
-import { getChatRooms, createChatRoom, deleteChatRoom } from '@/app/api/chat/client-actions';
+import ModelProfile from '@/components/chat/ModelProfile';
+import {
+  ChatComponentProps,
+  SendMessageFunction,
+  ToggleProfileFunction,
+  CleanupFunction,
+  ChatMessage,
+  ExtendedChatRoom,
+  AiModel,
+} from '@/types/chat';
 import { useToast } from '@/hooks/use-toast';
-import { ExtendedChatRoom as LocalExtendedChatRoom } from '@/types/chat';
-import { fetchAIModel } from '@/lib/api/ai-models';
-import { User } from '@prisma/client';
+import { generateAndSaveGreeting } from '@/components/chat/greeting';
+import { deleteChatRoom, getChatRooms, getOrCreateChatRoom } from '@/app/api/chat/client-actions';
+import { ChevronRight, Loader2 } from 'lucide-react';
 
-const mapComponentToLocalRoom = (room: ComponentExtendedChatRoom): LocalExtendedChatRoom => ({
-  ...room,
-  aiModelId: room.aiModel?.id || '',
-  aiModelImageUrl: room.aiModel?.imageUrl || null,
-  name: room.name || '',
-  createdAt: room.createdAt || new Date(),
-  updatedAt: room.updatedAt || new Date(),
-  messages: room.messages || [],
-  aiModel: room.aiModel ? {
-    ...room.aiModel,
-    createdBy: (room.aiModel as unknown as { createdBy?: string }).createdBy || 'SYSTEM',
-    isFollowing: false, // Add this line
-  } : undefined
-});
+/**
+ * Utility function for consistent API error handling
+ */
+const handleApiError = (
+  error: unknown,
+  toast: (props: { title: string; description: string; variant?: 'destructive' }) => void,
+  customMessage?: string
+) => {
+  console.error(error);
+  toast({
+    title: 'Error',
+    description:
+      customMessage || 'An unexpected error occurred. Please try again.',
+    variant: 'destructive',
+  });
+};
 
-const ChatComponent = () => {
-  const [chatRooms, setChatRooms] = useState<LocalExtendedChatRoom[]>([]);
-  const [selectedRoom, setSelectedRoom] = useState<LocalExtendedChatRoom | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const searchParams = useSearchParams();
-  const modelId = searchParams.get('modelId');
-  const { toast } = useToast();
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+/**
+ * Loading state component
+ */
+const LoadingState = () => (
+  <div className="flex-1 flex items-center justify-center gap-2">
+    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    <p className="text-muted-foreground">Loading chat...</p>
+  </div>
+);
 
-  const fetchCurrentUser = useCallback(async () => {
+/**
+ * Error state component
+ */
+const ErrorState = ({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) => (
+  <div className="flex-1 flex flex-col items-center justify-center gap-4">
+    <p className="text-destructive">{message}</p>
+    <button
+      onClick={onRetry}
+      className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+    >
+      Retry
+    </button>
+  </div>
+);
+
+/**
+ * Helper function to map a chat room from the component format to the local format.
+ * Ensures date fields are proper Date objects and fills in default values.
+ */
+const mapComponentToLocalRoom = (
+  room: ComponentExtendedChatRoom
+): ExtendedChatRoom => {
+  return {
+    id: room.id,
+    name: room.name || '',
+    aiModelId: room.aiModelId || '',
+    users: room.users || [],
+    messages: room.messages?.map((msg) => ({
+      id: msg.id,
+      content: msg.content,
+      chatRoomId: msg.chatRoomId,
+      role: msg.isAIMessage ? 'assistant' : 'user',
+      createdAt: new Date(msg.createdAt),
+      updatedAt: new Date(msg.updatedAt),
+      user: msg.user || null,
+      aiModelId: msg.aiModelId || null,
+      isAIMessage: !!msg.isAIMessage,
+      metadata: msg.metadata || {}
+    })) || [],
+    createdAt: new Date(room.createdAt),
+    updatedAt: new Date(room.updatedAt),
+    aiModel: {
+      id: room.aiModel?.id || '',
+      name: room.aiModel?.name || '',
+      imageUrl: room.aiModel?.imageUrl || null,
+      personality: room.aiModel?.personality || '',
+      userId: room.aiModel?.userId || ''
+    },
+    createdBy: room.createdBy || null
+  };
+};
+
+/**
+ * Helper function to map an AI model to the props expected by the ModelProfile component.
+ * Ensures date fields are proper Date objects and fills in default values.
+ */
+const mapAIModelToProfileProps = (model: AiModel | undefined | null) => {
+  if (!model) return null;
+  return {
+    id: model.id,
+    name: model.name,
+    imageUrl: model.imageUrl || '',
+    personality: model.personality,
+    userId: model.userId
+  };
+};
+
+/**
+ * Generic fetch function with retry logic and error handling.
+ * Retries the fetch request up to a specified number of times in case of failure.
+ */
+const fetchWithRetry = async <T,>(
+  url: string ,
+  options: RequestInit,
+  retries = 3
+): Promise<T> => {
+  let lastError: Error | null = null;
+
+  for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch('/api/user/current');
+      const response = await fetch(url, options);
       if (!response.ok) {
-        throw new Error('Failed to fetch current user');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const user = await response.json();
-      setCurrentUser(user);
+      return (await response.json()) as T;
     } catch (error) {
-      console.error('Error fetching current user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch user information. Please try again.",
-        variant: "destructive",
-      });
+      lastError = error as Error;
+      if (i === retries - 1) break;
+      // Exponential backoff before retrying
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.pow(2, i) * 1000)
+      );
     }
-  }, [toast]);
+  }
 
+  throw new Error(
+    `Failed after ${retries} retries. Last error: ${lastError?.message}`
+  );
+};
+
+/**
+ * Main ChatComponent that renders the chat interface.
+ * Handles initialization, room selection, and message sending.
+ */
+const ChatComponent = ({ initialChatRoom, modelId, onError }: ChatComponentProps) => {
+  const router = useRouter();
+  const { toast } = useToast();
+
+  // State variables
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(!initialChatRoom && !!modelId);
+  const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
+  const [chatRooms, setChatRooms] = useState<ExtendedChatRoom[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<ExtendedChatRoom | null>(
+    initialChatRoom || null
+  );
+  const [isProfileVisible, setIsProfileVisible] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
+  const [isRoomLoading, setIsRoomLoading] = useState<string | null>(null); // Loading state for room selection
+  const [isMessageSending, setIsMessageSending] = useState(false); // Loading state for message sending
+  const [_isGreetingGenerating, setIsGreetingGenerating] = useState(false); // Loading state for greeting generation
+  const [_messageError, setMessageError] = useState<string | null>(null); // Error state for message sending
+  const [_roomError, setRoomError] = useState<string | null>(null); // Error state for room selection
+
+  /**
+   * Cleanup effect to reset state when the component is unmounted.
+   */
   useEffect(() => {
-    fetchCurrentUser();
-  }, [fetchCurrentUser]);
+    return () => {
+      setIsInitialized(false);
+      setIsGeneratingResponse(false);
+      setMessageError(null);
+      setRoomError(null);
+    };
+  }, []);
 
-  const fetchChatRooms = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const rooms = await getChatRooms();
-      setChatRooms(rooms as LocalExtendedChatRoom[]);
-      
-      if (modelId) {
-        const modelRoom = (rooms as LocalExtendedChatRoom[]).find(room => room.users.some(user => user.id === modelId));
-        if (modelRoom) {
-          setSelectedRoom(modelRoom);
+  /**
+   * Function to initialize the chat.
+   * Fetches chat rooms, selects the active room, and generates a greeting if necessary.
+   */
+  const initializeChat = useMemo(
+    () => async (retry = false) => {
+      if (isInitialized && !retry) return;
+
+      try {
+        setInitError(null);
+        setIsLoading(true);
+
+        // Fetch all chat rooms if not provided
+        if (!initialChatRoom) {
+          const allRooms = await getChatRooms().catch((error) => {
+            throw new Error('Failed to fetch chat rooms: ' + error.message);
+          });
+          setChatRooms(
+            (allRooms as ComponentExtendedChatRoom[]).map(mapComponentToLocalRoom)
+          );
         }
-      }
-    } catch (error) {
-      console.error('Failed to fetch chat rooms:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch chat rooms. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast, modelId]);
 
+        let activeRoom = initialChatRoom;
+        // If a modelId is provided and no initial chat room, create or get a chat room
+        if (modelId && !initialChatRoom) {
+          const rawRoom = await getOrCreateChatRoom(modelId);
+          activeRoom = mapComponentToLocalRoom({
+            ...rawRoom,
+            users: [],
+            messages: [],
+            aiModel: rawRoom.aiModel || {
+              id: rawRoom.aiModelId || '',
+              name: '',
+              imageUrl: null,
+              personality: '',
+              userId: ''
+            },
+            aiModelId: rawRoom.aiModelId || '',
+            createdBy: rawRoom.createdBy || null
+          });
+          setChatRooms((prev) => {
+            if (!activeRoom) return prev;
+            const exists = prev.some(
+              (r) => r.id === (activeRoom as ExtendedChatRoom).id
+            );
+            return exists ? prev : [...prev, activeRoom as ExtendedChatRoom];
+          });
+          router.push(`/chat/${activeRoom.id}`);
+        }
+
+        if (activeRoom) {
+          setSelectedRoom(activeRoom);
+
+          // Generate and save greeting if the chat room is new
+          if (activeRoom.aiModel) {
+            setIsGreetingGenerating(true);
+            await generateAndSaveGreeting({ room: activeRoom });
+            setIsGreetingGenerating(false);
+          }
+        }
+
+        setIsInitialized(true);
+      } catch (error) {
+        handleApiError(error, toast, 'Failed to initialize chat');
+        setInitError('Failed to initialize chat. Please try again.');
+        // Propagate error to parent if handler exists
+        if (onError && error instanceof Error) {
+          onError(error);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [initialChatRoom, modelId, isInitialized, router, toast, onError]
+  );
+
+  /**
+   * useEffect to initialize the chat when the component mounts or dependencies change.
+   */
   useEffect(() => {
-    fetchChatRooms();
-  }, [fetchChatRooms]);
+    initializeChat();
+  }, [initializeChat]);
 
-  const handleDeleteRoom = async (roomId: string) => {
+  /**
+   * Debounced function to send a message.
+   * Uses useMemo to ensure the debounced function is stable across renders.
+   */
+  const debouncedSendMessage: DebouncedFunc<SendMessageFunction> = useMemo(
+    () =>
+      debounce(async (content, room) => {
+        try {
+          setIsMessageSending(true);
+          setMessageError(null);
+
+          const message: ChatMessage = {
+            content,
+            aiModelId: room.aiModel?.id,
+            isAIMessage: false,
+          };
+
+          await fetchWithRetry(`/api/chat/${room.id}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(message),
+          });
+        } catch (error) {
+          handleApiError(error, toast, 'Failed to send message');
+          setMessageError('Failed to send message. Please try again.');
+        } finally {
+          setIsMessageSending(false);
+        }
+      }, 500),
+    [toast]
+  );
+
+  /**
+   * Debounced function to toggle the profile visibility.
+   * Uses useMemo to ensure the debounced function is stable across renders.
+   */
+  const debouncedToggleProfile: DebouncedFunc<ToggleProfileFunction> = useMemo(
+    () =>
+      debounce(() => {
+        setIsProfileVisible((prev) => !prev);
+      }, 200),
+    []
+  );
+
+  /**
+   * Cleanup effect to cancel debounced functions when the component unmounts.
+   */
+  useEffect((): CleanupFunction => {
+    return () => {
+      debouncedToggleProfile.cancel();
+      debouncedSendMessage.cancel();
+    };
+  }, [debouncedToggleProfile, debouncedSendMessage]);
+
+  /**
+   * Handler function to send a message.
+   * Calls the debounced send message function.
+   */
+  const handleSendMessage = (content: string, room: ExtendedChatRoom): Promise<void> => {
+    return debouncedSendMessage(content, room) || Promise.resolve();
+  };
+
+  /**
+   * Handler function for selecting a chat room.
+   * Updates the selected room and navigates to the room's URL.
+   */
+  const handleRoomSelection = async (room: ComponentExtendedChatRoom) => {
     try {
-      await deleteChatRoom(roomId);
-      setChatRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
-      if (selectedRoom?.id === roomId) {
-        setSelectedRoom(null);
-      }
-      toast({
-        title: "Success",
-        description: "Chat room deleted successfully.",
-      });
+      setIsRoomLoading(room.id);
+      setRoomError(null);
+
+      const mappedRoom = mapComponentToLocalRoom(room);
+      setSelectedRoom(mappedRoom);
+
+      await router.push(`/chat/${room.id}`);
     } catch (error) {
-      console.error('Failed to delete room:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete chat room. Please try again.",
-        variant: "destructive",
-      });
+      handleApiError(error, toast, 'Failed to switch chat rooms');
+      setRoomError('Failed to switch chat rooms. Please try again.');
+    } finally {
+      setIsRoomLoading(null);
     }
   };
 
-  const selectOrCreateRoom = useCallback(async (modelId: string) => {
-    if (isCreatingRoom) return;
-    setIsCreatingRoom(true);
-    try {
-      if (!modelId) {
-        throw new Error('Model ID is undefined');
-      }
-
-      const existingRoom = chatRooms.find(room => room.aiModelId === modelId);
-
-      if (existingRoom) {
-        setSelectedRoom(existingRoom);
-        return;
-      }
-
-      const AIModel = await fetchAIModel(modelId);
-      if (!AIModel) throw new Error('Failed to fetch AI model details');
-
-      console.log('Creating new chat room for model:', AIModel);
-      const newRoom = await createChatRoom(`Chat with ${AIModel.name}`, AIModel.id);
-      console.log('New room created:', newRoom);
-
-      if (!currentUser) {
-        throw new Error('User not authenticated');
-      }
-
-      const extendedNewRoom: LocalExtendedChatRoom = {
-        ...newRoom,
-        users: [
-          {
-            id: currentUser.id,
-            name: currentUser.name || '',
-            image: currentUser.image || null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            email: currentUser.email || '',
-            isSubscribed: currentUser.isSubscribed || false,
-            customerId: currentUser.customerId || null,
-            bio: currentUser.bio || null,
-            isAI: false
-          },
-          {
-            id: AIModel.id,
-            name: AIModel.name,
-            image: AIModel.imageUrl || null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            email: `${AIModel.name.toLowerCase().replace(/\s+/g, '')}@ai.model`,
-            isSubscribed: false,
-            customerId: null,
-            bio: null,
-            isAI: true
-          }
-        ],
-        messages: [],
-        aiModelId: AIModel.id,
-        aiModel: {
-          ...AIModel,
-          imageUrl: AIModel.imageUrl || null,
-          createdBy: (AIModel as unknown as { createdBy?: string }).createdBy || 'SYSTEM',
-          isFollowing: false,
-        },
-        aiModelImageUrl: AIModel.imageUrl || null,
-      };
-      setChatRooms(prevRooms => [...prevRooms, extendedNewRoom]);
-      setSelectedRoom(extendedNewRoom);
-    } catch (error) {
-      console.error('Error in selectOrCreateRoom:', error);
-      toast({
-        title: "Error",
-        description: `Failed to create chat room: ${error instanceof Error ? error.message : String(error)}`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreatingRoom(false);
-    }
-  }, [chatRooms, toast, currentUser, isCreatingRoom]);
-
-  useEffect(() => {
-    if (modelId && !isLoading && !isCreatingRoom) {
-      selectOrCreateRoom(modelId);
-    }
-  }, [modelId, isLoading, selectOrCreateRoom, isCreatingRoom]);
-
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-full">Loading chat rooms...</div>;
-  }
-
+  /**
+   * Render the chat interface with improved error handling and loading states.
+   */
   return (
-    <div className="flex h-full bg-background">
-      <ChatRoomList
-        isLoading={isLoading}
-        chatRooms={chatRooms.map(room => ({
-          ...room,
-          aiModel: room.aiModel ? {
-            ...room.aiModel,
-            imageUrl: room.aiModel.imageUrl || '',
-            name: room.aiModel.name || 'AI Model',  // Ensure name is set
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            userId: '',
-            appearance: '',
-            backstory: '',
-            hobbies: '',
-            likes: '',
-            dislikes: ''
-          } : null
-        }))}
-        selectedRoom={selectedRoom && {
-          ...selectedRoom,
-          aiModel: selectedRoom.aiModel ? {
-            ...selectedRoom.aiModel,
-            imageUrl: selectedRoom.aiModel.imageUrl || '',
-            name: selectedRoom.aiModel.name || 'AI Model',  // Ensure name is set
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            userId: '',
-            appearance: '',
-            backstory: '',
-            hobbies: '',
-            likes: '',
-            dislikes: ''
-          } : null
-        }}
-        onSelectRoom={(room: ComponentExtendedChatRoom) => setSelectedRoom(mapComponentToLocalRoom(room))}
-        onDeleteRoom={handleDeleteRoom}
-      />
-      <div className="flex-1 flex flex-col">
-        {selectedRoom ? (
-          <ClientChatMessages 
-            chatRoom={{
-              ...selectedRoom,
-              aiModel: selectedRoom.aiModel ? {
-                ...selectedRoom.aiModel,
-                name: selectedRoom.aiModel.name || 'AI Model',
-                imageUrl: selectedRoom.aiModel.imageUrl || '',
-                id: selectedRoom.aiModel.id || '',
-                createdAt: selectedRoom.aiModel.createdAt || new Date(),
-                updatedAt: selectedRoom.aiModel.updatedAt || new Date(),
-                personality: selectedRoom.aiModel.personality || '',
-                appearance: selectedRoom.aiModel.appearance || '',
-                backstory: selectedRoom.aiModel.backstory || '',
-                hobbies: selectedRoom.aiModel.hobbies || '',
-                likes: selectedRoom.aiModel.likes || '',
-                dislikes: selectedRoom.aiModel.dislikes || '',
-                userId: selectedRoom.aiModel.userId || '',
-                followerCount: selectedRoom.aiModel.followerCount || 0,
-              } : null
-            }} 
-          />
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-foreground">Select a chat room to start messaging</p>
+    <div className="flex h-[calc(100vh-4rem)]">
+      {isLoading ? (
+        <LoadingState />
+      ) : initError ? (
+        <ErrorState message={initError} onRetry={() => initializeChat(true)} />
+      ) : (
+        <>
+          {/* Chat room list */}
+          <div className="w-80 border-r border-[#1a1a1a] flex-shrink-0 h-full overflow-hidden">
+            <ChatRoomList
+              isLoading={false}
+              loadingRoomId={isRoomLoading}
+              chatRooms={chatRooms.map((room) => ({
+                ...room,
+                aiModel: room.aiModel,
+                messages: room.messages.map(msg => ({
+                  ...msg,
+                  user: msg.user || null,
+                  aiModelId: msg.aiModelId || null,
+                  isAIMessage: !!msg.isAIMessage,
+                  metadata: msg.metadata || {},
+                  role: msg.isAIMessage ? 'assistant' : 'user'
+                }))
+              }))}
+              selectedRoom={selectedRoom}
+              onSelectRoom={handleRoomSelection}
+              onDeleteRoom={deleteChatRoom}   
+            />
           </div>
-        )}
-      </div>
+
+          {/* Chat messages and input */}
+          <div
+            className={`transition-all duration-300 ${
+              isProfileVisible ? 'flex-1' : 'flex-[2]'
+            } flex flex-col h-full`}
+          >
+            {selectedRoom ? (
+              <div className="relative flex flex-col h-full">
+                <ClientChatMessages
+                  chatRoom={{
+                    id: selectedRoom.id,
+                    users: selectedRoom.users,
+                    aiModel: selectedRoom.aiModel
+                      ? {
+                          id: selectedRoom.aiModel.id,
+                          name: selectedRoom.aiModel.name,
+                          imageUrl: selectedRoom.aiModel.imageUrl || '',
+                          personality: selectedRoom.aiModel.personality,
+                          userId: selectedRoom.aiModel.userId
+                        }
+                      : null,
+                  }}
+                  onSendMessage={(content) =>
+                    handleSendMessage(content, selectedRoom)
+                  }
+                  _isLoading={isMessageSending || isGeneratingResponse}
+                />
+                {/* Toggle profile visibility button */}
+                <button
+                  onClick={debouncedToggleProfile}
+                  className="absolute right-4 top-4 p-2 bg-[#1a1a1a] hover:bg-[#2a2a2a] rounded-full transition-all duration-200 z-10"
+                >
+                  <ChevronRight
+                    className={`w-4 h-4 text-white transform transition-transform duration-200 ${
+                      isProfileVisible ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+              </div>
+            ) : (
+              // Placeholder when no room is selected
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-muted-foreground">
+                  Select a chat room to start messaging
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* AI model profile sidebar */}
+          {selectedRoom && (
+            <div
+              className={`w-[400px] border-l border-[#1a1a1a] flex-shrink-0 h-full 
+                  overflow-y-auto bg-[#0a0a0a] transition-all duration-300 ease-in-out
+                  ${isProfileVisible ? 'translate-x-0' : 'translate-x-full w-0'}`}
+            >
+              <ModelProfile
+                aiModel={mapAIModelToProfileProps(selectedRoom.aiModel)}
+              />
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };

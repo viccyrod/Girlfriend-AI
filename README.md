@@ -1,36 +1,190 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Girlfriend.cx
 
-## Getting Started
+A sophisticated AI chat platform built with Next.js 14, featuring real-time conversations with AI models, memory management, and dynamic chat interfaces.
 
-First, run the development server:
+## 🌟 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### Core Functionality
+- **Real-time Chat**: Seamless conversations with AI models
+- **Memory System**: Context-aware conversations using Pinecone vector database
+- **Multiple AI Models**: Support for various AI personalities
+- **Authentication**: Secure user authentication via Kinde
+- **Responsive Design**: Full mobile and desktop support
+
+### Technical Features
+- Server-side rendering with Next.js 14 App Router
+- Real-time updates using WebSocket connections
+- PostgreSQL database with Prisma ORM
+- TypeScript for type safety
+- Tailwind CSS for styling
+- shadcn/ui component library
+- Vector embeddings for conversation memory
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18.x or higher
+- PostgreSQL database
+- Pinecone account for vector storage
+- Kinde account for authentication
+
+### Environment Setup
+Create a `.env` file in the root directory:
+
+```env
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
+
+# Authentication
+KINDE_CLIENT_ID="your_kinde_client_id"
+KINDE_CLIENT_SECRET="your_kinde_client_secret"
+KINDE_ISSUER_URL="your_kinde_issuer_url"
+KINDE_SITE_URL="your_site_url"
+KINDE_POST_LOGOUT_REDIRECT_URL="your_logout_redirect"
+KINDE_POST_LOGIN_REDIRECT_URL="your_login_redirect"
+
+# Vector Database
+PINECONE_API_KEY="your_pinecone_api_key"
+PINECONE_ENVIRONMENT="your_pinecone_environment"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Installation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/ai-chat-platform.git
+cd ai-chat-platform
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. Install dependencies:
+```bash
+npm install
+```
 
-## Learn More
+3. Set up the database:
+```bash
+npx prisma generate
+npx prisma db push
+```
 
-To learn more about Next.js, take a look at the following resources:
+4. Run the development server:
+```bash
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🏗️ Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+├── app/                    # Next.js app router pages
+│   ├── api/               # API routes
+│   ├── chat/             # Chat interface pages
+│   └── community/        # Community features
+├── components/            # React components
+│   ├── chat/             # Chat-related components
+│   ├── ui/               # UI components
+│   └── layouts/          # Layout components
+├── lib/                   # Utility functions
+│   ├── clients/          # External service clients
+│   └── session/          # Authentication utilities
+├── types/                 # TypeScript type definitions
+└── utils/                # Helper functions
+```
 
-## Deploy on Vercel
+## 💻 Development
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Key Commands
+```bash
+# Development
+npm run dev
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Build
+npm run build
+
+# Production
+npm start
+
+# Type checking
+npm run type-check
+
+# Linting
+npm run lint
+
+# Format code
+npm run format
+```
+
+### Database Management
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Push schema changes
+npx prisma db push
+
+# Open Prisma Studio
+npx prisma studio
+```
+
+## 🔒 Security
+
+- All API routes are protected with authentication
+- Rate limiting on sensitive endpoints
+- Input validation using Zod
+- Secure session management
+- XSS protection
+- CORS configuration
+
+## 🧪 Testing
+
+```bash
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+## 📦 Deployment
+
+1. Set up environment variables on your hosting platform
+2. Configure database connection
+3. Build and deploy:
+```bash
+npm run build
+npm start
+```
+
+### Supported Platforms
+- Vercel (recommended)
+- Railway
+- Heroku
+- Self-hosted
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
+
+Please ensure your PR:
+- Follows the existing code style
+- Includes appropriate tests
+- Updates documentation as needed
+
+## 📝 License
+
+This project is private, commercial and not licensed.
+Access to the code is strictly confidential.
+
+## 🙏 Acknowledgments
+
+- [Next.js](https://nextjs.org/)
+- [Prisma](https://www.prisma.io/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [shadcn/ui](https://ui.shadcn.com/)
+- [Kinde](https://kinde.com/)
+- [Pinecone](https://www.pinecone.io/)
+

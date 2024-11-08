@@ -1,17 +1,19 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Eye, Users } from "lucide-react";
+import { Users, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Image from 'next/image';
 
 interface AIModel {
   id: string;
   name: string;
   personality: string;
   imageUrl: string;
+  age: number;
   createdBy: {
     name: string;
     id: string;
@@ -19,19 +21,24 @@ interface AIModel {
   followerCount: number;
 }
 
-const fetchAIModels = async (): Promise<AIModel[]> => {
-  const response = await fetch('/api/ai-models');
+
+const fetchAIModels = async (filterIsAnime?: boolean): Promise<AIModel[]> => {
+  const url = filterIsAnime !== undefined 
+    ? `/api/ai-models?isAnime=${filterIsAnime}` 
+    : '/api/ai-models';
+    
+  const response = await fetch(url);
   if (!response.ok) {
     throw new Error('Failed to fetch AIModels');
   }
   return await response.json();
 };
 
-export default function CommunityContent() {
+export default function CommunityContent({ filterIsAnime }: { filterIsAnime?: boolean }) {
   const router = useRouter();
   const { data: aiModels, isLoading, error } = useQuery<AIModel[]>({
-    queryKey: ['publicAiModels'],
-    queryFn: fetchAIModels,
+    queryKey: ['publicAiModels', filterIsAnime],
+    queryFn: () => fetchAIModels(filterIsAnime),
   });
 
   const handleViewProfile = (id: string) => {
@@ -42,20 +49,9 @@ export default function CommunityContent() {
     return (
       <div className="container mx-auto py-12 px-4">
         <h1 className="text-4xl font-bold mb-12 text-center text-primary">Meet Your New Girlfriends</h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {[...Array(6)].map((_, index) => (
-            <Card key={index} className="flex flex-col animate-pulse bg-card">
-              <CardHeader className="pb-2">
-                <div className="h-6 bg-muted rounded w-3/4 mx-auto"></div>
-              </CardHeader>
-              <CardContent className="flex-grow flex flex-col items-center pt-2">
-                <div className="w-32 h-32 bg-muted rounded-full mb-4"></div>
-                <div className="h-4 bg-muted rounded w-5/6 mb-2"></div>
-                <div className="h-4 bg-muted rounded w-4/6 mb-2"></div>
-                <div className="h-4 bg-muted rounded w-3/6 mb-4"></div>
-                <div className="w-full h-10 bg-muted rounded-md mt-auto"></div>
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(8)].map((_, index) => (
+            <div key={index} className="aspect-[3/4] relative rounded-xl overflow-hidden animate-pulse bg-muted" />
           ))}
         </div>
       </div>
@@ -67,52 +63,67 @@ export default function CommunityContent() {
   }
 
   return (
-    <div className="container mx-auto py-12 px-4 h-full">
-      <h1 className="text-4xl font-bold mb-12 text-center text-primary">Top AI Girlfriends</h1>
-      <div className="mb-8 text-center">
-        <Button onClick={() => router.push('/community/create-ai-model')} className="bg-primary text-white">
-          Create Your Own AI Model
+    <div className="container mx-auto py-12 px-4">
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-3xl font-bold">
+          Meet Your New <span className="text-pink-500">Girlfriends</span>
+        </h2>
+        <Button onClick={() => router.push('/community/create-ai-model')} variant="outline">
+          Create Your Own
         </Button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {aiModels?.map((aiModel) => (
-          <Card 
-            key={aiModel.id} 
-            className="flex flex-col hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1 bg-card"
+          <div
+            key={aiModel.id}
+            onClick={() => handleViewProfile(aiModel.id)}
+            className="group cursor-pointer"
           >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-2xl font-semibold text-center text-card-foreground">{aiModel.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col items-center pt-2">
-              <Avatar className="w-32 h-32 mb-4 border-4 border-primary">
-                <AvatarImage 
-                  src={aiModel.imageUrl || "/user-placeholder.png"}
-                  alt={aiModel.name} 
-                  className="object-cover"
-                />
-                <AvatarFallback className="text-4xl font-bold text-primary bg-primary/10">
-                  {aiModel.name.split(' ')[0][0]}
-                </AvatarFallback>
-              </Avatar>
-              <p className="text-sm text-card-foreground/80 mb-4 text-center leading-relaxed max-w-[250px]">
-                {aiModel.personality.substring(0, 100)}...
-              </p>
-              <div className="flex items-center justify-center space-x-2 mb-6 bg-primary/10 px-3 py-1 rounded-full">
-                <Users size={16} className="text-primary" />
-                <span className="text-sm font-medium text-primary">
-                  {aiModel.followerCount.toLocaleString()} {aiModel.followerCount === 1 ? 'Follower' : 'Followers'}
+            <div className="relative aspect-[3/4] rounded-xl overflow-hidden">
+              {/* New Badge */}
+              <div className="absolute top-3 left-3 z-20">
+                <span className="bg-pink-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                  ⚡ New
                 </span>
               </div>
-              <Button 
-                onClick={() => handleViewProfile(aiModel.id)} 
-                className="w-full mt-auto group relative overflow-hidden bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
-              >
-                <span className="absolute right-0 top-0 h-full w-10 bg-white/20 transform -skew-x-12 transition-all duration-300 ease-in-out translate-x-full group-hover:translate-x-0"></span>
-                <Eye className="w-5 h-5 mr-2 inline-block transition-transform duration-300 ease-in-out group-hover:scale-110" />
-                <span className="relative z-10">View Profile</span>
-              </Button>
-            </CardContent>
-          </Card>
+
+              {/* Chat Button */}
+              <button className="absolute top-3 right-3 z-20 bg-white/20 backdrop-blur-sm p-2 rounded-full hover:bg-white/30 transition-colors">
+                <MessageSquare className="w-5 h-5 text-white" />
+              </button>
+
+              {/* Main Image */}
+              <Image
+                src={aiModel.imageUrl || "/placeholder.jpg"}
+                alt={aiModel.name}
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+
+              {/* Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+              {/* Content Overlay */}
+              <div className="absolute bottom-0 left-0 right-0 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-1">{aiModel.name}</h3>
+                    <p className="text-sm text-gray-200">{aiModel.age || '26'} years</p>
+                  </div>
+                  <div className="flex items-center gap-1 bg-black/30 px-2 py-1 rounded-full">
+                    <Users size={14} className="text-white" />
+                    <span className="text-sm text-white font-medium">
+                      {aiModel.followerCount.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-200 mt-2 line-clamp-2">
+                  {aiModel.personality}
+                </p>
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     </div>

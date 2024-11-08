@@ -6,6 +6,8 @@ import { AIModel } from '@/types/AIModel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, User, Heart } from 'lucide-react';
+import { Toaster } from "@/components/ui/toaster";
+import { useToast } from '@/hooks/use-toast';
 
 interface AIModelProfileProps {
   aiModel: AIModel;
@@ -15,6 +17,11 @@ interface AIModelProfileProps {
   isFollowing: boolean;
   onFollowToggle: () => Promise<boolean>;
   // initialFollowState: boolean;
+}
+
+interface Creator {
+  id: string;
+  name: string;
 }
 
 const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ 
@@ -27,6 +34,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
   // initialFollowState
 }) => {
   const router = useRouter();
+  const { toast } = useToast();
   const [isFollowingState, setIsFollowingState] = useState(isFollowing);
   const [aiModelState, setAiModelState] = useState(aiModel);
 
@@ -34,8 +42,40 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
     return <div className="text-center py-8">No AI Model data available.</div>;
   }
 
-  const handleMessage = () => {
-    router.push(`/chat?modelId=${aiModelState.id}`);
+  const handleMessage = async () => {
+    try {
+      // Create chat room first
+      const chatRoomName = `Chat with ${aiModelState.name}`;
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'createChatRoom',
+          name: chatRoomName,
+          aiModelId: aiModelState.id,
+          mode: 'greeting'
+        }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create chat room');
+      }
+  
+      await response.json();
+      
+      // Then navigate to the chat room
+      router.push(`/chat/${aiModelState.id}`);
+    } catch (error) {
+      console.error('Failed to create chat room:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to start chat. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleFollow = async () => {
@@ -58,101 +98,105 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
 
   const getCreatorName = () => {
     if (typeof aiModelState.createdBy === 'object' && aiModelState.createdBy !== null) {
-      return aiModelState.createdBy.id === 'cm2jgzt3j0000w51m921l6af9'
+      const creator = aiModelState.createdBy as Creator;
+      return creator.id === 'cm2jgzt3j0000w51m921l6af9'
         ? 'Dev 🚀'
-        : aiModelState.createdBy.name.split(' ')[0];
+        : creator.name.split(' ')[0];
     }
     return 'Dev 🚀';
   };
 
   return (
-    <div className="w-full h-full overflow-auto bg-gradient-to-b from-gray-900 to-gray-800 text-white">
-      <div className="relative h-64 bg-gradient-to-r from-purple-500 to-pink-500">
-        <div className="absolute top-4 right-4 flex items-center gap-4">
-          {/* Commented out unused badges */}
-          {/*
-          <Badge variant="secondary" className="bg-white/20">
-            <ImageIcon className="w-4 h-4 mr-1" />
-            <span className="font-bold">45</span>
-          </Badge>
-          <Badge variant="secondary" className="bg-white/20">
-            <VideoIcon className="w-4 h-4 mr-1" />
-            <span className="font-bold">67</span>
-          </Badge>
-          */}
-          <Badge variant="secondary" className="bg-white/20">
-            <User className="w-4 h-4 mr-1" />
-            <span className="font-bold">{aiModelState.followerCount || 0}</span>
-          </Badge>
-          {/* <Badge variant="secondary" className="bg-white/20">
-            <Heart className="w-4 h-4 mr-1" />
-            <span className="font-bold">10k</span>
-          </Badge> */}
-        </div>
-        <div className="absolute bottom-0 left-8 transform translate-y-1/2">
-          <Avatar className="w-32 h-32 sm:w-40 sm:h-40 border-4 border-gray-800">
-            <AvatarImage 
-              src={aiModelState.imageUrl || ''} 
-              className="object-cover" 
-              alt={`${aiModelState.name} avatar`} 
-            />
-            <AvatarFallback>{aiModelState.name ? aiModelState.name[0] : 'A'}</AvatarFallback>
-          </Avatar>
-        </div>
-      </div>
-      <div className="px-4 sm:px-8 pt-20 sm:pt-24 pb-6">
-        <h2 className="text-2xl sm:text-3xl font-bold mb-1">{aiModelState.name}</h2>
-        <p className="text-sm flex items-center mb-4 sm:mb-6">
-          <User className="w-4 h-4 mr-1" /> Created by: {getCreatorName()}
-        </p>
-        <div className="flex space-x-4 mb-8">
-          <Button 
-            onClick={handleMessage} 
-            variant="default" 
-            className="flex items-center bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg"
-          >
-            <MessageCircle className="w-5 h-5 mr-2" /> Message
-          </Button>
-          <Button 
-            variant={isFollowingState ? "secondary" : "outline"} 
-            onClick={handleFollow} 
-            className="flex items-center hover:bg-gray-700"
-          >
-            <Heart className={`w-4 h-4 mr-2 ${isFollowingState ? 'text-red-500 fill-current' : ''}`} /> 
-            {isFollowingState ? 'Unfollow' : 'Follow'}
-          </Button>
-          {/* <Button variant="outline" className="flex items-center">
-            <Bookmark className="w-4 h-4 mr-2" /> Save
-          </Button>
-          <Button variant="outline" className="flex items-center">
-            <Share2 className="w-4 h-4 mr-2" /> Share
-          </Button> */}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <InfoCard title="Personality" content={aiModelState.personality} />
-          <InfoCard title="Appearance" content={aiModelState.appearance} />
-          <InfoCard title="Backstory" content={aiModelState.backstory} />
-          <InfoCard title="Hobbies" content={aiModelState.hobbies} />
-        </div>
-        <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Likes & Dislikes</h3>
-          <div className="flex flex-wrap gap-2">
-            {aiModelState.likes.split(',').map((like, index) => (
-              <Badge key={`like-${index}`} variant="secondary" className="bg-green-800 text-green-100">
-                {like.trim()}
-              </Badge>
-            ))}
+    <>
+      <div className="w-full h-full overflow-auto bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+        <div className="relative h-64 bg-gradient-to-r from-purple-500 to-pink-500">
+          <div className="absolute top-4 right-4 flex items-center gap-4">
+            {/* Commented out unused badges */}
+            {/*
+            <Badge variant="secondary" className="bg-white/20">
+              <ImageIcon className="w-4 h-4 mr-1" />
+              <span className="font-bold">45</span>
+            </Badge>
+            <Badge variant="secondary" className="bg-white/20">
+              <VideoIcon className="w-4 h-4 mr-1" />
+              <span className="font-bold">67</span>
+            </Badge>
+            */}
+            <Badge variant="secondary" className="bg-white/20">
+              <User className="w-4 h-4 mr-1" />
+              <span className="font-bold">{aiModelState.followerCount || 0}</span>
+            </Badge>
+            {/* <Badge variant="secondary" className="bg-white/20">
+              <Heart className="w-4 h-4 mr-1" />
+              <span className="font-bold">10k</span>
+            </Badge> */}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {aiModelState.dislikes.split(',').map((dislike, index) => (
-              <Badge key={`dislike-${index}`} variant="secondary" className="bg-red-800 text-red-100">
-                {dislike.trim()}
-              </Badge>
-            ))}
+          <div className="absolute bottom-0 left-8 transform translate-y-1/2">
+            <Avatar className="w-32 h-32 sm:w-40 sm:h-40 border-4 border-gray-800">
+              <AvatarImage 
+                src={aiModelState.imageUrl || ''} 
+                className="object-cover" 
+                alt={`${aiModelState.name} avatar`} 
+              />
+              <AvatarFallback>{aiModelState.name ? aiModelState.name[0] : 'A'}</AvatarFallback>
+            </Avatar>
           </div>
         </div>
+        <div className="px-4 sm:px-8 pt-20 sm:pt-24 pb-6">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-1">{aiModelState.name}</h2>
+          <p className="text-sm flex items-center mb-4 sm:mb-6">
+            <User className="w-4 h-4 mr-1" /> Created by: {getCreatorName()}
+          </p>
+          <div className="flex space-x-4 mb-8">
+            <Button 
+              onClick={handleMessage} 
+              variant="default" 
+              className="flex items-center bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg"
+            >
+              <MessageCircle className="w-5 h-5 mr-2" /> Message
+            </Button>
+            <Button 
+              variant={isFollowingState ? "secondary" : "outline"} 
+              onClick={handleFollow} 
+              className="flex items-center hover:bg-gray-700"
+            >
+              <Heart className={`w-4 h-4 mr-2 ${isFollowingState ? 'text-red-500 fill-current' : ''}`} /> 
+              {isFollowingState ? 'Unfollow' : 'Follow'}
+            </Button>
+            {/* <Button variant="outline" className="flex items-center">
+              <Bookmark className="w-4 h-4 mr-2" /> Save
+            </Button>
+            <Button variant="outline" className="flex items-center">
+              <Share2 className="w-4 h-4 mr-2" /> Share
+            </Button> */}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <InfoCard title="Personality" content={aiModelState.personality} />
+            <InfoCard title="Appearance" content={aiModelState.appearance} />
+            <InfoCard title="Backstory" content={aiModelState.backstory} />
+            <InfoCard title="Hobbies" content={aiModelState.hobbies} />
+          </div>
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold">Likes & Dislikes</h3>
+            <div className="flex flex-wrap gap-2">
+              {aiModelState.likes.split(',').map((like, index) => (
+                <Badge key={`like-${index}`} variant="secondary" className="bg-green-800 text-green-100">
+                  {like.trim()}
+                </Badge>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {aiModelState.dislikes.split(',').map((dislike, index) => (
+                <Badge key={`dislike-${index}`} variant="secondary" className="bg-red-800 text-red-100">
+                  {dislike.trim()}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+      <Toaster />
+    </>
   );
 });
 

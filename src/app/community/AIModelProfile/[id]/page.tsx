@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AIModelProfile from '@/app/community/AIModelProfile';
-import { fetchAIModel } from '@/lib/api/ai-models';
-import { toggleFollowAIModel } from '@/lib/api/follow-ai-model';
+import { fetchAIModel } from '@/app/api/aiModels';
+import { toggleFollowAIModel } from '@/app/api/aiModels/follow-ai-model';
 import BaseLayout from '@/components/BaseLayout';
 import { AIModel } from '@/types/AIModel';
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';

@@ -10,6 +10,19 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+
+  .chat-layout {
+    @apply grid;
+    grid-template-columns: minmax(0, 1fr);
+    
+    @screen md {
+      grid-template-columns: 320px minmax(0, 1fr);
+    }
+    
+    @screen lg {
+      grid-template-columns: 320px minmax(0, 1fr) 400px;
+    }
+  }
 }
 
 @layer base {
