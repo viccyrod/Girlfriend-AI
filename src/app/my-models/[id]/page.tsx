@@ -1,16 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { AIModelCustomization } from '@/components/AIModelCustomization';
-import { AIModel } from '@/types/AIModel';
-import { useToast } from '@/hooks/use-toast';
 import BaseLayout from '@/components/BaseLayout';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { User, Heart, Trash2, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +13,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from "@/components/ui/input";
+import { useToast } from '@/hooks/use-toast';
+import { AiModel as AIModel } from "@/types/chat";
+import { ArrowLeft, Heart, Trash2, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 
 export default function EditAIModelPage({ params }: { params: { id: string } }) {
   const [model, setModel] = useState<AIModel | null>(null);
@@ -59,7 +59,6 @@ export default function EditAIModelPage({ params }: { params: { id: string } }) 
   useEffect(() => {
     fetchModel();
   }, [params.id, fetchModel]);
-
 
   const handleSave = (updatedModel: AIModel) => {
     setModel(updatedModel);
@@ -145,7 +144,11 @@ export default function EditAIModelPage({ params }: { params: { id: string } }) 
               </Avatar>
               <div className="flex-1">
                 <h2 className="text-2xl font-semibold mb-2">{model.name}</h2>
-                <p className="text-muted-foreground mb-4">{model.personality.substring(0, 150)}...</p>
+                {model.personality && (
+                  <p className="text-muted-foreground mb-4">
+                    {model.personality.substring(0, 150)}...
+                  </p>
+                )}
                 <div className="flex items-center space-x-4 mb-4">
                   <Badge variant="secondary" className="flex items-center space-x-1">
                     <User className="w-4 h-4" />

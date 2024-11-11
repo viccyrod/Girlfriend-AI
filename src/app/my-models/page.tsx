@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import BaseLayout from '@/components/BaseLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Eye, Users } from 'lucide-react';
-import { AIModel } from '@/types/AIModel';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import BaseLayout from '@/components/BaseLayout';
+import { AIModel } from '@prisma/client';
+import { Eye, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 
 export default function MyModelsPage() {
   const [models, setModels] = useState<AIModel[]>([]);

@@ -1,17 +1,18 @@
 // src/components/chat/ChatComponent.tsx
 
-'use client';
+"use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { debounce, DebouncedFunc } from 'lodash';
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { debounce, DebouncedFunc } from "lodash";
+import { generateAndSaveGreeting } from "./Greeting";
 
 import {
   ChatRoomList,
   ExtendedChatRoom as ComponentExtendedChatRoom,
-} from '@/components/chat/ChatRoomList';
-import ClientChatMessages from '@/components/chat/ClientChatMessages';
-import ModelProfile from '@/components/chat/ModelProfile';
+} from "@/components/chat/ChatRoomList";
+import ClientChatMessages from "@/components/chat/ClientChatMessages";
+import ModelProfile from "@/components/chat/ModelProfile";
 import {
   ChatComponentProps,
   SendMessageFunction,
@@ -20,26 +21,33 @@ import {
   ChatMessage,
   ExtendedChatRoom,
   AiModel,
-} from '@/types/chat';
-import { useToast } from '@/hooks/use-toast';
-import { generateAndSaveGreeting } from '@/components/chat/greeting';
-import { deleteChatRoom, getChatRooms, getOrCreateChatRoom } from '@/app/api/chat/client-actions';
-import { ChevronRight, Loader2 } from 'lucide-react';
+} from "@/types/chat";
+import { useToast } from "@/hooks/use-toast";
+import {
+  deleteChatRoom,
+  getChatRooms,
+  getOrCreateChatRoom,
+} from "@/app/api/chat/client-actions";
+import { ChevronRight, Loader2 } from "lucide-react";
 
 /**
  * Utility function for consistent API error handling
  */
 const handleApiError = (
   error: unknown,
-  toast: (props: { title: string; description: string; variant?: 'destructive' }) => void,
+  toast: (props: {
+    title: string;
+    description: string;
+    variant?: "destructive";
+  }) => void,
   customMessage?: string
 ) => {
   console.error(error);
   toast({
-    title: 'Error',
+    title: "Error",
     description:
-      customMessage || 'An unexpected error occurred. Please try again.',
-    variant: 'destructive',
+      customMessage || "An unexpected error occurred. Please try again.",
+    variant: "destructive",
   });
 };
 
@@ -83,31 +91,47 @@ const mapComponentToLocalRoom = (
 ): ExtendedChatRoom => {
   return {
     id: room.id,
-    name: room.name || '',
-    aiModelId: room.aiModelId || '',
+    name: room.name || "",
+    aiModelId: room.aiModelId || "",
+    aiModelImageUrl: room.aiModelImageUrl || null,
     users: room.users || [],
-    messages: room.messages?.map((msg) => ({
-      id: msg.id,
-      content: msg.content,
-      chatRoomId: msg.chatRoomId,
-      role: msg.isAIMessage ? 'assistant' : 'user',
-      createdAt: new Date(msg.createdAt),
-      updatedAt: new Date(msg.updatedAt),
-      user: msg.user || null,
-      aiModelId: msg.aiModelId || null,
-      isAIMessage: !!msg.isAIMessage,
-      metadata: msg.metadata || {}
-    })) || [],
+    messages:
+      room.messages?.map((msg) => ({
+        id: msg.id,
+        content: msg.content,
+        chatRoomId: msg.chatRoomId,
+        role: msg.isAIMessage ? "assistant" : "user",
+        createdAt: new Date(msg.createdAt),
+        updatedAt: new Date(msg.updatedAt),
+        user: msg.user || null,
+        aiModelId: msg.aiModelId || null,
+        isAIMessage: !!msg.isAIMessage,
+        metadata: msg.metadata || {},
+      })) || [],
     createdAt: new Date(room.createdAt),
     updatedAt: new Date(room.updatedAt),
     aiModel: {
-      id: room.aiModel?.id || '',
-      name: room.aiModel?.name || '',
+      id: room.aiModel?.id || "",
+      name: room.aiModel?.name || "",
       imageUrl: room.aiModel?.imageUrl || null,
-      personality: room.aiModel?.personality || '',
-      userId: room.aiModel?.userId || ''
+      personality: room.aiModel?.personality || "",
+      userId: room.aiModel?.userId || "",
+      followerCount: room.aiModel?.followerCount || 0,
+      appearance: room.aiModel?.appearance || "",
+      backstory: room.aiModel?.backstory || "",
+      hobbies: room.aiModel?.hobbies || "",
+      likes: room.aiModel?.likes || "",
+      dislikes: room.aiModel?.dislikes || "",
+      age: room.aiModel?.age || null,
+      isPrivate: room.aiModel?.isPrivate || false,
+      isAnime: room.aiModel?.isAnime || false,
+      isHuman: room.aiModel?.isHuman || false,
+      isHumanX: room.aiModel?.isHumanX || false,
+      isFollowing: room.aiModel?.isFollowing || false,
+      createdAt: room.aiModel?.createdAt || undefined,
+      updatedAt: room.aiModel?.updatedAt || undefined,
     },
-    createdBy: room.createdBy || null
+    createdBy: room.createdBy || null,
   };
 };
 
@@ -120,9 +144,9 @@ const mapAIModelToProfileProps = (model: AiModel | undefined | null) => {
   return {
     id: model.id,
     name: model.name,
-    imageUrl: model.imageUrl || '',
+    imageUrl: model.imageUrl || "",
     personality: model.personality,
-    userId: model.userId
+    userId: model.userId,
   };
 };
 
@@ -131,7 +155,7 @@ const mapAIModelToProfileProps = (model: AiModel | undefined | null) => {
  * Retries the fetch request up to a specified number of times in case of failure.
  */
 const fetchWithRetry = async <T,>(
-  url: string ,
+  url: string,
   options: RequestInit,
   retries = 3
 ): Promise<T> => {
@@ -163,7 +187,11 @@ const fetchWithRetry = async <T,>(
  * Main ChatComponent that renders the chat interface.
  * Handles initialization, room selection, and message sending.
  */
-const ChatComponent = ({ initialChatRoom, modelId, onError }: ChatComponentProps) => {
+const ChatComponent = ({
+  initialChatRoom,
+  modelId,
+  onError,
+}: ChatComponentProps) => {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -200,73 +228,81 @@ const ChatComponent = ({ initialChatRoom, modelId, onError }: ChatComponentProps
    * Fetches chat rooms, selects the active room, and generates a greeting if necessary.
    */
   const initializeChat = useMemo(
-    () => async (retry = false) => {
-      if (isInitialized && !retry) return;
+    () =>
+      async (retry = false) => {
+        if (isInitialized && !retry) return;
 
-      try {
-        setInitError(null);
-        setIsLoading(true);
+        try {
+          setInitError(null);
+          setIsLoading(true);
 
-        // Fetch all chat rooms if not provided
-        if (!initialChatRoom) {
-          const allRooms = await getChatRooms().catch((error) => {
-            throw new Error('Failed to fetch chat rooms: ' + error.message);
-          });
-          setChatRooms(
-            (allRooms as ComponentExtendedChatRoom[]).map(mapComponentToLocalRoom)
-          );
-        }
-
-        let activeRoom = initialChatRoom;
-        // If a modelId is provided and no initial chat room, create or get a chat room
-        if (modelId && !initialChatRoom) {
-          const rawRoom = await getOrCreateChatRoom(modelId);
-          activeRoom = mapComponentToLocalRoom({
-            ...rawRoom,
-            users: [],
-            messages: [],
-            aiModel: rawRoom.aiModel || {
-              id: rawRoom.aiModelId || '',
-              name: '',
-              imageUrl: null,
-              personality: '',
-              userId: ''
-            },
-            aiModelId: rawRoom.aiModelId || ''
-          });
-          setChatRooms((prev) => {
-            if (!activeRoom) return prev;
-            const exists = prev.some(
-              (r) => r.id === (activeRoom as ExtendedChatRoom).id
+          // Fetch all chat rooms if not provided
+          if (!initialChatRoom) {
+            const allRooms = await getChatRooms().catch((error) => {
+              throw new Error("Failed to fetch chat rooms: " + error.message);
+            });
+            setChatRooms(
+              (allRooms as ComponentExtendedChatRoom[]).map(
+                mapComponentToLocalRoom
+              )
             );
-            return exists ? prev : [...prev, activeRoom as ExtendedChatRoom];
-          });
-          router.push(`/chat/${activeRoom.id}`);
-        }
-
-        if (activeRoom) {
-          setSelectedRoom(activeRoom);
-
-          // Generate and save greeting if the chat room is new
-          if (activeRoom.aiModel) {
-            setIsGreetingGenerating(true);
-            await generateAndSaveGreeting({ room: activeRoom });
-            setIsGreetingGenerating(false);
           }
-        }
 
-        setIsInitialized(true);
-      } catch (error) {
-        handleApiError(error, toast, 'Failed to initialize chat');
-        setInitError('Failed to initialize chat. Please try again.');
-        // Propagate error to parent if handler exists
-        if (onError && error instanceof Error) {
-          onError(error);
+          let activeRoom = initialChatRoom;
+          // If a modelId is provided and no initial chat room, create or get a chat room
+          if (modelId && !initialChatRoom) {
+            const rawRoom = await getOrCreateChatRoom(modelId);
+            activeRoom = mapComponentToLocalRoom({
+              ...rawRoom,
+              users: [],
+              messages: [],
+              aiModelImageUrl: rawRoom.aiModel?.imageUrl || null,
+              createdBy: {
+                name: rawRoom.aiModel?.createdBy?.name,
+                id: rawRoom.aiModel?.createdBy?.id,
+              },
+              aiModel: rawRoom.aiModel || {
+                id: rawRoom.aiModelId || "",
+                name: "",
+                imageUrl: null,
+                personality: "",
+                userId: "",
+              },
+              aiModelId: rawRoom.aiModelId || "",
+            });
+            setChatRooms((prev) => {
+              if (!activeRoom) return prev;
+              const exists = prev.some(
+                (r) => r.id === (activeRoom as ExtendedChatRoom).id
+              );
+              return exists ? prev : [...prev, activeRoom as ExtendedChatRoom];
+            });
+            router.push(`/chat/${activeRoom.id}`);
+          }
+
+          if (activeRoom) {
+            setSelectedRoom(activeRoom);
+
+            // Generate and save greeting if the chat room is new
+            if (activeRoom.aiModel) {
+              setIsGreetingGenerating(true);
+              await generateAndSaveGreeting({ room: activeRoom });
+              setIsGreetingGenerating(false);
+            }
+          }
+
+          setIsInitialized(true);
+        } catch (error) {
+          handleApiError(error, toast, "Failed to initialize chat");
+          setInitError("Failed to initialize chat. Please try again.");
+          // Propagate error to parent if handler exists
+          if (onError && error instanceof Error) {
+            onError(error);
+          }
+        } finally {
+          setIsLoading(false);
         }
-      } finally {
-        setIsLoading(false);
-      }
-    },
+      },
     [initialChatRoom, modelId, isInitialized, router, toast, onError]
   );
 
@@ -295,13 +331,13 @@ const ChatComponent = ({ initialChatRoom, modelId, onError }: ChatComponentProps
           };
 
           await fetchWithRetry(`/api/chat/${room.id}/messages`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(message),
           });
         } catch (error) {
-          handleApiError(error, toast, 'Failed to send message');
-          setMessageError('Failed to send message. Please try again.');
+          handleApiError(error, toast, "Failed to send message");
+          setMessageError("Failed to send message. Please try again.");
         } finally {
           setIsMessageSending(false);
         }
@@ -335,7 +371,10 @@ const ChatComponent = ({ initialChatRoom, modelId, onError }: ChatComponentProps
    * Handler function to send a message.
    * Calls the debounced send message function.
    */
-  const handleSendMessage = (content: string, room: ExtendedChatRoom): Promise<void> => {
+  const handleSendMessage = (
+    content: string,
+    room: ExtendedChatRoom
+  ): Promise<void> => {
     return debouncedSendMessage(content, room) || Promise.resolve();
   };
 
@@ -353,8 +392,8 @@ const ChatComponent = ({ initialChatRoom, modelId, onError }: ChatComponentProps
 
       await router.push(`/chat/${room.id}`);
     } catch (error) {
-      handleApiError(error, toast, 'Failed to switch chat rooms');
-      setRoomError('Failed to switch chat rooms. Please try again.');
+      handleApiError(error, toast, "Failed to switch chat rooms");
+      setRoomError("Failed to switch chat rooms. Please try again.");
     } finally {
       setIsRoomLoading(null);
     }
@@ -379,25 +418,25 @@ const ChatComponent = ({ initialChatRoom, modelId, onError }: ChatComponentProps
               chatRooms={chatRooms.map((room) => ({
                 ...room,
                 aiModel: room.aiModel,
-                messages: room.messages.map(msg => ({
+                messages: room.messages.map((msg) => ({
                   ...msg,
                   user: msg.user || null,
                   aiModelId: msg.aiModelId || null,
                   isAIMessage: !!msg.isAIMessage,
                   metadata: msg.metadata || {},
-                  role: msg.isAIMessage ? 'assistant' : 'user'
-                }))
+                  role: msg.isAIMessage ? "assistant" : "user",
+                })),
               }))}
               selectedRoom={selectedRoom}
               onSelectRoom={handleRoomSelection}
-              onDeleteRoom={deleteChatRoom}   
+              onDeleteRoom={deleteChatRoom}
             />
           </div>
 
           {/* Chat messages and input */}
           <div
             className={`transition-all duration-300 ${
-              isProfileVisible ? 'flex-1' : 'flex-[2]'
+              isProfileVisible ? "flex-1" : "flex-[2]"
             } flex flex-col h-full`}
           >
             {selectedRoom ? (
@@ -410,9 +449,9 @@ const ChatComponent = ({ initialChatRoom, modelId, onError }: ChatComponentProps
                       ? {
                           id: selectedRoom.aiModel.id,
                           name: selectedRoom.aiModel.name,
-                          imageUrl: selectedRoom.aiModel.imageUrl || '',
+                          imageUrl: selectedRoom.aiModel.imageUrl || "",
                           personality: selectedRoom.aiModel.personality,
-                          userId: selectedRoom.aiModel.userId
+                          userId: selectedRoom.aiModel.userId,
                         }
                       : null,
                   }}
@@ -428,7 +467,7 @@ const ChatComponent = ({ initialChatRoom, modelId, onError }: ChatComponentProps
                 >
                   <ChevronRight
                     className={`w-4 h-4 text-white transform transition-transform duration-200 ${
-                      isProfileVisible ? 'rotate-180' : ''
+                      isProfileVisible ? "rotate-180" : ""
                     }`}
                   />
                 </button>
@@ -448,7 +487,9 @@ const ChatComponent = ({ initialChatRoom, modelId, onError }: ChatComponentProps
             <div
               className={`w-[400px] border-l border-[#1a1a1a] flex-shrink-0 h-full 
                   overflow-y-auto bg-[#0a0a0a] transition-all duration-300 ease-in-out
-                  ${isProfileVisible ? 'translate-x-0' : 'translate-x-full w-0'}`}
+                  ${
+                    isProfileVisible ? "translate-x-0" : "translate-x-full w-0"
+                  }`}
             >
               <ModelProfile
                 aiModel={mapAIModelToProfileProps(selectedRoom.aiModel)}

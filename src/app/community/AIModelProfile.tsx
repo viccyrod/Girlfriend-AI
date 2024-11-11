@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { AIModel } from '@/types/AIModel';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, User, Heart } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from '@/hooks/use-toast';
+import { AiModel as AIModel } from "@/types/chat";
+import { Heart, MessageCircle, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
 
 interface AIModelProfileProps {
   aiModel: AIModel;
@@ -38,7 +38,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
   const [isFollowingState, setIsFollowingState] = useState(isFollowing);
   const [aiModelState, setAiModelState] = useState(aiModel);
 
-  if (!aiModelState) {
+    if (!aiModelState) {
     return <div className="text-center py-8">No AI Model data available.</div>;
   }
 
@@ -171,7 +171,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
             </Button> */}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <InfoCard title="Personality" content={aiModelState.personality} />
+            <InfoCard title="Personality" content={aiModelState.personality || ''} />
             <InfoCard title="Appearance" content={aiModelState.appearance} />
             <InfoCard title="Backstory" content={aiModelState.backstory} />
             <InfoCard title="Hobbies" content={aiModelState.hobbies} />
