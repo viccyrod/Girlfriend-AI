@@ -3,15 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AIModelProfile from '@/app/community/AIModelProfile';
-import { fetchAIModel } from '@/app/api/aiModels';
-import { toggleFollowAIModel } from '@/app/api/aiModels/follow-ai-model';
+import { fetchAIModel } from '@/app/api/ai-models';
+import { toggleFollowAIModel } from '@/app/api/ai-models/follow-ai-model';
 import BaseLayout from '@/components/BaseLayout';
-import { AIModel } from '@/types/AIModel';
+import { AiModel } from '@/types/chat';
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
 
 export default function AIModelProfilePage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const [AIModel, setAIModel] = useState<AIModel | null>(null);
+  const [AIModel, setAIModel] = useState<AiModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);

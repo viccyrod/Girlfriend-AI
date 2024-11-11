@@ -232,8 +232,7 @@ const ChatComponent = ({ initialChatRoom, modelId, onError }: ChatComponentProps
               personality: '',
               userId: ''
             },
-            aiModelId: rawRoom.aiModelId || '',
-            createdBy: rawRoom.createdBy || null
+            aiModelId: rawRoom.aiModelId || ''
           });
           setChatRooms((prev) => {
             if (!activeRoom) return prev;

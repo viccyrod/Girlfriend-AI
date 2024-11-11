@@ -28,54 +28,57 @@ interface XAIResponse {
   };
 }
 
+// Add environment variable type for the model
+const DEFAULT_MODEL = 'grok-beta';
+
 export async function getAIResponse(
   content: string,
   aiModel: AIModel,
   memories: string[] = []
 ): Promise<string> {
   try {
-    // Construct base prompt with all parameters
-    const systemPrompt = constructBasePrompt(aiModel, memories, content);
+    // Validate API key
+    if (!process.env.XAI_API_KEY) {
+      throw new Error('XAI_API_KEY not configured');
+    }
 
-    // Construct messages array with system prompt and user message
-    const messages = [
-      {
-        role: 'system' as const,
-        content: systemPrompt
-      },
-      {
-        role: 'user' as const,
-        content: content
-      }
-    ];
-
-    // Construct the full request payload
-    const requestPayload: XAIRequestPayload = {
-      model: process.env.XAI_MODEL_ID || 'gpt-4',
-      messages: messages,
+    const response = await makeXAIRequest({
+      model: process.env.NEXT_PUBLIC_AI_MODEL || DEFAULT_MODEL, // Use consistent model
+      messages: [
+        {
+          role: 'system',
+          content: constructBasePrompt(aiModel, memories, content)
+        },
+        {
+          role: 'user',
+          content
+        }
+      ],
       max_tokens: 1000,
       temperature: 0.7,
-      context: memories.length > 0 ? memories : undefined
-    };
-
-    // Log the request payload for debugging (sanitized)
-    console.log('X.AI Request Payload:', {
-      ...requestPayload,
-      model: '[REDACTED]'
+      context: memories // Add context for better continuity
     });
 
-    const response = await makeXAIRequest(requestPayload);
-    return response.choices[0].message.content || 
-      'I apologize, but I am unable to process that request.';
+    if (!response.choices?.[0]?.message?.content) {
+      throw new Error('Invalid API response format');
+    }
 
+    return response.choices[0].message.content;
   } catch (error) {
-    console.error('Error in getAIResponse:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      modelId: aiModel.id,
-      contentLength: content.length,
-      memoriesCount: memories.length
-    });
-    throw new Error('Failed to generate AI response');
+    console.error('X.AI API Error:', error);
+    
+    // More specific fallback messages based on error type
+    if (error instanceof Error) {
+      if (error.message.includes('rate limit')) {
+        return `I'm a bit busy right now. Can you try again in a moment?`;
+      }
+      if (error.message.includes('API key')) {
+        return `I'm having trouble connecting. Please contact support.`;
+      }
+    }
+    
+    // Default fallback
+    return `Hello! I'm ${aiModel.name}. How can I help you today?`;
   }
 }
 
