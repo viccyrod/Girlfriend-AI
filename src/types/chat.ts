@@ -23,7 +23,22 @@ export interface AiModel {
   name: string;
   imageUrl?: string | null;
   personality?: string;
+  createdBy?: { id: string; name: string } | null;
+  followerCount: number;
   userId: string;
+  appearance: string;
+  backstory: string;
+  hobbies: string;
+  likes: string;
+  dislikes: string;
+  age: number | null;
+  isPrivate: boolean;
+  isAnime: boolean;
+  isHuman: boolean;
+  isHumanX: boolean;
+  isFollowing: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ExtendedChatRoom {
@@ -31,6 +46,7 @@ export interface ExtendedChatRoom {
   name: string;
   aiModel: AiModel;
   aiModelId: string;
+  aiModelImageUrl: string | null;
   users: User[];
   messages: Message[];
   createdAt: Date;
@@ -48,7 +64,10 @@ export interface ChatComponentProps {
   onError?: (error: Error) => void;
 }
 
-export type SendMessageFunction = (content: string, room: ExtendedChatRoom) => Promise<void>;
+export type SendMessageFunction = (
+  content: string,
+  room: ExtendedChatRoom
+) => Promise<void>;
 export type ToggleProfileFunction = () => void;
 export type CleanupFunction = () => void;
 

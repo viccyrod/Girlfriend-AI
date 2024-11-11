@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { AIModel } from '@/types/AIModel';
+import { AiModel as AIModel } from "@/types/chat";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
