@@ -44,10 +44,22 @@ export default async function ChatRoomPage({
     aiModel: chatRoom.aiModel ? {
       ...chatRoom.aiModel,
       isHuman: false,
-      isFollowing: false
+      isFollowing: false,
+      isHumanX: false,
+      createdBy: {
+        id: chatRoom.aiModel.createdBy?.id || '',
+        name: chatRoom.aiModel.createdBy?.name || '',
+        email: chatRoom.aiModel.createdBy?.email || '',
+        imageUrl: chatRoom.aiModel.createdBy?.image || null
+      }
     } : undefined,
     aiModelImageUrl: chatRoom.aiModel?.imageUrl || '',
-    createdBy: currentUser
+    createdBy: {
+      id: currentUser.id || '',
+      name: currentUser.name || '',
+      email: currentUser.email || '',
+      imageUrl: currentUser.image || null
+    }
   };
 
   return <ChatComponent initialChatRoom={extendedChatRoom as ExtendedChatRoom} modelId={params.modelId}  />;

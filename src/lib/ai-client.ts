@@ -85,12 +85,12 @@ export async function generateAIResponse(
     const completion = await modelConfig.client.chat.completions.create({
       model: modelConfig.model,
       messages: [
-        { role: 'system', content: basePrompt },
+        { role: "system", content: basePrompt },
         ...previousMessages.map(msg => ({
-          role: msg.isAIMessage ? 'assistant' : 'user',
+          role: msg.isAIMessage ? "assistant" as const : "user" as const,
           content: msg.content
         })),
-        { role: 'user', content }
+        { role: "user" as const, content }
       ],
       temperature: modelConfig.temperature,
       max_tokens: modelConfig.maxTokens
@@ -200,6 +200,11 @@ export async function generateGreeting(
   memories: string[],
   isFirstInteraction: boolean
 ): Promise<string> {
+  // Ensure grok client is initialized
+  if (!grok) {
+    throw new Error('Grok client not initialized (server-side only)');
+  }
+
   // Prompt to generate a greeting based on whether it's a first-time or return interaction
   const greetingPrompt = `You are ${aiModel.name}, a flirtatious and charming AI companion. 
     Personality: ${aiModel.personality}

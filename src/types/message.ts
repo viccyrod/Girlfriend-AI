@@ -14,7 +14,7 @@ export interface Message extends PrismaMessage {
   chatRoomId: string;
   isAIMessage: boolean;
   aiModelId: string | null;
-  metadata?: {
+  metadata: {
     type: string;
     imageData?: string;
     prompt?: string;

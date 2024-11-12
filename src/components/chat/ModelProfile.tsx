@@ -1,11 +1,18 @@
-import { AIModel } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 // import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ChevronRight, ChevronLeft, Phone } from 'lucide-react';
 import Image from 'next/image';
 
 interface ModelProfileProps {
-  model: AIModel | null;
+  model: {
+    id: string;
+    name: string;
+    imageUrl: string | null;
+    personality?: string;
+    userId: string;
+    backstory?: string;
+    hobbies?: string;
+  } | null;
 }
 
 export default function ModelProfile({ model }: ModelProfileProps) {

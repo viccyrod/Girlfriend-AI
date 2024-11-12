@@ -11,5 +11,9 @@ export default function ChatMessages({ chatRoom }: ChatMessagesProps) {
     ...chatRoom.aiModel,
     imageUrl: chatRoom.aiModel.imageUrl ?? ''
   } : null;
-  return <ClientChatMessages chatRoom={{ ...chatRoom, aiModel: safeAiModel }} />;
+  return <ClientChatMessages 
+    chatRoom={{ ...chatRoom, aiModel: safeAiModel }} 
+    onSendMessage={async () => {}} 
+    _isLoading={false} 
+  />;
 }

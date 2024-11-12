@@ -92,7 +92,33 @@ export async function deleteChatRoom(roomId: string) {
   return response.json();
 }
 
-export async function getOrCreateChatRoom(id: string): Promise<ChatRoom> {
+// Update the return type to include all required AiModel properties
+export async function getOrCreateChatRoom(id: string): Promise<ChatRoom & {
+  aiModel: {
+    id: string;
+    name: string;
+    imageUrl: string;
+    personality: string;
+    userId: string;
+    followerCount: number;
+    appearance: string;
+    backstory: string;
+    hobbies: string;
+    likes: string;
+    dislikes: string;
+    age: number | null;
+    isPrivate: boolean;
+    isAnime: boolean;
+    isHuman: boolean;
+    isHumanX: boolean;
+    isFollowing: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    createdBy: {
+      name: string;
+    };
+  };
+}> {
   const response = await fetch(`/api/chat/${id}/message`, {
     method: 'POST',
   });

@@ -30,6 +30,7 @@ import {
 } from "@/app/api/chat/client-actions";
 import { ChevronRight, Loader2 } from "lucide-react";
 
+
 /**
  * Utility function for consistent API error handling
  */
@@ -130,6 +131,12 @@ const mapComponentToLocalRoom = (
       isFollowing: room.aiModel?.isFollowing || false,
       createdAt: room.aiModel?.createdAt || undefined,
       updatedAt: room.aiModel?.updatedAt || undefined,
+      createdBy: {
+        id: "",
+        name: "",
+        email: "",
+        imageUrl: null
+      }
     },
     createdBy: room.createdBy || null,
   };
@@ -252,24 +259,43 @@ const ChatComponent = ({
           // If a modelId is provided and no initial chat room, create or get a chat room
           if (modelId && !initialChatRoom) {
             const rawRoom = await getOrCreateChatRoom(modelId);
-            activeRoom = mapComponentToLocalRoom({
+            console.log('Raw Room Data:', JSON.stringify(rawRoom, null, 2));
+            activeRoom = {
               ...rawRoom,
               users: [],
+              aiModelId: rawRoom.aiModelId ?? '',
+              aiModelImageUrl: rawRoom.aiModel?.imageUrl ?? null,
               messages: [],
-              aiModelImageUrl: rawRoom.aiModel?.imageUrl || null,
-              createdBy: {
-                name: rawRoom.aiModel?.createdBy?.name,
-                id: rawRoom.aiModel?.createdBy?.id,
-              },
-              aiModel: rawRoom.aiModel || {
-                id: rawRoom.aiModelId || "",
-                name: "",
-                imageUrl: null,
-                personality: "",
-                userId: "",
-              },
-              aiModelId: rawRoom.aiModelId || "",
-            });
+              createdBy: null,
+              aiModel: {
+                ...rawRoom.aiModel,
+                id: rawRoom.aiModel?.id ?? '',
+                name: rawRoom.aiModel?.name ?? '',
+                imageUrl: rawRoom.aiModel?.imageUrl ?? '',
+                personality: rawRoom.aiModel?.personality ?? '',
+                userId: rawRoom.aiModel?.userId ?? '',
+                followerCount: rawRoom.aiModel?.followerCount ?? 0,
+                appearance: rawRoom.aiModel?.appearance ?? '',
+                backstory: rawRoom.aiModel?.backstory ?? '',
+                hobbies: rawRoom.aiModel?.hobbies ?? '',
+                likes: rawRoom.aiModel?.likes ?? '',
+                dislikes: rawRoom.aiModel?.dislikes ?? '',
+                age: rawRoom.aiModel?.age ?? null,
+                isPrivate: rawRoom.aiModel?.isPrivate ?? false,
+                isAnime: rawRoom.aiModel?.isAnime ?? false,
+                isHuman: false,
+                isHumanX: false,
+                isFollowing: false,
+                createdAt: rawRoom.aiModel?.createdAt ?? new Date(),
+                updatedAt: rawRoom.aiModel?.updatedAt ?? new Date(),
+                createdBy: {
+                  id: '',
+                  name: '',
+                  email: '',
+                  imageUrl: null
+                }
+              }
+            };
             setChatRooms((prev) => {
               if (!activeRoom) return prev;
               const exists = prev.some(
@@ -447,11 +473,8 @@ const ChatComponent = ({
                     users: selectedRoom.users,
                     aiModel: selectedRoom.aiModel
                       ? {
-                          id: selectedRoom.aiModel.id,
-                          name: selectedRoom.aiModel.name,
+                          ...selectedRoom.aiModel,
                           imageUrl: selectedRoom.aiModel.imageUrl || "",
-                          personality: selectedRoom.aiModel.personality,
-                          userId: selectedRoom.aiModel.userId,
                         }
                       : null,
                   }}
@@ -492,7 +515,7 @@ const ChatComponent = ({
                   }`}
             >
               <ModelProfile
-                aiModel={mapAIModelToProfileProps(selectedRoom.aiModel)}
+                model={mapAIModelToProfileProps(selectedRoom.aiModel)}
               />
             </div>
           )}

@@ -18,6 +18,7 @@ export async function generateAndSaveGreeting({ room }: AIGreetingProps): Promis
     const extendedAiModel = {
       ...room.aiModel,
       appearance: '',
+      personality: room.aiModel.personality || '',
       backstory: '',
       hobbies: '',
       likes: '',

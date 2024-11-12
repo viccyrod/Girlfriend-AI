@@ -18,14 +18,20 @@ export interface Message {
   metadata?: Record<string, MetadataValue>;
 }
 
+export interface CreatedBy {
+  id: string;
+  name: string;
+  email?: string;
+  imageUrl?: string | null;
+}
+
 export interface AiModel {
   id: string;
   name: string;
-  imageUrl?: string | null;
-  personality?: string;
-  createdBy?: { id: string; name: string } | null;
-  followerCount: number;
+  imageUrl: string | null;
+  personality: string;
   userId: string;
+  followerCount: number;
   appearance: string;
   backstory: string;
   hobbies: string;
@@ -39,6 +45,12 @@ export interface AiModel {
   isFollowing: boolean;
   createdAt: Date;
   updatedAt: Date;
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+    imageUrl: string | null;
+  };
 }
 
 export interface ExtendedChatRoom {
@@ -51,10 +63,7 @@ export interface ExtendedChatRoom {
   messages: Message[];
   createdAt: Date;
   updatedAt: Date;
-  createdBy: {
-    id: string;
-    name: string | null;
-  } | null;
+  createdBy: CreatedBy | null;
 }
 
 // Component Props and Function Types
@@ -93,3 +102,12 @@ export interface MessageResponse {
 }
 
 type MetadataValue = string | number | boolean | null | undefined;
+
+export type ExtendedMessage = {
+  id: string;
+  content: string;
+  createdAt: Date | string;
+  isAIMessage: boolean;
+  aiModelId?: string;
+  // Add any other necessary fields
+};

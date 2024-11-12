@@ -172,9 +172,9 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <InfoCard title="Personality" content={aiModelState.personality || ''} />
-            <InfoCard title="Appearance" content={aiModelState.appearance} />
-            <InfoCard title="Backstory" content={aiModelState.backstory} />
-            <InfoCard title="Hobbies" content={aiModelState.hobbies} />
+            <InfoCard title="Appearance" content={aiModelState.appearance || ''} />
+            <InfoCard title="Backstory" content={aiModelState.backstory || ''} />
+            <InfoCard title="Hobbies" content={aiModelState.hobbies || ''} />
           </div>
           <div className="space-y-4">
             <h3 className="text-xl font-semibold">Likes & Dislikes</h3>

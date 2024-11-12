@@ -47,8 +47,15 @@ export default async function ChatPage({
       updatedAt: new Date(chatRoom.updatedAt || Date.now()),
       createdBy: chatRoom.aiModel?.createdBy ? {
         id: chatRoom.aiModel.createdBy.id || '',
-        name: chatRoom.aiModel.createdBy.name || ''
-      } : null,
+        name: chatRoom.aiModel.createdBy.name || '',
+        email: chatRoom.aiModel.createdBy.email || '',
+        imageUrl: chatRoom.aiModel.createdBy.image || null
+      } : {
+        id: '',
+        name: '',
+        email: '',
+        imageUrl: null
+      },
       aiModel: {
         id: chatRoom.aiModel?.id || '',
         name: chatRoom.aiModel?.name || '',
@@ -60,8 +67,15 @@ export default async function ChatPage({
         dislikes: chatRoom.aiModel?.dislikes || '',
         createdBy: chatRoom.aiModel?.createdBy ? {
           id: chatRoom.aiModel.createdBy.id || '',
-          name: chatRoom.aiModel.createdBy.name || ''
-        } : null,
+          name: chatRoom.aiModel.createdBy.name || '',
+          email: chatRoom.aiModel.createdBy.email || '',
+          imageUrl: chatRoom.aiModel.createdBy.image || null 
+        } : {
+          id: '',
+          name: '',
+          email: '',
+          imageUrl: null
+        },
         userId: chatRoom.aiModel?.userId || '',
         followerCount: chatRoom.aiModel?.followerCount || 0,
         isPrivate: chatRoom.aiModel?.isPrivate || false,
