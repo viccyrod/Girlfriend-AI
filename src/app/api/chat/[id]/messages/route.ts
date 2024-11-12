@@ -3,8 +3,8 @@
 import prisma from "@/lib/clients/prisma";
 // Importing necessary modules and functions from external libraries
 import { NextResponse } from 'next/server';
-import { generateGreeting, getAIResponse } from '@/lib/clients/xai'; // Using our Grok implementation
-import { retrieveMemories, storeMemory } from '@/utils/memory';
+// import { generateGreeting, getAIResponse } from '@/lib/clients/xai'; // Using our Grok implementation
+// import { retrieveMemories, storeMemory } from '@/utils/memory';
 // import { Memory } from '@/types/memory';
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
 import { getChatRoomMessagesServer } from '../../serverActions';

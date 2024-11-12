@@ -1,10 +1,10 @@
 // This file defines the `ChatService` class, which manages chat room and message-related operations. It uses Prisma as the database client to interact with the backend data and includes several methods:
 
 // Importing necessary modules and services
-import { AIMode, generateAIResponse } from '@/lib/ai-client';
+// import { AIMode, generateAIResponse } from '@/lib/ai-client';
 import prisma from '@/lib/clients/prisma';
 import { getCurrentUser } from '@/lib/session';
-import { storeMemory } from '@/utils/memory';
+// import { storeMemory } from '@/utils/memory';
 
 // ChatService class that provides methods for managing chat rooms and messages
 export class ChatService {

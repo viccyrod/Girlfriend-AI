@@ -213,7 +213,7 @@ export default function ClientChatMessages({ chatRoom, onSendMessage, _isLoading
         eventSourceRef.current = null;
       }
     };
-  }, [chatRoom.id, toast]);
+  }, [chatRoom.id, toast, scrollToBottom]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
