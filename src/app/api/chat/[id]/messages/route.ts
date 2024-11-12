@@ -8,6 +8,7 @@ import { retrieveMemories, storeMemory } from '@/utils/memory';
 // import { Memory } from '@/types/memory';
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
 import { getChatRoomMessagesServer } from '../../serverActions';
+import { messageEmitter } from '@/lib/messageEmitter';
 
 
 // Handles POST requests to create a new message and generate an AI response
@@ -17,7 +18,6 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Get user session
     const { getUser } = getKindeServerSession();
     const user = await getUser();
     
@@ -25,7 +25,6 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get chat room and validate access
     const chatRoom = await prisma.chatRoom.findFirst({
       where: {
         id: params.id,
@@ -34,15 +33,6 @@ export async function POST(
             id: user.id
           }
         }
-      },
-      include: {
-        aiModel: true,
-        messages: {
-          orderBy: {
-            createdAt: 'desc'
-          },
-          take: 1
-        }
       }
     });
 
@@ -50,57 +40,13 @@ export async function POST(
       return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
     }
 
-    // Get message content and mode
-    const { content, mode = 'chat' } = await request.json();
-    
-    // Check if this is a greeting request or first message
-    const isFirstMessage = chatRoom.messages.length === 0;
-    if (mode === 'greeting' || isFirstMessage) {
-      if (!chatRoom.aiModel) {
-        throw new Error('AI Model not found');
-      }
-
-      const greeting = await generateGreeting(chatRoom.aiModel);
-      
-      // Create AI greeting message
-      const greetingMessage = await prisma.message.create({
-        data: {
-          content: greeting,
-          chatRoomId: params.id,
-          isAIMessage: true,
-          aiModelId: chatRoom.aiModelId,
-          role: 'assistant'
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              image: true
-            }
-          }
-        }
-      });
-
-      // If it's just a greeting request, return early
-      if (mode === 'greeting') {
-        return NextResponse.json({ greetingMessage });
-      }
-    }
-
-    // Continue with regular message processing if content exists
-    if (!content) {
-      return NextResponse.json({ error: 'Message content required' }, { status: 400 });
-    }
-
-    // Create user message
-    const userMessage = await prisma.message.create({
+    const body = await request.json();
+    const message = await prisma.message.create({
       data: {
-        content,
+        content: body.content,
         chatRoomId: params.id,
         userId: user.id,
-        isAIMessage: false,
-        role: 'user'
+        isAIMessage: false
       },
       include: {
         user: {
@@ -113,68 +59,13 @@ export async function POST(
       }
     });
 
-    try {
-      // Get memories before generating response
-      const memories = await retrieveMemories(
-        chatRoom.aiModelId!,
-        user.id!,
-        params.id
-      );
+    // Emit the new message event
+    messageEmitter.emit(`chat:${params.id}`, message);
 
-      // Get AI response with memories
-      if (!chatRoom.aiModel) {
-        throw new Error('AI Model not found');
-      }
-
-      const aiResponse = await getAIResponse(
-        content, 
-        chatRoom.aiModel,
-        memories || []
-      );
-      
-      // Create AI message
-      const aiMessage = await prisma.message.create({
-        data: {
-          content: aiResponse,
-          chatRoomId: params.id,
-          isAIMessage: true,
-          aiModelId: chatRoom.aiModelId,
-          role: 'assistant'
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              image: true
-            }
-          }
-        }
-      });
-
-      // Store the AI response in memory
-      await storeMemory(
-        chatRoom.aiModel!.id,
-        user.id,
-        `AI: ${aiResponse}`
-      );
-
-      return NextResponse.json({
-        userMessage,
-        aiMessage
-      });
-
-    } catch (error) {
-      console.error('Error processing message:', error);
-      return NextResponse.json({
-        userMessage,
-        error: 'Failed to get AI response'
-      }, { status: 500 });
-    }
-
+    return NextResponse.json(message);
   } catch (error) {
-    console.error('Error in message handler:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error sending message:', error);
+    return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
   }
 }
 

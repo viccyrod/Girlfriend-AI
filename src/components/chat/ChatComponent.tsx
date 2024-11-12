@@ -397,11 +397,38 @@ const ChatComponent = ({
    * Handler function to send a message.
    * Calls the debounced send message function.
    */
-  const handleSendMessage = (
-    content: string,
-    room: ExtendedChatRoom
-  ): Promise<void> => {
-    return debouncedSendMessage(content, room) || Promise.resolve();
+  const handleSendMessage = async (content: string, room: ExtendedChatRoom) => {
+    try {
+      setIsMessageSending(true);
+      
+      console.log('Sending message to room:', room.id);
+      
+      const response = await fetch(`/api/chat/${room.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send message');
+      }
+
+      const message = await response.json();
+      return message;
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send message",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setIsMessageSending(false);
+    }
   };
 
   /**
@@ -415,8 +442,9 @@ const ChatComponent = ({
 
       const mappedRoom = mapComponentToLocalRoom(room);
       setSelectedRoom(mappedRoom);
-
-      await router.push(`/chat/${room.id}`);
+      
+      // Update URL without navigation
+      window.history.replaceState({}, '', `/chat?room=${room.id}`);
     } catch (error) {
       handleApiError(error, toast, "Failed to switch chat rooms");
       setRoomError("Failed to switch chat rooms. Please try again.");

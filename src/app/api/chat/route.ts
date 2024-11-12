@@ -51,72 +51,53 @@ export async function POST(request: Request) {
     const user = await getUser();
     
     if (!user) {
-      console.log('No user found - unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    console.log('Received POST request to /api/chat with body:', JSON.stringify(body, null, 2));
+    const { action, aiModelId } = body;
 
-    const { action, content, chatRoomId, aiModelId, name } = body;
+    if (action === 'createChatRoom') {
+      console.log('Creating chat room:', { userId: user.id, aiModelId });
 
-    switch (action) {
-      case 'createChatRoom':
-        try {
-          console.log('Creating chat room for user:', user.id);
-          const chatRoom = await ChatService.createChatRoom(name, aiModelId);
-          console.log('Chat room created:', JSON.stringify(chatRoom, null, 2));
-          return NextResponse.json(chatRoom);
-        } catch (error) {
-          console.error('Error in createChatRoom:', error);
-          return NextResponse.json(
-            { error: 'Failed to create chat room' }, 
-            { status: 400 }
-          );
+      const existingRoom = await prisma.chatRoom.findFirst({
+        where: {
+          aiModelId,
+          users: {
+            some: {
+              id: user.id
+            }
+          }
         }
+      });
 
-      case 'sendMessage':
-        try {
-          console.log('Sending message in chatRoomId:', chatRoomId, 'with content:', content);
-          const message = await ChatService.sendMessage(content, chatRoomId, aiModelId);
-          console.log('Message sent:', JSON.stringify(message, null, 2));
-          return NextResponse.json(message);
-        } catch (error) {
-          console.error('Error in sendMessage:', error);
-          return NextResponse.json(
-            { 
-              error: 'Failed to send message',
-              details: error instanceof Error ? error.message : String(error)
-            }, 
-            { status: 500 }
-          );
+      if (existingRoom) {
+        console.log('Found existing room:', existingRoom.id);
+        return NextResponse.json(existingRoom);
+      }
+
+      const chatRoom = await prisma.chatRoom.create({
+        data: {
+          aiModelId,
+          users: {
+            connect: { id: user.id }
+          }
+        },
+        include: {
+          aiModel: true,
+          users: true
         }
+      });
 
-      case 'deleteChatRoom':
-        try {
-          console.log('Deleting chat room with id:', chatRoomId);
-          await ChatService.deleteChatRoom(chatRoomId);
-          console.log('Chat room deleted successfully');
-          return NextResponse.json({ success: true });
-        } catch (error) {
-          console.error('Error in deleteChatRoom:', error);
-          return NextResponse.json(
-            { 
-              error: 'Failed to delete chat room',
-              details: error instanceof Error ? error.message : String(error)
-            }, 
-            { status: 500 }
-          );
-        }
-
-      default:
-        console.error('Invalid action received:', action);
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+      console.log('Created new room:', chatRoom.id);
+      return NextResponse.json(chatRoom);
     }
+
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     console.error('Error in POST /api/chat:', error);
     return NextResponse.json(
-      { error: 'Internal server error' }, 
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

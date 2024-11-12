@@ -1,44 +1,103 @@
 import { NextResponse } from 'next/server';
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import prisma from '@/lib/clients/prisma';
-import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
 
-export async function DELETE(
+// Utility function to verify chat room access
+async function verifyChatRoomAccess(roomId: string, userId: string) {
+  const chatRoom = await prisma.chatRoom.findFirst({
+    where: {
+      id: roomId,
+      users: {
+        some: {
+          id: userId
+        }
+      }
+    }
+  });
+  return chatRoom;
+}
+
+export async function GET(
   request: Request,
-  { params }: { params: { modelId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getKindeServerSession();
-    const { getUser } = session;
+    const { getUser } = getKindeServerSession();
     const user = await getUser();
-    if (!session || !user.id) {
+    
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const chatRoom = await prisma.chatRoom.findUnique({
-      where: { id: params.modelId },
-      include: { users: true }
-    });
-
+    const chatRoom = await verifyChatRoomAccess(params.id, user.id);
     if (!chatRoom) {
       return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
     }
 
-    // Verify user has permission to delete this room
-    if (!chatRoom.users.some(user => user.id === user.id)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    // Delete the chat room and all associated messages (using cascade)
-    await prisma.chatRoom.delete({
-      where: { id: params.modelId }
+    const messages = await prisma.message.findMany({
+      where: {
+        chatRoomId: params.id
+      },
+      orderBy: {
+        createdAt: 'asc'
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
+        }
+      }
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json(messages);
   } catch (error) {
-    console.error('Failed to delete chat room:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete chat room' },
-      { status: 500 }
-    );
+    console.error('Error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const chatRoom = await verifyChatRoomAccess(params.id, user.id);
+    if (!chatRoom) {
+      return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
+    }
+
+    const { content } = await request.json();
+    const message = await prisma.message.create({
+      data: {
+        content,
+        chatRoomId: params.id,
+        userId: user.id,
+        isAIMessage: false
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
+        }
+      }
+    });
+
+    return NextResponse.json(message);
+  } catch (error) {
+    console.error('Error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

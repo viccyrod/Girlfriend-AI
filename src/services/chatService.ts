@@ -48,83 +48,46 @@ export class ChatService {
 
   // Method to create a new chat room
   static async createChatRoom(name: string, aiModelId: string) {
-    // Get the current user from the session
     const currentUser = await getCurrentUser();
-    if (!currentUser) throw new Error('Unauthorized');
-
-    // Find the AI model by ID
-    const aiModel = await prisma.aIModel.findUnique({
-      where: { id: aiModelId },
-      include: { createdBy: true }
-    });
-
-    if (!aiModel) {
-      throw new Error('AI Model not found');
+    if (!currentUser) {
+      throw new Error('Unauthorized: Please sign in to create a chat room');
     }
 
-    // Create a new chat room and add the current user to it
-    const chatRoom = await prisma.chatRoom.create({
-      data: {
-        name,
-        users: {
-          connect: [{ id: currentUser.id }]
+    try {
+      // Verify AI Model exists
+      const aiModel = await prisma.aIModel.findUnique({
+        where: { id: aiModelId }
+      });
+
+      if (!aiModel) {
+        throw new Error('AI Model not found');
+      }
+
+      // Create chat room
+      const chatRoom = await prisma.chatRoom.create({
+        data: {
+          name,
+          aiModelId,
+          users: {
+            connect: { id: currentUser.id }
+          }
         },
-        aiModel: {
-          connect: { id: aiModelId }
+        include: {
+          aiModel: {
+            include: {
+              createdBy: true
+            }
+          },
+          users: true,
+          messages: true
         }
-      },
-      include: {
-        users: true,
-        aiModel: true,
-        messages: true
-      }
-    });
+      });
 
-    // Generate an initial greeting from the AI model
-    const aiResponse = await generateAIResponse(
-      "greeting",
-      aiModel,
-      [], // No memories for greeting
-      [], // No previous messages
-      "greeting" as AIMode
-    );
-
-    // Create a message with the AI's greeting in the chat room
-    await prisma.message.create({
-      data: {
-        content: aiResponse.content,
-        chatRoomId: chatRoom.id,
-        aiModelId: aiModel.id,
-        isAIMessage: true,
-        metadata: {
-          mode: "greeting",
-          confidence: aiResponse.confidence
-        }
-      }
-    });
-
-    // Store the AI-generated greeting in memory for future context
-    await storeMemory(
-      aiModelId,
-      currentUser.id,
-      `AI: ${aiResponse.content}`
-    );
-
-    // Fetch and return the updated chat room with all relevant data
-    const updatedChatRoom = await prisma.chatRoom.findUnique({
-      where: { id: chatRoom.id },
-      include: {
-        users: true,
-        aiModel: true,
-        messages: true
-      }
-    });
-
-    if (!updatedChatRoom) {
-      throw new Error('Failed to fetch updated chat room');
+      return chatRoom;
+    } catch (error) {
+      console.error('Error creating chat room:', error);
+      throw new Error('Failed to create chat room');
     }
-
-    return updatedChatRoom;
   }
 
   // Method to delete a chat room

@@ -11,62 +11,54 @@ export async function GET(
     const user = await getUser();
     
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response('Unauthorized', { status: 401 });
     }
 
-    // Set up SSE headers
-    const headers = {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    };
+    // Verify chat room access
+    const chatRoom = await prisma.chatRoom.findFirst({
+      where: {
+        id: params.id,
+        users: {
+          some: {
+            id: user.id
+          }
+        }
+      }
+    });
 
+    if (!chatRoom) {
+      return new Response('Chat room not found', { status: 404 });
+    }
+
+    // Set up SSE stream
+    const encoder = new TextEncoder();
     const stream = new ReadableStream({
-      async start(controller) {
-        const encoder = new TextEncoder();
-
-        // Initial connection message
+      start(controller) {
+        // Send initial connection message
         controller.enqueue(encoder.encode('event: connected\ndata: Connected to SSE\n\n'));
 
-        // Set up message polling
-        const interval = setInterval(async () => {
-          const messages = await prisma.message.findMany({
-            where: {
-              chatRoomId: params.id,
-            },
-            orderBy: {
-              createdAt: 'desc',
-            },
-            take: 1,
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  image: true,
-                },
-              },
-            },
-          });
-
-          if (messages.length > 0) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(messages[0])}\n\n`)
-            );
-          }
-        }, 1000);
+        // Keep connection alive with heartbeat
+        const heartbeat = setInterval(() => {
+          controller.enqueue(encoder.encode('event: heartbeat\ndata: ping\n\n'));
+        }, 30000);
 
         // Cleanup on close
         request.signal.addEventListener('abort', () => {
-          clearInterval(interval);
+          clearInterval(heartbeat);
           controller.close();
         });
-      },
+      }
     });
 
-    return new Response(stream, { headers });
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
   } catch (error) {
     console.error('SSE Error:', error);
-    return NextResponse.json({ error: 'SSE Failed' }, { status: 500 });
+    return new Response('Internal Server Error', { status: 500 });
   }
 } 

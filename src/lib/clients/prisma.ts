@@ -2,13 +2,23 @@ import { PrismaClient } from '@prisma/client'
 
 const prismaClientSingleton = () => {
   return new PrismaClient({
-    log: ['query', 'info', 'warn', 'error'],
+    log: ['query'],
     datasources: {
       db: {
         url: process.env.DATABASE_URL,
       }
     }
-  })
+  }).$extends({
+    query: {
+      $allOperations({ operation, model, args, query }) {
+        console.log(`[Prisma Debug] ${model}.${operation}`, { 
+          timestamp: new Date().toISOString(),
+          args 
+        });
+        return query(args);
+      },
+    },
+  });
 }
 
 type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>
@@ -19,9 +29,9 @@ const globalForPrisma = globalThis as unknown as {
 
 const prisma = globalForPrisma.prisma ?? prismaClientSingleton()
 
-export default prisma
-
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+
+export default prisma
 
 // Test database connection
 prisma.$connect()
