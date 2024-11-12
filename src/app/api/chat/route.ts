@@ -78,6 +78,7 @@ export async function POST(request: Request) {
 
       const chatRoom = await prisma.chatRoom.create({
         data: {
+          name: `Chat with ${aiModelId}`,
           aiModelId,
           users: {
             connect: { id: user.id }
