@@ -23,11 +23,12 @@ import {
   AiModel,
 } from "@/types/chat";
 import { useToast } from "@/hooks/use-toast";
-import {
-  deleteChatRoom,
-  getChatRooms,
+import { 
+  deleteChatRoom, 
+  getChatRooms, 
   getOrCreateChatRoom,
-} from "@/app/api/chat/client-actions";
+  sendMessage 
+} from '@/lib/actions/chat';
 import { ChevronRight, Loader2 } from "lucide-react";
 
 
@@ -400,24 +401,8 @@ const ChatComponent = ({
   const handleSendMessage = async (content: string, room: ExtendedChatRoom) => {
     try {
       setIsMessageSending(true);
-      
       console.log('Sending message to room:', room.id);
-      
-      const response = await fetch(`/api/chat/${room.id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to send message');
-      }
-
-      const message = await response.json();
-      return message;
+      return await sendMessage(room.id, content);
     } catch (error) {
       console.error('Error sending message:', error);
       toast({

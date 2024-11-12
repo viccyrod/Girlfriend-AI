@@ -10,6 +10,13 @@ import { format } from 'date-fns';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Send } from 'lucide-react';
 import ImageGenerationMenu from './ImageGenerationMenu';
+import { 
+  sendMessage, 
+  generateImage, 
+  shouldGenerateImage,
+  subscribeToMessages 
+} from '@/lib/actions/chat';
+
 
 // Message and ChatRoom Interfaces
 interface Message {
@@ -21,10 +28,11 @@ interface Message {
   updatedAt: string | Date;
   aiModelId: string | null;
   isAIMessage: boolean;
-  metadata?: {
+  metadata: {
     type?: string;
     imageData?: string;
     prompt?: string;
+    [key: string]: unknown;
   };
   user?: {
     id: string;
@@ -100,33 +108,45 @@ const MessageBubble = ({ message }: { message: Message }) => {
   );
 };
 
-// Helper Functions
-const shouldGenerateImage = (message: string) => {
-  const triggerWords = ['send me', 'generate', 'create image', 'show me'];
-  return triggerWords.some(trigger => message.toLowerCase().includes(trigger));
-};
-
-const generateImage = async (prompt: string, chatRoomId: string) => {
-  const response = await fetch('/api/image', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, chatRoomId }),
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to generate image');
-  }
-  
-  return response.json();
-};
-
 // Main Component
-export default function ClientChatMessages({ chatRoom, onSendMessage, _isLoading }: ClientChatMessagesProps) {
+interface Message {
+  id: string;
+  content: string;
+  userId: string | null;
+  chatRoomId: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  aiModelId: string | null;
+  isAIMessage: boolean;
+  metadata: {
+    type?: string;
+    imageData?: string;
+    prompt?: string;
+    [key: string]: unknown;
+  };
+  user?: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  } | null;
+}
+
+// Update the props interface to mark onSendMessage as optional with underscore
+interface ClientChatMessagesProps {
+  chatRoom: {
+    id: string;
+    users: User[];
+    aiModel: AIModel | null;
+  };
+  _onSendMessage?: (content: string) => Promise<void>;
+  _isLoading: boolean;
+}
+
+export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoading }: ClientChatMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoadingResponse, setIsLoadingResponse] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
   const { toast } = useToast();
 
   // Scroll to bottom utility
@@ -138,82 +158,14 @@ export default function ClientChatMessages({ chatRoom, onSendMessage, _isLoading
 
   // Initialize messages and SSE connection
   useEffect(() => {
-    let isMounted = true;
-
-    async function initializeChat() {
-      try {
-        // Fetch initial messages
-        const response = await fetch(`/api/chat/${chatRoom.id}/messages`);
-        if (!response.ok) throw new Error('Failed to fetch messages');
-        const initialMessages = await response.json();
-        
-        if (isMounted) {
-          setMessages(initialMessages);
-          scrollToBottom();
-        }
-
-        // Setup SSE connection
-        if (eventSourceRef.current) {
-          eventSourceRef.current.close();
-        }
-
-        const eventSource = new EventSource(`/api/chat/${chatRoom.id}/sse`);
-        eventSourceRef.current = eventSource;
-
-        eventSource.onmessage = (event) => {
-          if (!isMounted) return;
-          
-          try {
-            const newMessage = JSON.parse(event.data);
-            if (newMessage && newMessage.id) {
-              setMessages(prev => {
-                if (prev.some(msg => msg.id === newMessage.id)) return prev;
-                return [...prev, newMessage];
-              });
-              scrollToBottom();
-            }
-          } catch (error) {
-            console.error('Error parsing SSE message:', error);
-          }
-        };
-
-        eventSource.onerror = (error) => {
-          console.error('SSE Error:', error);
-          if (eventSourceRef.current) {
-            eventSourceRef.current.close();
-            eventSourceRef.current = null;
-          }
-        };
-
-        // Handle connection event
-        eventSource.addEventListener('connected', (event) => {
-          console.log('SSE Connected:', event.data);
-        });
-
-        // Handle heartbeat
-        eventSource.addEventListener('heartbeat', () => {
-          console.log('SSE Heartbeat received');
-        });
-      } catch (error) {
-        console.error('Error initializing chat:', error);
-        toast({
-          title: "Error",
-          description: "Failed to initialize chat. Please refresh the page.",
-          variant: "destructive",
-        });
-      }
-    }
-
-    initializeChat();
+    const cleanup = subscribeToMessages(chatRoom.id, (message) => {
+      setMessages(prev => [...prev, message as Message]);
+    });
 
     return () => {
-      isMounted = false;
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
+      cleanup();
     };
-  }, [chatRoom.id, toast, scrollToBottom]);
+  }, [chatRoom.id]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -230,7 +182,8 @@ export default function ClientChatMessages({ chatRoom, onSendMessage, _isLoading
         const response = await generateImage(prompt, chatRoom.id);
         setMessages(prev => [...prev, response.message]);
       } else {
-        await onSendMessage(messageContent);
+        const message = await sendMessage(chatRoom.id, messageContent);
+        setMessages(prev => [...prev, message]);
       }
 
       scrollToBottom();
@@ -241,7 +194,6 @@ export default function ClientChatMessages({ chatRoom, onSendMessage, _isLoading
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
-      // Restore the message in case of error
       setNewMessage(messageContent);
     } finally {
       setIsLoadingResponse(false);

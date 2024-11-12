@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"; // Used to programmatically navigate
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server"; // Used to manage server-side authentication with Kinde
 import ChatComponent from "@/components/chat/ChatComponent"; // Chat UI component
 import BaseLayout from "@/components/BaseLayout"; // Base layout component to wrap the page's content
-import { getOrCreateChatRoom } from "@/app/actions/chat"; // Utility function to get or create a chat room
+import { getOrCreateChatRoom } from "@/lib/actions/chat"; // Utility function to get or create a chat room
 import {  ExtendedChatRoom } from "@/types/chat";
 
 
@@ -49,7 +49,7 @@ export default async function ChatPage({
         id: chatRoom.aiModel.createdBy.id || '',
         name: chatRoom.aiModel.createdBy.name || '',
         email: chatRoom.aiModel.createdBy.email || '',
-        imageUrl: chatRoom.aiModel.createdBy.image || null
+        imageUrl: chatRoom.aiModel.createdBy.imageUrl || null
       } : {
         id: '',
         name: '',
@@ -69,7 +69,7 @@ export default async function ChatPage({
           id: chatRoom.aiModel.createdBy.id || '',
           name: chatRoom.aiModel.createdBy.name || '',
           email: chatRoom.aiModel.createdBy.email || '',
-          imageUrl: chatRoom.aiModel.createdBy.image || null 
+          imageUrl: chatRoom.aiModel.createdBy.imageUrl || null 
         } : {
           id: '',
           name: '',

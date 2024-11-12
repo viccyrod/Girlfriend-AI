@@ -1,6 +1,8 @@
-// import { NextResponse } from 'next/server';
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import { NextResponse } from 'next/server';
+import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
 import prisma from '@/lib/clients/prisma';
+import { messageEmitter } from '@/lib/messageEmitter';
+import { Message } from '@/types/message';
 
 export async function GET(
   request: Request,
@@ -11,10 +13,9 @@ export async function GET(
     const user = await getUser();
     
     if (!user) {
-      return new Response('Unauthorized', { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify chat room access
     const chatRoom = await prisma.chatRoom.findFirst({
       where: {
         id: params.id,
@@ -27,25 +28,30 @@ export async function GET(
     });
 
     if (!chatRoom) {
-      return new Response('Chat room not found', { status: 404 });
+      return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
     }
 
-    // Set up SSE stream
+    // Set up SSE headers
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
-        // Send initial connection message
-        controller.enqueue(encoder.encode('event: connected\ndata: Connected to SSE\n\n'));
+        const messageHandler = (message: Message) => {
+          // Ensure message is serializable by converting dates to ISO strings
+          const serializedMessage = {
+            ...message,
+            createdAt: message.createdAt.toISOString(),
+            updatedAt: message.updatedAt.toISOString(),
+          };
+          const data = encoder.encode(`data: ${JSON.stringify(serializedMessage)}\n\n`);
+          controller.enqueue(data);
+        };
 
-        // Keep connection alive with heartbeat
-        const heartbeat = setInterval(() => {
-          controller.enqueue(encoder.encode('event: heartbeat\ndata: ping\n\n'));
-        }, 30000);
+        // Listen for messages for this specific chat room
+        messageEmitter.on(`chat:${params.id}`, messageHandler);
 
-        // Cleanup on close
+        // Clean up when the connection closes
         request.signal.addEventListener('abort', () => {
-          clearInterval(heartbeat);
-          controller.close();
+          messageEmitter.off(`chat:${params.id}`, messageHandler);
         });
       }
     });
@@ -58,7 +64,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('SSE Error:', error);
-    return new Response('Internal Server Error', { status: 500 });
+    console.error('Error in SSE route:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

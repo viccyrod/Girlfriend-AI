@@ -6,6 +6,8 @@ import { Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ExtendedMessage, ExtendedChatRoom } from '@/types/chat';
 import { useRouter } from 'next/navigation';
+// import { deleteChatRoom } from '@/lib/actions/chat';
+
 
 interface ChatRoomListProps {
   isLoading: boolean;

@@ -25,6 +25,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    console.log('Finding chat room:', params.id, 'for user:', user.id);
     const chatRoom = await prisma.chatRoom.findFirst({
       where: {
         id: params.id,
@@ -36,11 +37,13 @@ export async function POST(
       }
     });
 
+    console.log('Chat room found:', chatRoom);
     if (!chatRoom) {
       return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
     }
 
     const body = await request.json();
+    console.log('Creating message with content:', body.content);
     const message = await prisma.message.create({
       data: {
         content: body.content,
@@ -59,13 +62,14 @@ export async function POST(
       }
     });
 
-    // Emit the new message event
     messageEmitter.emit(`chat:${params.id}`, message);
-
     return NextResponse.json(message);
   } catch (error) {
-    console.error('Error sending message:', error);
-    return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
+    console.error('Error in POST /api/chat/[id]/messages:', error);
+    return NextResponse.json({ 
+      error: 'Failed to send message',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
 
