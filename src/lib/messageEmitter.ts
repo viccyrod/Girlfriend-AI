@@ -1,14 +1,6 @@
 import { EventEmitter } from 'events';
 
-declare global {
-  // Declare a global property on the `globalThis` object
-  var _messageEmitter: EventEmitter | undefined;
-}
+// Create a singleton event emitter instance for message handling
+const messageEmitter = new EventEmitter();
 
-// Initialize `messageEmitter` only if it hasn't been created yet
-if (!globalThis._messageEmitter) {
-  globalThis._messageEmitter = new EventEmitter();
-}
-
-// Export a constant `messageEmitter` with the initialized global event emitter
-export const messageEmitter = globalThis._messageEmitter;
+export { messageEmitter };
