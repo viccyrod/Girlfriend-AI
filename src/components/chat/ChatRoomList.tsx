@@ -5,6 +5,7 @@ import { Trash2 } from 'lucide-react';
 // import { navigateToChatRoom } from '@/app/api/chat/clientActions';
 import { format } from 'date-fns';
 import { ExtendedMessage, ExtendedChatRoom } from '@/types/chat';
+import { useRouter } from 'next/navigation';
 
 interface ChatRoomListProps {
   isLoading: boolean;
@@ -24,6 +25,7 @@ export function ChatRoomList({
   loadingRoomId 
 }: ChatRoomListProps) {
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
+  const router = useRouter();
 
   if (isLoading) {
     return <div className="p-4 text-muted-foreground">Loading chat rooms...</div>;
@@ -34,6 +36,11 @@ export function ChatRoomList({
     return message.isAIMessage 
       ? `${message.aiModelId || 'AI'}: ${message.content}` 
       : `You: ${message.content}`;
+  };
+
+  const handleRoomClick = (room: ExtendedChatRoom) => {
+    onSelectRoom(room);
+    router.push(`/chat/room/${room.id}`);
   };
 
   return (
@@ -54,7 +61,7 @@ export function ChatRoomList({
                   } relative group ${loadingRoomId === room.id ? 'opacity-50' : ''}`}
                   onMouseEnter={() => setHoveredRoomId(room.id)}
                   onMouseLeave={() => setHoveredRoomId(null)}
-                  onClick={() => onSelectRoom(room)}
+                  onClick={() => handleRoomClick(room)}
                 >
                   <div className="flex items-center space-x-3">
                     <Avatar>
@@ -103,5 +110,5 @@ export function ChatRoomList({
     </div>
   );
 }
-
 export type { ExtendedChatRoom };
+

@@ -17,7 +17,13 @@ export async function getChatRoomMessagesServer(chatRoomId: string) {
       createdAt: 'asc',
     },
     include: {
-      user: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          image: true
+        }
+      }
     },
   });
 

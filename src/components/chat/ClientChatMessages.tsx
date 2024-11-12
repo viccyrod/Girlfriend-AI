@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getChatRoomMessages } from '@/app/api/chat/actions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { AIModel, User } from '@prisma/client';
@@ -18,15 +17,20 @@ interface Message {
   content: string;
   userId: string | null;
   chatRoomId: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
   aiModelId: string | null;
   isAIMessage: boolean;
   metadata?: {
     type?: string;
     imageData?: string;
+    prompt?: string;
   };
-  role?: 'user' | 'assistant' | 'system';
+  user?: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  } | null;
 }
 
 interface ClientChatMessagesProps {
@@ -62,7 +66,7 @@ const MessageBubble = ({ message }: { message: Message }) => {
     <div className={`flex ${isAIMessage ? 'justify-start' : 'justify-end'} mb-4 group`}>
       <div className={`flex ${isAIMessage ? 'flex-row' : 'flex-row-reverse'} items-end max-w-[80%]`}>
         <Avatar className={`flex-shrink-0 ${isAIMessage ? 'mr-2' : 'ml-2'}`}>
-          <AvatarImage src="/default-avatar.png" alt="Avatar" />
+          <AvatarImage src={message.user?.image || '/ai-models/default-avatar.png'} alt="Avatar" />
           <AvatarFallback>?</AvatarFallback>
         </Avatar>
         
@@ -121,6 +125,7 @@ export default function ClientChatMessages({ chatRoom, onSendMessage, _isLoading
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoadingResponse, setIsLoadingResponse] = useState(false);
+  const [isAiTyping, setIsAiTyping] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -133,52 +138,72 @@ export default function ClientChatMessages({ chatRoom, onSendMessage, _isLoading
 
   // Fetch Messages
   const fetchMessages = useCallback(async () => {
-    try {
-      const fetchedMessages = await getChatRoomMessages(chatRoom.id);
-      const formattedMessages = fetchedMessages.map(msg => ({
-        ...msg,
-        createdAt: msg.createdAt.toISOString(),
-        updatedAt: msg.updatedAt.toISOString(),
-        userId: msg.user?.id || null,
-        aiModelId: null,
-        isAIMessage: msg.role === 'assistant'
-      }));
-      setMessages(formattedMessages);
-    } catch (error) {
-      console.error('Failed to fetch messages:', error);
-    }
-  }, [chatRoom.id]);
-
-  // Initial fetch and SSE setup
-  useEffect(() => {
-    fetchMessages();
+    const controller = new AbortController();
     
-    // Set up SSE for real-time updates
+    try {
+      setIsAiTyping(true);
+      const response = await fetch(`/api/chat/${chatRoom.id}/messages`, {
+        signal: controller.signal,
+        cache: 'no-store' // Prevent caching
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch messages');
+      const fetchedMessages = await response.json() as Message[];
+      
+      // Only set messages if the component is still mounted
+      setMessages(fetchedMessages);
+      scrollToBottom();
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return; // Ignore abort errors
+      }
+      console.error('Error fetching messages:', error);
+    } finally {
+      setIsAiTyping(false);
+    }
+    
+    return () => controller.abort();
+  }, [chatRoom.id, scrollToBottom]);
+
+  // Initial fetch
+  useEffect(() => {
+    let ignore = false;
+    
+    const initFetch = async () => {
+      const cleanup = await fetchMessages();
+      if (ignore) cleanup?.();
+    };
+    
+    initFetch();
+    
+    return () => {
+      ignore = true;
+    };
+  }, [chatRoom.id]); // Remove fetchMessages from deps
+
+  // Separate SSE setup
+  useEffect(() => {
     const eventSource = new EventSource(`/api/chat/${chatRoom.id}/sse`);
     
     eventSource.onmessage = (event) => {
       const newMessage = JSON.parse(event.data);
       setMessages((prevMessages) => {
-        const messageExists = prevMessages.some(msg => msg.id === newMessage.id);
-        if (!messageExists) {
-          scrollToBottom();
-          return [...prevMessages, newMessage];
+        // Check if message already exists
+        if (prevMessages.some((msg) => msg.id === newMessage.id)) {
+          return prevMessages;
         }
-        return prevMessages;
+        return [...prevMessages, newMessage];
       });
+      scrollToBottom();
     };
 
-    eventSource.onerror = () => {
-      toast({
-        title: "Connection lost",
-        description: "Unable to connect to the server. Please refresh the page.",
-        variant: "destructive",
-      });
+    eventSource.onerror = (error) => {
+      console.error('SSE Error:', error);
       eventSource.close();
     };
     
     return () => eventSource.close();
-  }, [chatRoom.id, fetchMessages, scrollToBottom, toast]);
+  }, [chatRoom.id, scrollToBottom]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -229,7 +254,7 @@ export default function ClientChatMessages({ chatRoom, onSendMessage, _isLoading
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
-        {isLoadingResponse && <TypingIndicator />}
+        {(isLoadingResponse || isAiTyping) && <TypingIndicator />}
       </div>
 
       {/* Message Input */}

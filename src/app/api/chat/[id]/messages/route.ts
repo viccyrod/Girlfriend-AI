@@ -7,6 +7,7 @@ import { generateGreeting, getAIResponse } from '@/lib/clients/xai'; // Using ou
 import { retrieveMemories, storeMemory } from '@/utils/memory';
 // import { Memory } from '@/types/memory';
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
+import { getChatRoomMessagesServer } from '../../serverActions';
 
 
 // Handles POST requests to create a new message and generate an AI response
@@ -184,44 +185,16 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { getUser } = getKindeServerSession();
-    const user = await getUser();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get URL parameters
-    const url = new URL(request.url);
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const limit = parseInt(url.searchParams.get('limit') || '50');
-
-    // Use getChatMessages function
-    const messages = await getChatMessages(params.id, page, limit);
-
+    const messages = await getChatRoomMessagesServer(params.id);
     return NextResponse.json(messages);
-    
   } catch (error) {
     console.error('Error fetching messages:', error);
-    return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch messages' },
+      { status: 500 }
+    );
   }
 }
-
-// Separate endpoint for chat messages
-const getChatMessages = async (chatId: string, page = 1, limit = 50) => {
-  const skip = (page - 1) * limit;
-  
-  return await prisma.message.findMany({
-    where: {
-      chatRoomId: chatId
-    },
-    skip,
-    take: limit,
-    orderBy: {
-      createdAt: 'desc'  
-    }
-  });
-} 
 
 export async function DELETE(
   request: Request,
