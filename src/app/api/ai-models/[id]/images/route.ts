@@ -26,27 +26,27 @@ export async function POST(
       return NextResponse.json({ error: 'AI Model not found' }, { status: 404 });
     }
 
-    // Update AI model with new image
+    // Update AI model with new image URL
     const updatedModel = await prisma.aIModel.update({
       where: {
         id: params.modelId,
       },
       data: {
-        imageUrl: imageUrl,
-        images: {
-          create: {
-            imageUrl,
-            imageData,
-            isNSFW: isNSFW || false,
-          }
-        }
-      },
-      include: {
-        images: true
+        imageUrl: imageUrl
       }
     });
 
-    return NextResponse.json(updatedModel);
+    // Create a separate image record
+    const image = await prisma.image.create({
+      data: {
+        imageUrl,
+        imageData,
+        isNSFW: isNSFW || false,
+        aiModelId: params.modelId
+      }
+    });
+
+    return NextResponse.json({ model: updatedModel, image });
   } catch (error) {
     console.error('Error uploading image:', error);
     return NextResponse.json(
@@ -61,20 +61,16 @@ export async function GET(
   { params }: { params: { modelId: string } }
 ) {
   try {
-    const aiModel = await prisma.aIModel.findUnique({
+    const images = await prisma.image.findMany({
       where: {
-        id: params.modelId,
+        aiModelId: params.modelId
       },
-      select: {
-        images: true
+      orderBy: {
+        createdAt: 'desc'
       }
     });
 
-    if (!aiModel) {
-      return NextResponse.json({ error: 'AI Model not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(aiModel.images);
+    return NextResponse.json(images);
   } catch (error) {
     console.error('Error fetching images:', error);
     return NextResponse.json(
