@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
-import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
-import prisma from '@/lib/clients/prisma';
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { messageEmitter } from '@/lib/messageEmitter';
-import { Message } from '@/types/message';
+import { Message } from '@prisma/client';
+
+export const runtime = 'nodejs';
 
 export async function GET(
   request: Request,
@@ -12,46 +12,33 @@ export async function GET(
     const { getUser } = getKindeServerSession();
     const user = await getUser();
     
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user?.email) {
+      return new Response('Unauthorized', { status: 401 });
     }
 
-    const chatRoom = await prisma.chatRoom.findFirst({
-      where: {
-        id: params.id,
-        users: {
-          some: {
-            id: user.id
-          }
-        }
-      }
-    });
+    console.log('Establishing SSE connection for chat room:', params.id);
 
-    if (!chatRoom) {
-      return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
-    }
-
-    // Set up SSE headers
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
-      start(controller) {
-        const messageHandler = (message: Message) => {
-          // Ensure message is serializable by converting dates to ISO strings
-          const serializedMessage = {
-            ...message,
-            createdAt: message.createdAt.toISOString(),
-            updatedAt: message.updatedAt.toISOString(),
-          };
-          const data = encoder.encode(`data: ${JSON.stringify(serializedMessage)}\n\n`);
-          controller.enqueue(data);
+      async start(controller) {
+        const sendMessage = (message: Message) => {
+          console.log('Sending SSE message:', message);
+          const data = `data: ${JSON.stringify(message)}\n\n`;
+          controller.enqueue(encoder.encode(data));
         };
 
-        // Listen for messages for this specific chat room
-        messageEmitter.on(`chat:${params.id}`, messageHandler);
+        messageEmitter.on(`chat:${params.id}`, sendMessage);
 
-        // Clean up when the connection closes
+        // Send initial connection message
+        sendMessage({ 
+          type: 'connection', 
+          status: 'established' 
+        } as unknown as Message);
+
         request.signal.addEventListener('abort', () => {
-          messageEmitter.off(`chat:${params.id}`, messageHandler);
+          console.log('SSE connection aborted');
+          messageEmitter.off(`chat:${params.id}`, sendMessage);
+          controller.close();
         });
       }
     });
@@ -60,11 +47,11 @@ export async function GET(
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
+        'Connection': 'keep-alive'
+      }
     });
   } catch (error) {
-    console.error('Error in SSE route:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error in SSE handler:', error);
+    return new Response('Internal Server Error', { status: 500 });
   }
 } 

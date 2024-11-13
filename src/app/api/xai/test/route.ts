@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { testXAIConnection } from '@/lib/clients/xai';
+import { testAIConnection } from '@/lib/ai-client';
 
 // Handle GET requests
 export async function GET(request: NextRequest) {  // Changed Request to NextRequest
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {  // Changed Request to NextReq
     console.log('📝 Test message:', testMessage);
 
     // Test X.AI connection
-    await testXAIConnection(testMessage);
+    await testAIConnection(testMessage);
     
     return NextResponse.json({
       status: 'success',

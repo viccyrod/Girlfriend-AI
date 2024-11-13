@@ -13,8 +13,8 @@ import ImageGenerationMenu from './ImageGenerationMenu';
 import { 
   sendMessage, 
   generateImage, 
-  shouldGenerateImage,
-  subscribeToMessages 
+  subscribeToMessages,
+  getChatRoomMessages
 } from '@/lib/actions/chat';
 
 
@@ -70,6 +70,19 @@ const MessageBubble = ({ message }: { message: Message }) => {
   const hasImage = message.metadata?.type === 'image';
   const imageData = message.metadata?.imageData;
 
+  // Add date parsing helper
+  const formatMessageDate = (dateString: string | Date) => {
+    try {
+      const date = typeof dateString === 'string' 
+        ? new Date(dateString.replace('Z', '')) // Handle ISO strings
+        : dateString;
+      return format(date, 'HH:mm');
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return '--:--'; // Fallback time format
+    }
+  };
+
   return (
     <div className={`flex ${isAIMessage ? 'justify-start' : 'justify-end'} mb-4 group`}>
       <div className={`flex ${isAIMessage ? 'flex-row' : 'flex-row-reverse'} items-end max-w-[80%]`}>
@@ -99,7 +112,7 @@ const MessageBubble = ({ message }: { message: Message }) => {
             )}
             
             <p className="text-xs mt-1 opacity-70 text-right">
-              {format(new Date(message.createdAt), 'HH:mm')}
+              {formatMessageDate(message.createdAt)}
             </p>
           </div>
         </div>
@@ -156,45 +169,75 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     }
   }, []);
 
-  // Initialize messages and SSE connection
+  // Add this effect to load initial messages
   useEffect(() => {
-    const cleanup = subscribeToMessages(chatRoom.id, (message) => {
-      setMessages(prev => [...prev, message as Message]);
+    const loadInitialMessages = async () => {
+      try {
+        const initialMessages = await getChatRoomMessages(chatRoom.id);
+        setMessages(initialMessages as Message[]);
+        scrollToBottom();
+      } catch (error) {
+        console.error('Error loading messages:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load chat messages",
+          variant: "destructive",
+        });
+      }
+    };
+
+    loadInitialMessages();
+  }, [chatRoom.id]);
+
+  // Add this effect instead
+  useEffect(() => {
+    const unsubscribe = subscribeToMessages(chatRoom.id, (newMessage) => {
+      setMessages(prev => {
+        if (prev.some(msg => msg.id === newMessage.id)) {
+          return prev;
+        }
+        
+        // Cast the metadata to match the Message interface
+        const typedMessage: Message = {
+          ...newMessage,
+          metadata: newMessage.metadata as Message['metadata']
+        };
+        
+        return [...prev, typedMessage].sort((a, b) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+      });
+      scrollToBottom();
     });
 
     return () => {
-      cleanup();
+      unsubscribe();
     };
-  }, [chatRoom.id]);
+  }, [chatRoom.id, scrollToBottom]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || isLoadingResponse) return;
 
-    const messageContent = newMessage.trim();
-    setNewMessage(''); // Clear input immediately for better UX
-
     try {
       setIsLoadingResponse(true);
+      
+      // Send the user message
+      await sendMessage(chatRoom.id, newMessage);
+      
+      // Clear the input
+      setNewMessage('');
 
-      if (shouldGenerateImage(messageContent)) {
-        const prompt = messageContent.replace(/^(send me|generate|create image|show me)/i, '').trim();
-        const response = await generateImage(prompt, chatRoom.id);
-        setMessages(prev => [...prev, response.message]);
-      } else {
-        const message = await sendMessage(chatRoom.id, messageContent);
-        setMessages(prev => [...prev, message]);
-      }
-
-      scrollToBottom();
-    } catch (err) {
-      console.error('Error sending message:', err);
+      // The AI response will come through the SSE connection
+      // No need to manually add it here
+      
+    } catch (error) {
+      console.error('Error sending message:', error);
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
-      setNewMessage(messageContent);
     } finally {
       setIsLoadingResponse(false);
     }

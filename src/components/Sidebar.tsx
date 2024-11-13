@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import Link from 'next/link';
 import React, { useState } from 'react';
-import { HomeIcon, CameraIcon, PersonIcon, GearIcon, ChatBubbleIcon, HamburgerMenuIcon, Cross1Icon, LayoutIcon } from '@radix-ui/react-icons';
+import { HomeIcon, CameraIcon, PersonIcon, GearIcon, ChatBubbleIcon, HamburgerMenuIcon, Cross1Icon, LayoutIcon, GlobeIcon } from '@radix-ui/react-icons';
 import { DropdownMenuTrigger } from '@radix-ui/react-dropdown-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from './ui/dropdown-menu';
 import { ModeToggle } from './ModeToggle';
@@ -16,6 +16,11 @@ const SIDEBAR_LINKS = [
         icon: HomeIcon,
         label: "Home",
         href: "/",
+    },
+    {
+        icon: GlobeIcon,
+        label: "Community",
+        href: "/community",
     },
     {
         icon: PersonIcon,

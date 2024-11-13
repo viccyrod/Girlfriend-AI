@@ -8,6 +8,7 @@ import { toggleFollowAIModel } from '@/app/api/ai-models/follow-ai-model';
 import BaseLayout from '@/components/BaseLayout';
 import { AiModel } from '@/types/chat';
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
+import { getOrCreateChatRoom } from '@/lib/actions/chat';
 
 export default function AIModelProfilePage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -64,6 +65,23 @@ export default function AIModelProfilePage({ params }: { params: { id: string } 
     }
   };
 
+  const handleStartChat = async () => {
+    try {
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      const chatRoom = await getOrCreateChatRoom(params.id);
+      if (chatRoom) {
+        router.push(`/chat/${params.id}`);
+      }
+    } catch (error) {
+      console.error('Failed to create chat room:', error);
+      // Handle error appropriately
+    }
+  };
+
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
   if (!AIModel) return <div>AI Model not found</div>;
@@ -78,6 +96,7 @@ export default function AIModelProfilePage({ params }: { params: { id: string } 
         // initialFollowState={isFollowing}
         // isOpen={isOpen}
         currentUserId={user?.id || ''}
+        onStartChat={handleStartChat}
       />
     </BaseLayout>
   );

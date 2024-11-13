@@ -1,6 +1,4 @@
 import { AiModel } from '@/types/chat';
-import { generateGreeting } from '@/lib/clients/xai';
-import { retrieveMemories } from '@/utils/memory';
 import { fetchWithRetry } from '@/lib/utils/fetch';
 
 interface AIGreetingProps {
@@ -9,38 +7,34 @@ interface AIGreetingProps {
 
 export async function generateAndSaveGreeting({ room }: AIGreetingProps): Promise<void> {
   try {
-    const memories = await retrieveMemories(
-      room.aiModel.id,
-      room.aiModel.id,
-      room.aiModel.userId
-    );
+    // Make a server-side API call with the extended model data
+    const response = await fetchWithRetry(`/api/chat/${room.id}/greeting`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        aiModel: {
+          ...room.aiModel,
+          appearance: '',
+          personality: room.aiModel.personality || '',
+          backstory: '',
+          hobbies: '',
+          likes: '',
+          dislikes: '',
+          age: null,
+          userId: '',
+          followerCount: 0,
+          isPrivate: false,
+          isAnime: false,
+          isHumanX: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          imageUrl: room.aiModel.imageUrl || ''
+        }
+      })
+    }) as Response;
 
-    const extendedAiModel = {
-      ...room.aiModel,
-      appearance: '',
-      personality: room.aiModel.personality || '',
-      backstory: '',
-      hobbies: '',
-      likes: '',
-      dislikes: '',
-      age: null,
-      userId: '',
-      followerCount: 0,
-      isPrivate: false,
-      isAnime: false,
-      isHumanX: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      imageUrl: room.aiModel.imageUrl || ''
-    };
-    
-    const greeting = await generateGreeting(extendedAiModel, memories);
-    if (greeting) {
-      await fetchWithRetry(`/api/chat/${room.id}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: greeting, isAIMessage: true }),
-      });
+    if (!response.ok) {
+      throw new Error('Failed to generate greeting');
     }
   } catch (error) {
     console.error('Failed to generate greeting:', error);

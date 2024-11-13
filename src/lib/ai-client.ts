@@ -1,5 +1,25 @@
 import OpenAI from 'openai';
-import { AIModel, Message } from '@prisma/client';
+import type { Message } from '@prisma/client';
+import type { AIModel as PrismaAIModel } from '@prisma/client';
+
+// Extend the Prisma AIModel type to make certain fields optional
+type AIModel = Omit<PrismaAIModel, 'age' | 'followerCount' | 'isAnime'> & {
+  age?: number | null;
+  followerCount?: number;
+  isAnime?: boolean;
+  isPrivate?: boolean;
+  imageUrl?: string;
+  userId?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  personality?: string;
+  appearance?: string;
+  backstory?: string;
+  hobbies?: string;
+  likes?: string;
+  dislikes?: string;
+  isHumanX?: boolean;
+};
 
 // Only initialize OpenAI clients if we're on the server side (Node.js environment)
 const openai = typeof window === 'undefined' 
@@ -24,6 +44,18 @@ interface AIResponse {
   confidence: number;
 }
 
+// Add at the top with other interfaces
+interface _XAIRequestPayload {
+  model: string;
+  messages: {
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+  }[];
+  max_tokens?: number;
+  temperature?: number;
+  context?: string[];
+}
+
 // // // Metadata for the message (optional fields)
 // // interface MessageMetadata {
 // //   mode?: AIMode;
@@ -37,7 +69,7 @@ export async function generateAIResponse(
   aiModel: AIModel,
   memories: string[],
   previousMessages: Message[],
-  mode: AIMode = 'balanced'
+  mode: AIMode = 'creative'
 ): Promise<AIResponse> {
   // Ensure function is called only from server-side (not browser)
   if (typeof window !== 'undefined') {
@@ -233,4 +265,46 @@ export async function generateGreeting(
   });
 
   return completion.choices[0].message.content || 'Hello! How are you today?';
+}
+
+
+// Add the test function after other exports
+export async function testAIConnection(message: string = "Hello! This is a test message."): Promise<void> {
+  if (!grok) {
+    throw new Error('Grok client not initialized (server-side only)');
+  }
+
+  try {
+    console.log('🚀 Testing Grok API connection...');
+    
+    console.log('Environment check:', {
+      hasApiKey: !!process.env.XAI_API_KEY,
+      apiKeyLength: process.env.XAI_API_KEY?.length,
+    });
+
+    const completion = await grok.chat.completions.create({
+      model: 'grok-beta',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are Grok, an AI assistant. Please respond briefly.'
+        },
+        { role: 'user', content: message }
+      ],
+      temperature: 0.7
+    });
+    
+    console.log('✅ API Test successful!');
+    console.log('📥 Response:', {
+      content: completion.choices[0].message.content,
+      usage: completion.usage
+    });
+
+  } catch (error) {
+    console.error('❌ API Test failed:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 }

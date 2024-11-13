@@ -1,6 +1,10 @@
 import { EventEmitter } from 'events';
 
-// Create a singleton event emitter instance for message handling
-const messageEmitter = new EventEmitter();
+class MessageEmitter extends EventEmitter {
+  constructor() {
+    super();
+    this.setMaxListeners(100); // Increase max listeners if needed
+  }
+}
 
-export { messageEmitter };
+export const messageEmitter = new MessageEmitter();

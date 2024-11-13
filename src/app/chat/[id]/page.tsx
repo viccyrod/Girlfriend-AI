@@ -5,6 +5,8 @@ import ChatComponent from "@/components/chat/ChatComponent"; // Chat UI componen
 import BaseLayout from "@/components/BaseLayout"; // Base layout component to wrap the page's content
 import { getOrCreateChatRoom } from "@/lib/actions/chat"; // Utility function to get or create a chat room
 import {  ExtendedChatRoom } from "@/types/chat";
+import { Message } from '@prisma/client'; // Add this import
+import prisma from "@/lib/prisma";
 
 
 // Main function that renders the ChatPage component
@@ -13,23 +15,25 @@ export default async function ChatPage({
 }: { 
   params: { id: string } 
 }) {
-  // Get the server session and user information
-  const { getUser } = getKindeServerSession();
-  const user = await getUser();
-
-  // If the user is not authenticated, redirect to the login page
-  if (!user) {
-    redirect('/auth/login');
-  }
-
   try {
-    // Use the id parameter directly as modelId
-    const chatRoom = await getOrCreateChatRoom(params.id);
-    console.log('AI Model:', JSON.stringify(chatRoom.aiModel, null, 2));
-    
-    if (!chatRoom) {
-      return <div>Chat room not found</div>;
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+
+    if (!user) {
+      redirect('/auth/login');
     }
+
+// First verify the AI Model exists
+const aiModel = await prisma.aIModel.findUnique({
+  where: { id: params.id }
+});
+
+    if (!aiModel) {
+      console.error('AI Model not found');
+      redirect('/chat');
+    }
+
+const chatRoom = await getOrCreateChatRoom(params.id);
 
     // Ensure all required properties are present with proper types
     const extendedChatRoom: ExtendedChatRoom = {
@@ -38,7 +42,7 @@ export default async function ChatPage({
       aiModelId: chatRoom.aiModelId || '',
       aiModelImageUrl: chatRoom.aiModel?.imageUrl || null,
       users: chatRoom.users || [],
-      messages: chatRoom.messages?.map(msg => ({
+      messages: chatRoom.messages?.map((msg: Message) => ({
         ...msg,
         role: msg.isAIMessage ? 'assistant' : 'user',
         metadata: msg.metadata as Record<string, string> | undefined
@@ -49,7 +53,7 @@ export default async function ChatPage({
         id: chatRoom.aiModel.createdBy.id || '',
         name: chatRoom.aiModel.createdBy.name || '',
         email: chatRoom.aiModel.createdBy.email || '',
-        imageUrl: chatRoom.aiModel.createdBy.imageUrl || null
+        imageUrl: chatRoom.aiModel.createdBy.image || null
       } : {
         id: '',
         name: '',
@@ -69,7 +73,7 @@ export default async function ChatPage({
           id: chatRoom.aiModel.createdBy.id || '',
           name: chatRoom.aiModel.createdBy.name || '',
           email: chatRoom.aiModel.createdBy.email || '',
-          imageUrl: chatRoom.aiModel.createdBy.imageUrl || null 
+          imageUrl: chatRoom.aiModel.createdBy.image || null 
         } : {
           id: '',
           name: '',
@@ -101,8 +105,8 @@ export default async function ChatPage({
       </BaseLayout>
     );
   } catch (error) {
-    console.error('Error:', error);
-    redirect('/community');
+    console.error('Chat page error:', error);
+    redirect('/chat');  // Redirect to chat list instead of community
   }
 }
 

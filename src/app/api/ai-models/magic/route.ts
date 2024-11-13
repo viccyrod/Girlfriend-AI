@@ -3,7 +3,7 @@ import prisma from '@/lib/clients/prisma';
 import { getCurrentUser } from '@/lib/session';
 import { v2 as cloudinary } from 'cloudinary';
 import { RunPodClient } from '@/lib/clients/runpod';
-import { getAIResponse } from '@/lib/clients/xai';
+import { generateAIResponse } from '@/lib/ai-client';
 import { MAGIC_AI_PROMPT } from './prompts';
 
 // Configure Cloudinary
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     console.log('Generating AI model details with Grok...');
     // Use customPrompt if provided, otherwise use default MAGIC_AI_PROMPT
     const promptToUse = customPrompt || MAGIC_AI_PROMPT;
-    const aiResponse = await getAIResponse(
+    const aiResponse = await generateAIResponse(
         promptToUse,      
         {
             id: 'magic-ai',
@@ -39,19 +39,19 @@ export async function POST(request: Request) {
             backstory: '',
             hobbies: '',
             dislikes: '',
-            age: null,
-            isPrivate: false,
-            isAnime: false,
-            isHumanX: false,
-            imageUrl: '',
+            followerCount: 0,
             userId: currentUser.id,
-            followerCount: 0
+            imageUrl: '',
+            isPrivate: false,
+            isHumanX: false
         },
-        []
+        [],
+        [],
+        'creative'
     );
 
     // Clean and parse the response
-    const cleanJson = aiResponse.replace(/```json\n|\n```/g, '').trim();
+    const cleanJson = aiResponse.content.replace(/```json\n|\n```/g, '').trim();
     const aiModelDetails = JSON.parse(cleanJson);
 
     console.log('Generating image...');

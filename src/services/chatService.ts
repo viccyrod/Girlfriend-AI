@@ -146,19 +146,21 @@ export class ChatService {
   static async generateImage(prompt: string, chatRoomId: string) {
     const currentUser = await getCurrentUser();
     if (!currentUser) throw new Error('Unauthorized');
-  
-    const response = await fetch(`/api/chat/${chatRoomId}/generate-image`, {
+
+    // Changed from /api/chat/${chatRoomId}/generate-image to /api/image
+    const response = await fetch('/api/image', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ prompt, chatRoomId }),
     });
-  
+
     if (!response.ok) {
-      throw new Error('Failed to generate image');
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to generate image');
     }
-  
+
     return response.json();
   }
 }

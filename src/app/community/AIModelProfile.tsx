@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { useToast } from '@/hooks/use-toast';
 import { AiModel as AIModel } from "@/types/chat";
 import { Heart, MessageCircle, User } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+// import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 
 interface AIModelProfileProps {
@@ -16,6 +16,7 @@ interface AIModelProfileProps {
   currentUserId: string;
   isFollowing: boolean;
   onFollowToggle: () => Promise<boolean>;
+  onStartChat: () => Promise<void>;
   // initialFollowState: boolean;
 }
 
@@ -31,9 +32,9 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
   // currentUserId,
   isFollowing,
   onFollowToggle,
+  onStartChat
   // initialFollowState
 }) => {
-  const router = useRouter();
   const { toast } = useToast();
   const [isFollowingState, setIsFollowingState] = useState(isFollowing);
   const [aiModelState, setAiModelState] = useState(aiModel);
@@ -44,32 +45,9 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
 
   const handleMessage = async () => {
     try {
-      // Create chat room first
-      const chatRoomName = `Chat with ${aiModelState.name}`;
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'createChatRoom',
-          name: chatRoomName,
-          aiModelId: aiModelState.id,
-          mode: 'greeting'
-        }),
-      });
-  
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create chat room');
-      }
-  
-      await response.json();
-      
-      // Then navigate to the chat room
-      router.push(`/chat/${aiModelState.id}`);
+      await onStartChat();
     } catch (error) {
-      console.error('Failed to create chat room:', error);
+      console.error('Failed to handle message:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to start chat. Please try again.",

@@ -48,31 +48,44 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { getUser } = getKindeServerSession();
-    const user = await getUser();
+    const kindeUser = await getUser();
     
-    if (!user) {
+    if (!kindeUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Find user by email instead of ID since we're using cuid()
+    let dbUser = await prisma.user.findUnique({
+      where: { email: kindeUser.email || '' }
+    });
+
+    // If user doesn't exist, create them
+    if (!dbUser) {
+      dbUser = await prisma.user.create({
+        data: {
+          email: kindeUser.email || '',
+          name: kindeUser.given_name || kindeUser.family_name || kindeUser.email || '',
+          image: kindeUser.picture || null,
+        }
+      });
     }
 
     const body = await request.json();
     const { action, aiModelId } = body;
 
     if (action === 'createChatRoom') {
-      console.log('Creating chat room:', { userId: user.id, aiModelId });
-
       const existingRoom = await prisma.chatRoom.findFirst({
         where: {
           aiModelId,
           users: {
             some: {
-              id: user.id
+              id: dbUser.id  // Using the database-generated ID
             }
           }
         }
       });
 
       if (existingRoom) {
-        console.log('Found existing room:', existingRoom.id);
         return NextResponse.json(existingRoom);
       }
 
@@ -81,7 +94,7 @@ export async function POST(request: Request) {
           name: `Chat with ${aiModelId}`,
           aiModelId,
           users: {
-            connect: { id: user.id }
+            connect: { id: dbUser.id }  // Using the database-generated ID
           }
         },
         include: {
@@ -90,7 +103,6 @@ export async function POST(request: Request) {
         }
       });
 
-      console.log('Created new room:', chatRoom.id);
       return NextResponse.json(chatRoom);
     }
 

@@ -1,5 +1,6 @@
 import { Message } from '@prisma/client';
 import { ExtendedChatRoom } from '@/types/chat';
+import { getOrCreateChatRoomServer } from './server/chat';
 
 // Send a message in a chat room
 export async function sendMessage(chatRoomId: string, content: string) {
@@ -21,7 +22,6 @@ export async function sendMessage(chatRoomId: string, content: string) {
 
 // Get messages for a specific chat room
 export async function getChatRoomMessages(chatRoomId: string): Promise<Message[]> {
-  console.log('Fetching messages for chat room:', chatRoomId);
   const response = await fetch(`/api/chat/${chatRoomId}/messages`);
   
   if (!response.ok) {
@@ -29,44 +29,51 @@ export async function getChatRoomMessages(chatRoomId: string): Promise<Message[]
     throw new Error(errorData.error || 'Failed to fetch messages');
   }
 
-  const messages = await response.json();
-  console.log('Fetched messages:', messages);
-  return messages;
+  return response.json();
+}
+
+// Create or get existing chat room for an AI model
+export async function getOrCreateChatRoom(modelId: string) {
+  try {
+    const chatRoom = await getOrCreateChatRoomServer(modelId);
+    return {
+      ...chatRoom,
+      aiModel: chatRoom.aiModel ? {
+        ...chatRoom.aiModel,
+        isHuman: false,
+        isFollowing: false
+      }: null,
+      aiModelImageUrl: chatRoom.aiModel?.imageUrl || '/default-ai-image.png'
+    };
+  } catch (error) {
+    console.error('Error in getOrCreateChatRoom:', error);
+    throw error;
+  }
 }
 
 // Get all chat rooms for the current user
 export async function getChatRooms(): Promise<ExtendedChatRoom[]> {
-  console.log('Fetching chat rooms...');
-  const response = await fetch('/api/chat');
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch chat rooms');
+  try {
+    console.log('Fetching chat rooms...');
+    const response = await fetch('/api/chat/rooms', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch chat rooms: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Raw chat rooms data:', data);
+    
+    return data.chatRooms;
+  } catch (error) {
+    console.error('Error fetching chat rooms:', error);
+    throw error;
   }
-
-  const rooms = await response.json();
-  console.log('Fetched chat rooms:', rooms);
-  return rooms;
-}
-
-// Create or get existing chat room for an AI model
-export async function getOrCreateChatRoom(modelId: string): Promise<ExtendedChatRoom> {
-  const response = await fetch('/api/chat', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ 
-      action: 'createChatRoom', 
-      aiModelId: modelId,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to create chat room');
-  }
-
-  return response.json();
 }
 
 // Delete a chat room
@@ -83,6 +90,10 @@ export async function deleteChatRoom(roomId: string): Promise<void> {
 
 // Generate an image in a chat room
 export async function generateImage(prompt: string, chatRoomId: string) {
+  if (!chatRoomId) {
+    throw new Error('Chat room ID is required');
+  }
+
   const response = await fetch('/api/image', {
     method: 'POST',
     headers: {
@@ -90,7 +101,7 @@ export async function generateImage(prompt: string, chatRoomId: string) {
     },
     body: JSON.stringify({ 
       prompt,
-      chatRoomId,
+      chatRoomId
     }),
   });
 
@@ -106,10 +117,22 @@ export async function generateImage(prompt: string, chatRoomId: string) {
 export function subscribeToMessages(chatRoomId: string, onMessage: (message: Message) => void) {
   const eventSource = new EventSource(`/api/chat/${chatRoomId}/sse`);
 
+  eventSource.onopen = () => {
+    console.log('SSE connection established for chat:', chatRoomId);
+  };
+
   eventSource.onmessage = (event) => {
     try {
       const message = JSON.parse(event.data);
+      
+      // Skip connection status messages
+      if (message.type === 'connection') {
+        console.log('Connection status:', message.status);
+        return;
+      }
+
       if (message && message.id) {
+        console.log('Received message:', message);
         onMessage(message);
       }
     } catch (error) {
@@ -120,9 +143,15 @@ export function subscribeToMessages(chatRoomId: string, onMessage: (message: Mes
   eventSource.onerror = (error) => {
     console.error('SSE Error:', error);
     eventSource.close();
+    // Attempt to reconnect after 5 seconds
+    setTimeout(() => {
+      console.log('Attempting to reconnect SSE...');
+      subscribeToMessages(chatRoomId, onMessage);
+    }, 5000);
   };
 
   return () => {
+    console.log('Closing SSE connection for chat:', chatRoomId);
     eventSource.close();
   };
 }

@@ -1,17 +1,14 @@
 'use strict';
 
-import prisma from "@/lib/clients/prisma";
-// Importing necessary modules and functions from external libraries
 import { NextResponse } from 'next/server';
-// import { generateGreeting, getAIResponse } from '@/lib/clients/xai'; // Using our Grok implementation
-// import { retrieveMemories, storeMemory } from '@/utils/memory';
-// import { Memory } from '@/types/memory';
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
-import { getChatRoomMessagesServer } from '../../serverActions';
+import { generateAIResponse } from '@/lib/ai-client';
+import { 
+  getChatRoomMessagesServer, 
+  createMessageServer
+} from '@/lib/actions/server/chat';
 import { messageEmitter } from '@/lib/messageEmitter';
-
-
-// Handles POST requests to create a new message and generate an AI response
+import prisma from '@/lib/clients/prisma';
 
 export async function POST(
   request: Request,
@@ -21,49 +18,86 @@ export async function POST(
     const { getUser } = getKindeServerSession();
     const user = await getUser();
     
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('Finding chat room:', params.id, 'for user:', user.id);
-    const chatRoom = await prisma.chatRoom.findFirst({
-      where: {
-        id: params.id,
-        users: {
-          some: {
-            id: user.id
-          }
-        }
-      }
-    });
+    const { content } = await request.json();
+    
+    // Pass the email to createMessageServer
+    const userMessage = await createMessageServer(
+      params.id, 
+      user.id, 
+      content,
+      false,
+      user.email
+    );
 
-    console.log('Chat room found:', chatRoom);
-    if (!chatRoom) {
-      return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
-    }
+    console.log('Emitting user message:', userMessage);
+    messageEmitter.emit(`chat:${params.id}`, userMessage);
 
-    const body = await request.json();
-    console.log('Creating message with content:', body.content);
-    const message = await prisma.message.create({
-      data: {
-        content: body.content,
-        chatRoomId: params.id,
-        userId: user.id,
-        isAIMessage: false
-      },
+    // Get chat room and AI model details
+    const chatRoom = await prisma.chatRoom.findUnique({
+      where: { id: params.id },
       include: {
-        user: {
+        aiModel: {
           select: {
             id: true,
             name: true,
-            image: true
+            isPrivate: true,
+            imageUrl: true,
+            userId: true,
+            createdAt: true,
+            updatedAt: true,
+            personality: true,
+            appearance: true,
+            backstory: true,
+            hobbies: true,
+            likes: true,
+            dislikes: true,
+            isHumanX: true
           }
+        },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 10
         }
       }
     });
 
-    messageEmitter.emit(`chat:${params.id}`, message);
-    return NextResponse.json(message);
+    if (!chatRoom?.aiModel) {
+      throw new Error('Chat room or AI model not found');
+    }
+
+    // Generate AI response
+    const aiResponse = await generateAIResponse(
+      content,
+      chatRoom.aiModel,
+      chatRoom.messages.map(message => message.content).reverse(),
+      chatRoom.messages,
+      'creative'
+    );
+
+    // Create AI message
+    const aiMessage = await prisma.message.create({
+      data: {
+        content: aiResponse.content,
+        chatRoomId: params.id,
+        isAIMessage: true,
+        metadata: {
+          mode: aiResponse.mode,
+          confidence: aiResponse.confidence
+        }
+      }
+    });
+
+    console.log('Emitting AI message:', aiMessage);
+    messageEmitter.emit(`chat:${params.id}`, aiMessage);
+
+    return NextResponse.json({
+      userMessage,
+      aiMessage
+    });
   } catch (error) {
     console.error('Error in POST /api/chat/[id]/messages:', error);
     return NextResponse.json({ 
@@ -73,8 +107,6 @@ export async function POST(
   }
 }
 
-
-// Update getChatMessages to be used in GET endpoint
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -86,47 +118,6 @@ export async function GET(
     console.error('Error fetching messages:', error);
     return NextResponse.json(
       { error: 'Failed to fetch messages' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const { getUser } = getKindeServerSession();
-    const user = await getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-
-    const chatRoom = await prisma.chatRoom.findUnique({
-      where: { id: params.id },
-      include: { users: true }
-    });
-
-    if (!chatRoom) {
-      return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
-    }
-
-    // Verify user has permission to delete this room
-    if (!chatRoom.users.some(roomUser => roomUser.id === user.id)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    // Delete the chat room and all associated messages (using cascade)
-    await prisma.chatRoom.delete({
-      where: { id: params.id }
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Failed to delete chat room:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete chat room' },
       { status: 500 }
     );
   }

@@ -101,7 +101,7 @@ export interface MessageResponse {
   error?: string;
 }
 
-type MetadataValue = string | number | boolean | null | undefined;
+export type MetadataValue = string | number | boolean | null | undefined | Record<string, unknown>;
 
 export type ExtendedMessage = {
   id: string;
