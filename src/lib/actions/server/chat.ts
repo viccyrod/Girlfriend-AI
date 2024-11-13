@@ -164,7 +164,10 @@ export async function createMessageServer(
     }
   });
 
+  // Emit the event before returning
   messageEmitter.emit(`chat:${chatRoomId}`, message);
+  
+  // Single return statement at the end
   return message;
 }
 
