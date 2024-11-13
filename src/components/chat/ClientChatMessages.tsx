@@ -175,11 +175,16 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
 
   // Add this effect to load initial messages
   useEffect(() => {
+    let isMounted = true;
+    
     const loadInitialMessages = async () => {
       try {
+        // Load messages immediately
         const initialMessages = await getChatRoomMessages(chatRoom.id);
-        setMessages(initialMessages as Message[]);
-        scrollToBottom();
+        if (isMounted) {
+          setMessages(initialMessages as Message[]);
+          scrollToBottom();
+        }
       } catch (error) {
         console.error('Error loading messages:', error);
         toast({
@@ -190,18 +195,19 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
       }
     };
 
+    // Load messages right away
     loadInitialMessages();
-  }, [chatRoom.id, scrollToBottom, toast]);
 
-  // Add this effect instead
-  useEffect(() => {
+    // Set up SSE subscription in parallel
     const unsubscribe = subscribeToMessages(chatRoom.id, (newMessage) => {
+      if (!isMounted) return;
+      
       setMessages(prev => {
+        // Don't add duplicates
         if (prev.some(msg => msg.id === newMessage.id)) {
           return prev;
         }
         
-        // Cast the metadata to match the Message interface
         const typedMessage: Message = {
           ...newMessage,
           metadata: newMessage.metadata as Message['metadata']
@@ -215,9 +221,10 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     });
 
     return () => {
+      isMounted = false;
       unsubscribe();
     };
-  }, [chatRoom.id, scrollToBottom]);
+  }, [chatRoom.id, scrollToBottom, toast]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
