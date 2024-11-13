@@ -42,11 +42,7 @@ export function ChatRoomList({
 
   const handleRoomClick = (room: ExtendedChatRoom) => {
     onSelectRoom(room);
-    if (room.aiModelId) {
-      router.push(`/chat/${room.aiModelId}`);
-    } else {
-      router.push(`/chat/room/${room.id}`);
-    }
+    router.push(`/chat/room/${room.id}`);
   };
 
   return (

@@ -53,14 +53,18 @@ interface ClientChatMessagesProps {
 
 // Typing Indicator Component
 const TypingIndicator = () => (
-  <div className="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg">
-    {Array.from({ length: 3 }).map((_, idx) => (
-      <div
-        key={idx}
-        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-        style={{ animationDelay: `${idx * 200}ms` }}
-      />
-    ))}
+  <div className="flex items-start gap-3 animate-fade-in">
+    <Avatar className="w-8 h-8">
+      <AvatarImage src="/default-avatar.png" alt="AI" />
+      <AvatarFallback>AI</AvatarFallback>
+    </Avatar>
+    <div className="bg-secondary rounded-lg px-4 py-2 max-w-[75%]">
+      <div className="flex gap-1 items-center h-6">
+        <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce [animation-delay:-0.3s]" />
+        <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce [animation-delay:-0.15s]" />
+        <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce" />
+      </div>
+    </div>
   </div>
 );
 
@@ -84,20 +88,20 @@ const MessageBubble = ({ message }: { message: Message }) => {
   };
 
   return (
-    <div className={`flex ${isAIMessage ? 'justify-start' : 'justify-end'} mb-4 group`}>
-      <div className={`flex ${isAIMessage ? 'flex-row' : 'flex-row-reverse'} items-end max-w-[80%]`}>
-        <Avatar className={`flex-shrink-0 ${isAIMessage ? 'mr-2' : 'ml-2'}`}>
+    <div className={`flex ${isAIMessage ? 'justify-start' : 'justify-end'} mb-2 md:mb-4 group px-2 md:px-0`}>
+      <div className={`flex ${isAIMessage ? 'flex-row' : 'flex-row-reverse'} items-end max-w-[85%] md:max-w-[75%]`}>
+        <Avatar className={`hidden md:flex flex-shrink-0 ${isAIMessage ? 'mr-2' : 'ml-2'}`}>
           <AvatarImage src={message.user?.image || '/ai-models/default-avatar.png'} alt="Avatar" />
           <AvatarFallback>?</AvatarFallback>
         </Avatar>
         
         <div className={`flex flex-col ${isAIMessage ? 'items-start' : 'items-end'}`}>
-          <div className={`rounded-lg px-4 py-2 ${
+          <div className={`rounded-lg px-3 py-2 md:px-4 md:py-2 ${
             isAIMessage 
               ? 'bg-secondary text-secondary-foreground' 
               : 'bg-primary text-primary-foreground'
           }`}>
-            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+            <p className="text-sm md:text-base whitespace-pre-wrap break-words">{message.content}</p>
             
             {hasImage && imageData && (
               <div className="mt-2 relative w-[512px] h-[512px]">
@@ -253,7 +257,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
   return (
     <div className="flex flex-col h-full">
       {/* Message Display */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-2 md:p-4 space-y-4">
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
@@ -261,8 +265,8 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
       </div>
 
       {/* Message Input */}
-      <div className="p-4 border-t border-gray-800 bg-[#0a0a0a]">
-        <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
+      <div className="p-2 md:p-4 border-t border-gray-800 bg-[#0a0a0a]">
+        <form onSubmit={handleSendMessage} className="flex items-end gap-2">
           <ImageGenerationMenu 
             onSelect={async (prompt) => {
               try {
@@ -286,11 +290,11 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            className="flex-1 bg-[#2a2a2a] text-white rounded-full px-4 py-2 min-h-[40px] max-h-32 resize-none focus:outline-none focus:ring-2 focus:ring-[#ff4d8d]"
+            className="flex-1 bg-[#2a2a2a] text-white rounded-full px-4 py-2 min-h-[40px] max-h-32 resize-none focus:outline-none focus:ring-2 focus:ring-[#ff4d8d] text-sm md:text-base"
           />
           <Button
             type="submit"
-            className="bg-[#ff4d8d] hover:bg-[#ff3377] text-white rounded-full p-2 h-10 w-10"
+            className="bg-[#ff4d8d] hover:bg-[#ff3377] text-white rounded-full p-2 h-10 w-10 flex-shrink-0"
             disabled={isLoadingResponse}
           >
             <Send className="h-5 w-5" />

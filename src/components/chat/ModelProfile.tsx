@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 // import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ChevronRight, ChevronLeft, Phone } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Phone, X } from 'lucide-react';
 import Image from 'next/image';
 
 interface ModelProfileProps {
@@ -15,11 +15,25 @@ interface ModelProfileProps {
   } | null;
 }
 
-export default function ModelProfile({ model }: ModelProfileProps) {
+export default function ModelProfile({ 
+  model, 
+  onClose 
+}: { 
+  model: ModelProfileProps['model'];
+  onClose?: () => void;
+}) {
   if (!model) return null;
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0a]">
+    <div className="flex flex-col h-full bg-[#0a0a0a] relative">
+      {/* Add close button for mobile */}
+      <button
+        onClick={onClose}
+        className="md:hidden absolute right-4 top-4 p-2 bg-black/50 hover:bg-black/70 rounded-full z-50 transition-colors"
+      >
+        <X className="w-5 h-5 text-white" />
+      </button>
+
       {/* Large hero image section */}
       <div className="relative w-full h-[500px]">
         <Image
