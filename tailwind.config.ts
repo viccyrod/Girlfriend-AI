@@ -74,8 +74,18 @@ const config: Config = {
   				},
   			},
   		},
+  		transitionProperty: {
+  			'width': 'width',
+  			'spacing': 'margin, padding',
+  		},
   	}
   },
   plugins: [require("tailwindcss-animate")],
+  variants: {
+  	extend: {
+  		width: ['responsive', 'hover', 'focus', 'group-hover'],
+  		translate: ['responsive', 'hover', 'focus', 'group-hover'],
+  	},
+  },
 };
 export default config;

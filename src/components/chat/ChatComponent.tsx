@@ -453,107 +453,93 @@ const ChatComponent = ({
    * Render the chat interface with improved error handling and loading states.
    */
   return (
-    <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)]">
-      {isLoading ? (
-        <LoadingState />
-      ) : initError ? (
-        <ErrorState message={initError} onRetry={() => initializeChat(true)} />
-      ) : (
-        <>
-          {/* Chat room list - hidden by default on mobile, shown in sidebar */}
-          <div className={`
-            ${selectedRoom ? 'hidden' : 'flex'} 
-            md:flex md:w-80 border-r border-[#1a1a1a] 
-            flex-shrink-0 h-full overflow-hidden
-            md:static fixed inset-0 z-30 bg-background
-          `}>
-            <ChatRoomList
-              chatRooms={chatRooms}
-              selectedRoom={selectedRoom}
-              onSelectRoom={handleRoomSelection}
-              onDeleteRoom={handleDeleteRoom}
-              isLoading={isLoading}
-              loadingRoomId={loadingRoomId}
-            />
-          </div>
+    <div className="flex h-full overflow-hidden relative">
+      {/* Chat rooms list */}
+      <div className={`
+        ${selectedRoom ? 'hidden md:flex' : 'flex'} 
+        flex-col w-full md:w-80 border-r border-[#1a1a1a]
+      `}>
+        <ChatRoomList
+          chatRooms={chatRooms}
+          selectedRoom={selectedRoom}
+          onSelectRoom={handleRoomSelection}
+          onDeleteRoom={handleDeleteRoom}
+          isLoading={isLoading}
+          loadingRoomId={loadingRoomId}
+        />
+      </div>
 
-          {/* Chat messages and input */}
-          <div className={`
-            ${!selectedRoom && 'hidden md:flex'}
-            transition-all duration-300 
-            flex flex-col h-full relative
-            ${isProfileVisible ? "w-[calc(100%-400px)]" : "flex-1"}
-          `}>
-            {selectedRoom ? (
-              <div className="relative flex flex-col h-full">
-                {/* Mobile back button */}
-                <button
-                  onClick={() => setSelectedRoom(null)}
-                  className="md:hidden absolute left-4 top-4 p-2 bg-[#1a1a1a] hover:bg-[#2a2a2a] rounded-full transition-all duration-200 z-10"
-                >
-                  <ChevronLeft className="w-4 h-4 text-white" />
-                </button>
-                
-                <ClientChatMessages
-                  chatRoom={{
-                    id: selectedRoom.id,
-                    users: selectedRoom.users,
-                    aiModel: selectedRoom.aiModel
-                      ? {
-                          ...selectedRoom.aiModel,
-                          imageUrl: selectedRoom.aiModel.imageUrl || "",
-                        }
-                      : null,
-                  }}
-                  onSendMessage={(content) =>
-                    handleSendMessage(content, selectedRoom)
-                  }
-                  _isLoading={isMessageSending || isGeneratingResponse}
-                />
-                
-                {/* Toggle profile visibility button */}
-                <button
-                  onClick={debouncedToggleProfile}
-                  className="absolute right-4 top-4 p-2 bg-[#1a1a1a] hover:bg-[#2a2a2a] rounded-full transition-all duration-200 z-10"
-                >
-                  <ChevronRight
-                    className={`w-4 h-4 text-white transform transition-transform duration-200 ${
-                      isProfileVisible ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-muted-foreground">
-                  Select a chat room to start messaging
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* AI model profile sidebar */}
-          {selectedRoom && (
-            <div
-              className={`
-                fixed md:relative inset-y-0 right-0
-                w-[85vw] md:w-[400px] border-l border-[#1a1a1a] 
-                flex-shrink-0 h-full overflow-y-auto bg-[#0a0a0a] 
-                transition-all duration-300 ease-in-out z-40
-                ${isProfileVisible 
-                  ? "translate-x-0" 
-                  : "translate-x-full md:w-0 md:min-w-0 md:translate-x-0"
-                }
-              `}
+      {/* Chat messages container */}
+      <div className={`
+        flex-1 flex flex-col h-full relative
+        transition-all duration-300 ease-in-out
+        ${selectedRoom ? 'flex' : 'hidden md:flex'}
+        ${isProfileVisible ? 'md:mr-[400px]' : ''}
+      `}>
+        {selectedRoom ? (
+          <div className="relative flex flex-col h-full">
+            {/* Mobile back button */}
+            <button
+              onClick={() => setSelectedRoom(null)}
+              className="md:hidden absolute left-4 top-4 p-2 bg-[#1a1a1a] hover:bg-[#2a2a2a] rounded-full transition-all duration-200 z-10"
             >
-              <ModelProfile
-                model={mapAIModelToProfileProps(selectedRoom.aiModel)}
-                onClose={() => setIsProfileVisible(false)}
+              <ChevronLeft className="w-4 h-4 text-white" />
+            </button>
+            
+            <ClientChatMessages
+              chatRoom={{
+                id: selectedRoom.id,
+                users: selectedRoom.users,
+                aiModel: selectedRoom.aiModel
+                  ? {
+                      ...selectedRoom.aiModel,
+                      imageUrl: selectedRoom.aiModel.imageUrl || "",
+                    }
+                  : null,
+              }}
+              onSendMessage={(content) =>
+                handleSendMessage(content, selectedRoom)
+              }
+              _isLoading={isMessageSending || isGeneratingResponse}
+            />
+            
+            {/* Toggle profile visibility button */}
+            <button
+              onClick={debouncedToggleProfile}
+              className="absolute right-4 top-4 p-2 bg-[#1a1a1a] hover:bg-[#2a2a2a] rounded-full transition-all duration-200 z-10"
+            >
+              <ChevronRight
+                className={`w-4 h-4 text-white transform transition-transform duration-200 ${
+                  isProfileVisible ? "rotate-180" : ""
+                }`}
               />
-            </div>
-          )}
-        </>
-      )}
+            </button>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-muted-foreground">
+              Select a chat room to start messaging
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Profile sidebar */}
+      <div className={`
+        fixed md:absolute inset-y-0 right-0
+        w-[85vw] md:w-[400px] border-l border-[#1a1a1a] 
+        flex-shrink-0 h-full overflow-y-auto bg-[#0a0a0a] 
+        transition-transform duration-300 ease-in-out z-40
+        ${isProfileVisible 
+          ? "translate-x-0" 
+          : "translate-x-full md:translate-x-[400px]"
+        }
+      `}>
+        <ModelProfile
+          model={selectedRoom?.aiModel ? mapAIModelToProfileProps(selectedRoom.aiModel) : null}
+          onClose={() => setIsProfileVisible(false)}
+        />
+      </div>
     </div>
   );
 };
