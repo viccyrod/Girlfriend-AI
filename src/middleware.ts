@@ -1,17 +1,34 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { withAuth } from "@kinde-oss/kinde-auth-nextjs/middleware";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export function middleware(_request: NextRequest) {
-  const response = NextResponse.next();
+export default withAuth(
+  async function middleware(req: NextRequest) {
+    const pathname = req.nextUrl.pathname;
+    
+    // Add authentication check for chat routes
+    if (pathname.startsWith('/chat')) {
+      // Kinde's withAuth will handle the authentication check
+      return NextResponse.next();
+    }
 
-  // Add CORS headers
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return NextResponse.next();
+  },
+  {
+    // Configure your authentication options
+    callbacks: {
+      authorized: async ({ token }: { token: any }) => {
+        return !!token; // Return true if token exists
+      },
+    },
+  }
+);
 
-  return response;
-}
-
+// Update matcher to include chat routes
 export const config = {
-  matcher: '/api/:path*',
+  matcher: [
+    '/chat/:path*',
+    '/dashboard/:path*',
+    // Add other protected routes here
+  ],
 };

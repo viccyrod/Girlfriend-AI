@@ -5,6 +5,8 @@ import { ThemeProvider } from "@/providers/ThemeProvider"
 import Footer from "@/components/footer";
 import TanStackProvider from "@/providers/TanStackProvider";
 import { getCurrentUser } from "@/lib/session";
+import { Analytics } from "@vercel/analytics/react"
+
 
 
 const geistSans = localFont({
@@ -65,25 +67,26 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getCurrentUser(); // Add this line
+  const user = await getCurrentUser();
 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={geistSans.className}>
         <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange>
-            <div className='h-screen flex flex-col'>
-              <div className='flex-1'>
-                <TanStackProvider>
-                  {children}
-                </TanStackProvider>
-              </div>
-              {!user && <Footer />} {/* Conditional rendering of Footer */}
-              </div>
-          </ThemeProvider>
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange>
+          <div className='h-screen flex flex-col'>
+            <div className='flex-1'>
+              <TanStackProvider>
+                {children}
+              </TanStackProvider>
+            </div>
+            {!user && <Footer />}
+          </div>
+        </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
