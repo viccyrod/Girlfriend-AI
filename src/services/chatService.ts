@@ -5,45 +5,57 @@
 import prisma from '@/lib/clients/prisma';
 import { getCurrentUser } from '@/lib/session';
 // import { storeMemory } from '@/utils/memory';
+import { logger } from '@/lib/utils/logger';
 
 // ChatService class that provides methods for managing chat rooms and messages
 export class ChatService {
   // Method to send a message to a specific chat room
   static async sendMessage(content: string, chatRoomId: string, aiModelId: string | null) {
-    // Get the current user from the session
     const currentUser = await getCurrentUser();
     if (!currentUser) throw new Error('Unauthorized');
 
-    // Find the chat room by ID and include its users
-    const chatRoom = await prisma.chatRoom.findUnique({
-      where: { id: chatRoomId },
-      include: { users: true }
-    });
+    try {
+      // Find the chat room by ID and include its users
+      const chatRoom = await prisma.chatRoom.findUnique({
+        where: { id: chatRoomId },
+        include: { users: true }
+      });
 
-    if (!chatRoom) {
-      throw new Error('Chat room not found');
-    }
+      if (!chatRoom) {
+        throw new Error('Chat room not found');
+      }
 
-    // Check if the current user is a member of the chat room
-    if (!chatRoom.users.some(user => user.id === currentUser.id)) {
-      throw new Error('User is not a member of this chat room');
-    }
+      // Check if the current user is a member of the chat room
+      if (!chatRoom.users.some(user => user.id === currentUser.id)) {
+        throw new Error('User is not a member of this chat room');
+      }
 
-    // Create a new message in the chat room
-    const message = await prisma.message.create({
-      data: {
-        content,
+      // Create a new message in the chat room
+      const message = await prisma.message.create({
+        data: {
+          content,
+          userId: currentUser.id,
+          chatRoomId,
+          aiModelId
+        },
+        include: {
+          user: true,
+          aiModel: true
+        }
+      });
+
+      return message;
+    } catch (error) {
+      logger.error({
+        message: 'Failed to send message',
+        error: error as Error,
         userId: currentUser.id,
         chatRoomId,
-        aiModelId
-      },
-      include: {
-        user: true,
-        aiModel: true
-      }
-    });
-
-    return message;
+        aiModelId: aiModelId || undefined,
+        content: content.substring(0, 100)
+      });
+      throw error;
+    }
   }
 
   // Method to create a new chat room

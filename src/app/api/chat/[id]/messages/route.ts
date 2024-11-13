@@ -9,6 +9,7 @@ import {
 } from '@/lib/actions/server/chat';
 import { messageEmitter } from '@/lib/messageEmitter';
 import prisma from '@/lib/clients/prisma';
+import { checkRateLimit } from '@/lib/utils/rate-limiter';
 
 export async function POST(
   request: Request,
@@ -18,8 +19,20 @@ export async function POST(
     const { getUser } = getKindeServerSession();
     const user = await getUser();
     
-    if (!user || !user.email) {
+    if (!user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Rate limiting check
+    const rateLimit = await checkRateLimit(user.email);
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { 
+          status: 429,
+          headers: rateLimit.headers
+        }
+      );
     }
 
     const { content } = await request.json();
