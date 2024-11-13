@@ -119,6 +119,7 @@ export function subscribeToMessages(chatRoomId: string, onMessage: (message: Mes
   let eventSource: EventSource | null = null;
   const maxRetries = 5;
   let retryTimeout: NodeJS.Timeout | null = null;
+  let lastPingTime = Date.now();
   
   const cleanup = () => {
     if (retryTimeout) {
@@ -131,20 +132,29 @@ export function subscribeToMessages(chatRoomId: string, onMessage: (message: Mes
     }
   };
 
+  // Add ping monitoring
+  const pingMonitor = setInterval(() => {
+    if (eventSource && Date.now() - lastPingTime > 15000) {
+      console.log('No ping received for 15s, reconnecting...');
+      cleanup();
+      connect();
+    }
+  }, 5000);
+
   const connect = () => {
     cleanup();
 
     if (retryCount >= maxRetries) {
+      clearInterval(pingMonitor);
       console.error('Max SSE reconnection attempts reached');
       return;
     }
 
     try {
-      const url = new URL(`/api/chat/${chatRoomId}/sse`, window.location.origin);
-      eventSource = new EventSource(url.toString(), { withCredentials: true });
+      eventSource = new EventSource(`/api/chat/${chatRoomId}/sse`);
 
       eventSource.onopen = () => {
-        console.log('SSE connection established for chat:', chatRoomId);
+        console.log('SSE connection established');
         retryCount = 0;
       };
 
@@ -153,12 +163,7 @@ export function subscribeToMessages(chatRoomId: string, onMessage: (message: Mes
           const message = JSON.parse(event.data);
           
           if (message.type === 'ping') {
-            console.debug('Received ping:', message.timestamp);
-            return;
-          }
-          
-          if (message.type === 'connection') {
-            console.log('Connection established:', message.timestamp);
+            lastPingTime = Date.now();
             return;
           }
 
@@ -176,8 +181,9 @@ export function subscribeToMessages(chatRoomId: string, onMessage: (message: Mes
         
         if (retryCount < maxRetries) {
           const backoff = Math.min(1000 * Math.pow(2, retryCount++), 10000);
-          console.log(`Attempting to reconnect SSE in ${backoff}ms... (Attempt ${retryCount}/${maxRetries})`);
           retryTimeout = setTimeout(connect, backoff);
+        } else {
+          clearInterval(pingMonitor);
         }
       };
     } catch (error) {
@@ -187,8 +193,10 @@ export function subscribeToMessages(chatRoomId: string, onMessage: (message: Mes
   };
 
   connect();
-
-  return cleanup;
+  return () => {
+    clearInterval(pingMonitor);
+    cleanup();
+  };
 }
 
 // Helper function to check if a message should generate an image

@@ -89,16 +89,17 @@ const _ErrorState = ({
  * Helper function to map an AI model to the props expected by the ModelProfile component.
  * Ensures date fields are proper Date objects and fills in default values.
  */
-const mapAIModelToProfileProps = (model: AiModel | undefined | null) => {
-  if (!model) return null;
-  return {
-    id: model.id,
-    name: model.name,
-    imageUrl: model.imageUrl || "",
-    personality: model.personality,
-    userId: model.userId,
-  };
-};
+const DEFAULT_AVATAR = '/images/default-avatar.png';
+const DEFAULT_MODEL_IMAGE = '/images/default-model.png';
+
+const mapAIModelToProfileProps = (model: AiModel) => ({
+  ...model,
+  imageUrl: model.imageUrl || DEFAULT_MODEL_IMAGE,
+  createdBy: {
+    ...model.createdBy,
+    imageUrl: model.createdBy?.imageUrl || DEFAULT_AVATAR
+  }
+});
 
 /**
  * Generic fetch function with retry logic and error handling.
@@ -493,7 +494,7 @@ const ChatComponent = ({
                 aiModel: selectedRoom.aiModel
                   ? {
                       ...selectedRoom.aiModel,
-                      imageUrl: selectedRoom.aiModel.imageUrl || "",
+                      imageUrl: selectedRoom.aiModel.imageUrl || DEFAULT_MODEL_IMAGE,
                     }
                   : null,
               }}
