@@ -36,6 +36,7 @@ model User {
   posts                  Post[]
   subscription           Subscription?
   chatRooms              ChatRoom[]              @relation("ChatRoomToUser")
+  createdChatRooms       ChatRoom[]              @relation("ChatRoomCreator")
   likedPosts             Post[]                  @relation("LikedPosts")
 }
 
@@ -162,14 +163,18 @@ model Message {
 }
 
 model ChatRoom {
-  id        String    @id @default(cuid())
-  name      String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  aiModelId String?
-  aiModel   AIModel?  @relation(fields: [aiModelId], references: [id])
-  messages  Message[]
-  users     User[]    @relation("ChatRoomToUser")
+  id          String    @id @default(cuid())
+  name        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  aiModelId   String?
+  aiModel     AIModel?  @relation(fields: [aiModelId], references: [id])
+  messages    Message[]
+  users       User[]    @relation("ChatRoomToUser")
+  createdBy   User?     @relation("ChatRoomCreator", fields: [createdById], references: [id])
+  createdById String?
+
+  @@index([createdById])
 }
 
 model AIModel {

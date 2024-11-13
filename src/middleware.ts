@@ -2,6 +2,16 @@ import { withAuth } from "@kinde-oss/kinde-auth-nextjs/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+
+type KindeUser = {
+  id: string;
+  email?: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
+  custom_claims?: Record<string, string | number | boolean>;
+};
+
 export default withAuth(
   async function middleware(req: NextRequest) {
     const pathname = req.nextUrl.pathname;
@@ -17,8 +27,8 @@ export default withAuth(
   {
     // Configure your authentication options
     callbacks: {
-      authorized: async ({ token }: { token: any }) => {
-        return !!token; // Return true if token exists
+      authorized: async ({ token }: { token: KindeUser }) => {
+        return !!token;
       },
     },
   }

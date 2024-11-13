@@ -117,9 +117,22 @@ export async function generateImage(prompt: string, chatRoomId: string) {
 export function subscribeToMessages(chatRoomId: string, onMessage: (message: Message) => void) {
   let retryCount = 0;
   let eventSource: EventSource | null = null;
-
+  const maxRetries = 5;
+  
   const connect = () => {
-    eventSource = new EventSource(`/api/chat/${chatRoomId}/sse`, {
+    if (retryCount >= maxRetries) {
+      console.error('Max SSE reconnection attempts reached');
+      return;
+    }
+
+    if (eventSource) {
+      eventSource.close();
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    const url = `${protocol}//${window.location.host}/api/chat/${chatRoomId}/sse`;
+    
+    eventSource = new EventSource(url, {
       withCredentials: true
     });
 
@@ -132,8 +145,13 @@ export function subscribeToMessages(chatRoomId: string, onMessage: (message: Mes
       try {
         const message = JSON.parse(event.data);
         
-        if (message.type === 'ping' || message.type === 'connection') {
-          console.log(`Received ${message.type} message`);
+        if (message.type === 'ping') {
+          console.debug('Received ping');
+          return;
+        }
+        
+        if (message.type === 'connection') {
+          console.log('Connection established');
           return;
         }
 
@@ -150,20 +168,19 @@ export function subscribeToMessages(chatRoomId: string, onMessage: (message: Mes
       console.error('SSE Error:', error);
       eventSource?.close();
       
-      const backoff = Math.min(1000 * Math.pow(2, retryCount++), 30000);
-      setTimeout(() => {
-        console.log('Attempting to reconnect SSE...');
-        connect();
-      }, backoff);
+      if (retryCount < maxRetries) {
+        const backoff = Math.min(1000 * Math.pow(2, retryCount++), 10000);
+        console.log(`Attempting to reconnect SSE in ${backoff}ms... (Attempt ${retryCount}/${maxRetries})`);
+        setTimeout(connect, backoff);
+      }
     };
   };
 
   connect();
 
-  // Return cleanup function
   return () => {
+    console.log('Cleaning up SSE connection');
     if (eventSource) {
-      console.log('Cleaning up SSE connection');
       eventSource.close();
       eventSource = null;
     }

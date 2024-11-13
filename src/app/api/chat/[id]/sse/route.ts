@@ -3,6 +3,8 @@ import { messageEmitter } from '@/lib/messageEmitter';
 import { Message } from '@prisma/client';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 export async function GET(
   request: Request,
@@ -16,22 +18,19 @@ export async function GET(
       return new Response('Unauthorized', { status: 401 });
     }
 
-    console.log('Establishing SSE connection for chat room:', params.id);
-
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         const sendMessage = (message: Message) => {
-          console.log('Sending SSE message:', message);
           const data = `data: ${JSON.stringify(message)}\n\n`;
           controller.enqueue(encoder.encode(data));
         };
 
-        // Keep-alive ping
+        // Keep-alive ping every 15 seconds instead of 30
         const pingInterval = setInterval(() => {
           const pingMessage = `data: {"type":"ping"}\n\n`;
           controller.enqueue(encoder.encode(pingMessage));
-        }, 30000);
+        }, 15000);
 
         messageEmitter.on(`chat:${params.id}`, sendMessage);
 
@@ -42,7 +41,6 @@ export async function GET(
         } as unknown as Message);
 
         request.signal.addEventListener('abort', () => {
-          console.log('SSE connection aborted');
           clearInterval(pingInterval);
           messageEmitter.off(`chat:${params.id}`, sendMessage);
           controller.close();
@@ -55,7 +53,12 @@ export async function GET(
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no'
+        'X-Accel-Buffering': 'no',
+        // Add CORS headers
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Credentials': 'true'
       }
     });
   } catch (error) {
