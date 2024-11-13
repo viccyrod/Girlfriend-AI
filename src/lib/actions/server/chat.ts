@@ -107,68 +107,67 @@ export async function createMessageServer(
   kindeUserId: string,
   content: string,
   isAIMessage: boolean = false,
-  userEmail?: string // Add email parameter
+  userEmail?: string
 ) {
-  // First get the database user ID from email
-  const dbUser = await prisma.user.findUnique({
-    where: {
-      email: userEmail // Use the email directly
-    }
-  });
-
-  if (!dbUser) {
-    throw new Error('User not found');
-  }
-
-  // First verify the chat room exists and user has access
-  const chatRoom = await prisma.chatRoom.findUnique({
-    where: {
-      id: chatRoomId,
-    },
-    include: {
-      users: true,
-      aiModel: true
-    }
-  });
-
-  if (!chatRoom) {
-    throw new Error('Chat room not found');
-  }
-
-  if (!isAIMessage && !chatRoom.users.some(u => u.id === dbUser.id)) {
-    console.log('User access denied:', {
-      userId: dbUser.id,
-      chatRoomUsers: chatRoom.users.map(u => u.id)
+  try {
+    console.log('Creating message:', { chatRoomId, content, isAIMessage, userEmail });
+    
+    const dbUser = await prisma.user.findUnique({
+      where: { email: userEmail }
     });
-    throw new Error('Access denied');
-  }
 
-  // Create the message with the database user ID
-  const message = await prisma.message.create({
-    data: {
-      content,
-      chatRoomId,
-      userId: isAIMessage ? null : dbUser.id,
-      isAIMessage,
-      aiModelId: isAIMessage ? chatRoom.aiModel?.id : null,
-      metadata: isAIMessage ? { type: 'ai_response' } : {}
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          image: true
+    if (!dbUser) {
+      console.error('User not found:', userEmail);
+      throw new Error('User not found');
+    }
+
+    const chatRoom = await prisma.chatRoom.findUnique({
+      where: { id: chatRoomId },
+      include: { users: true, aiModel: true }
+    });
+
+    if (!chatRoom) {
+      console.error('Chat room not found:', chatRoomId);
+      throw new Error('Chat room not found');
+    }
+
+    if (!isAIMessage && !chatRoom.users.some(u => u.id === dbUser.id)) {
+      console.error('Access denied:', {
+        userId: dbUser.id,
+        chatRoomUsers: chatRoom.users.map(u => u.id)
+      });
+      throw new Error('Access denied');
+    }
+
+    const message = await prisma.message.create({
+      data: {
+        content,
+        chatRoomId,
+        userId: isAIMessage ? null : dbUser.id,
+        isAIMessage,
+        aiModelId: isAIMessage ? chatRoom.aiModel?.id : null,
+        metadata: isAIMessage ? { type: 'ai_response' } : {}
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
         }
       }
-    }
-  });
+    });
 
-  // Emit the event before returning
-  messageEmitter.emit(`chat:${chatRoomId}`, message);
-  
-  // Single return statement at the end
-  return message;
+    console.log('Message created:', message.id);
+    console.log('Emitting message event:', `chat:${chatRoomId}`);
+    messageEmitter.emit(`chat:${chatRoomId}`, message);
+    
+    return message;
+  } catch (error) {
+    console.error('Error in createMessageServer:', error);
+    throw error;
+  }
 }
 
 export async function deleteChatRoomServer(chatRoomId: string, userId: string) {

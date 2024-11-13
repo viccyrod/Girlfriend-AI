@@ -115,88 +115,64 @@ export async function generateImage(prompt: string, chatRoomId: string) {
 
 // Subscribe to chat room messages using SSE
 export function subscribeToMessages(chatRoomId: string, onMessage: (message: Message) => void) {
-  let retryCount = 0;
   let eventSource: EventSource | null = null;
-  const maxRetries = 5;
-  let retryTimeout: NodeJS.Timeout | null = null;
-  let lastPingTime = Date.now();
-  
+  let pollInterval: NodeJS.Timeout | null = null;
+  let lastMessageId: string | null = null;
+
   const cleanup = () => {
-    if (retryTimeout) {
-      clearTimeout(retryTimeout);
-      retryTimeout = null;
-    }
     if (eventSource) {
       eventSource.close();
       eventSource = null;
     }
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
   };
 
-  // Add ping monitoring
-  const pingMonitor = setInterval(() => {
-    if (eventSource && Date.now() - lastPingTime > 15000) {
-      console.log('No ping received for 15s, reconnecting...');
-      cleanup();
-      connect();
-    }
-  }, 5000);
-
-  const connect = () => {
-    cleanup();
-
-    if (retryCount >= maxRetries) {
-      clearInterval(pingMonitor);
-      console.error('Max SSE reconnection attempts reached');
-      return;
-    }
-
+  const pollMessages = async () => {
     try {
-      eventSource = new EventSource(`/api/chat/${chatRoomId}/sse`);
-
-      eventSource.onopen = () => {
-        console.log('SSE connection established');
-        retryCount = 0;
-      };
-
-      eventSource.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          
-          if (message.type === 'ping') {
-            lastPingTime = Date.now();
-            return;
-          }
-
-          if (message && message.id) {
-            onMessage(message);
-          }
-        } catch (error) {
-          console.error('Error parsing SSE message:', error);
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('SSE Error:', error);
-        cleanup();
-        
-        if (retryCount < maxRetries) {
-          const backoff = Math.min(1000 * Math.pow(2, retryCount++), 10000);
-          retryTimeout = setTimeout(connect, backoff);
-        } else {
-          clearInterval(pingMonitor);
-        }
-      };
+      const messages = await getChatRoomMessages(chatRoomId);
+      const newMessages = messages.filter(msg => !lastMessageId || msg.id > lastMessageId);
+      
+      if (newMessages.length > 0) {
+        lastMessageId = newMessages[newMessages.length - 1].id;
+        newMessages.forEach(onMessage);
+      }
     } catch (error) {
-      console.error('Error creating EventSource:', error);
-      cleanup();
+      console.error('Polling error:', error);
     }
   };
 
-  connect();
-  return () => {
-    clearInterval(pingMonitor);
-    cleanup();
-  };
+  // Try SSE first
+  try {
+    eventSource = new EventSource(`/api/chat/${chatRoomId}/sse`);
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message && message.id) {
+          lastMessageId = message.id;
+          onMessage(message);
+        }
+      } catch (error) {
+        console.error('SSE parse error:', error);
+      }
+    };
+
+    eventSource.onerror = () => {
+      console.log('SSE failed, falling back to polling');
+      cleanup();
+      // Start polling as fallback
+      pollInterval = setInterval(pollMessages, 2000);
+    };
+  } catch (error) {
+    console.error('SSE setup failed:', error);
+    // Start polling immediately if SSE fails
+    pollInterval = setInterval(pollMessages, 2000);
+  }
+
+  return cleanup;
 }
 
 // Helper function to check if a message should generate an image
