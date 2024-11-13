@@ -1,9 +1,6 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { messageEmitter } from '@/lib/messageEmitter';
 import { Message } from '@prisma/client';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
