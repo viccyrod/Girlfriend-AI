@@ -39,8 +39,8 @@ export async function POST(
     // Create a separate image record
     const image = await prisma.image.create({
       data: {
-        imageUrl,
-        imageData,
+        imageUrl: imageUrl || null,
+        imageData: imageData || null,
         isNSFW: isNSFW || false,
         aiModelId: params.modelId
       }
