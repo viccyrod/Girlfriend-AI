@@ -1,9 +1,10 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { messageEmitter } from '@/lib/messageEmitter';
+import prisma from '@/lib/clients/prisma';
 import { Message } from '@prisma/client';
 
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
+// export const runtime = 'edge';
+// export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: Request,
@@ -17,14 +18,30 @@ export async function GET(
       return new Response('Unauthorized', { status: 401 });
     }
 
+    // Verify user has access to this chat room
+    const chatRoom = await prisma.chatRoom.findFirst({
+      where: {
+        id: params.id,
+        users: {
+          some: {
+            email: user.email
+          }
+        }
+      }
+    });
+
+    if (!chatRoom) {
+      return new Response('Chat room not found or access denied', { status: 403 });
+    }
+
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        // Send initial connection message
-        controller.enqueue(encoder.encode('event: connected\ndata: {}\n\n'));
-
+        console.log(`SSE: Starting connection for chat ${params.id}`);
+        
         const sendMessage = (message: Message) => {
           try {
+            console.log(`SSE: Sending message for chat ${params.id}`, message.id);
             const data = JSON.stringify(message);
             controller.enqueue(encoder.encode(`data: ${data}\n\n`));
           } catch (error) {
@@ -32,16 +49,29 @@ export async function GET(
           }
         };
 
+        // Send initial connection message
+        controller.enqueue(
+          encoder.encode(`data: {"type":"connected","timestamp":${Date.now()}}\n\n`)
+        );
+
         // Set up ping interval
         const pingInterval = setInterval(() => {
-          controller.enqueue(encoder.encode(`data: {"type":"ping"}\n\n`));
+          try {
+            controller.enqueue(
+              encoder.encode(`data: {"type":"ping","timestamp":${Date.now()}}\n\n`)
+            );
+          } catch (error) {
+            console.error('Error sending ping:', error);
+            clearInterval(pingInterval);
+          }
         }, 5000);
 
-        // Subscribe to messages for this chat room
+        // Subscribe to messages
         messageEmitter.on(`chat:${params.id}`, sendMessage);
 
         // Clean up on connection close
         request.signal.addEventListener('abort', () => {
+          console.log(`SSE: Cleaning up connection for chat ${params.id}`);
           clearInterval(pingInterval);
           messageEmitter.off(`chat:${params.id}`, sendMessage);
           controller.close();

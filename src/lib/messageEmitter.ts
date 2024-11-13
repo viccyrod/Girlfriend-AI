@@ -1,25 +1,39 @@
 import { EventEmitter } from 'events';
+import { Message } from '@prisma/client';
+
+// interface MessageEvents {
+//   'chat:*': (message: Message) => void;
+// }
 
 class MessageEmitter extends EventEmitter {
-  constructor() {
+  private static instance: MessageEmitter;
+
+  private constructor() {
     super();
     this.setMaxListeners(100);
   }
 
-  emit(event: string | symbol, ...args: any[]): boolean {
-    console.log(`MessageEmitter: Emitting event ${String(event)}`);
-    return super.emit(event, ...args);
+  public static getInstance(): MessageEmitter {
+    if (!MessageEmitter.instance) {
+      MessageEmitter.instance = new MessageEmitter();
+    }
+    return MessageEmitter.instance;
   }
 
-  on(event: string | symbol, listener: (...args: any[]) => void): this {
-    console.log(`MessageEmitter: Adding listener for ${String(event)}`);
+  emit(event: string, message: Message): boolean {
+    console.log(`[MessageEmitter] Emitting event: ${event}`, { messageId: message.id });
+    return super.emit(event, message);
+  }
+
+  on(event: string, listener: (message: Message) => void): this {
+    console.log(`[MessageEmitter] Adding listener for: ${event}`);
     return super.on(event, listener);
   }
 
-  off(event: string | symbol, listener: (...args: any[]) => void): this {
-    console.log(`MessageEmitter: Removing listener for ${String(event)}`);
+  off(event: string, listener: (message: Message) => void): this {
+    console.log(`[MessageEmitter] Removing listener for: ${event}`);
     return super.off(event, listener);
   }
 }
 
-export const messageEmitter = new MessageEmitter();
+export const messageEmitter = MessageEmitter.getInstance();

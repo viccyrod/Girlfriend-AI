@@ -46,6 +46,9 @@ export async function POST(
       user.email
     );
 
+    console.log('Emitting user message:', userMessage);
+    messageEmitter.emit(`chat:${params.id}`, userMessage);
+
     // Get chat room and AI model details
     const chatRoom = await prisma.chatRoom.findUnique({
       where: { id: params.id },
@@ -89,13 +92,20 @@ export async function POST(
     );
 
     // Create AI message
-    const aiMessage = await createMessageServer(
-      params.id,
-      user.id,
-      aiResponse.content,
-      true,
-      user.email
-    );
+    const aiMessage = await prisma.message.create({
+      data: {
+        content: aiResponse.content,
+        chatRoomId: params.id,
+        isAIMessage: true,
+        metadata: {
+          mode: aiResponse.mode,
+          confidence: aiResponse.confidence
+        }
+      }
+    });
+
+    console.log('Emitting AI message:', aiMessage);
+    messageEmitter.emit(`chat:${params.id}`, aiMessage);
 
     return NextResponse.json({
       userMessage,
