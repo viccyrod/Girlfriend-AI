@@ -191,7 +191,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     };
 
     loadInitialMessages();
-  }, [chatRoom.id]);
+  }, [chatRoom.id, scrollToBottom, toast]);
 
   // Add this effect instead
   useEffect(() => {

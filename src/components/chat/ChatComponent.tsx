@@ -57,7 +57,7 @@ const handleApiError = (
 /**
  * Loading state component
  */
-const LoadingState = () => (
+const _LoadingState = () => (
   <div className="flex-1 flex items-center justify-center gap-2">
     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
     <p className="text-muted-foreground">Loading chat...</p>
@@ -67,7 +67,7 @@ const LoadingState = () => (
 /**
  * Error state component
  */
-const ErrorState = ({
+const _ErrorState = ({
   message,
   onRetry,
 }: {
@@ -164,8 +164,8 @@ const ChatComponent = ({
   const [selectedRoom, setSelectedRoom] = useState<ExtendedChatRoom | null>(
     initialChatRoom || null
   );
-  const [isProfileVisible, setIsProfileVisible] = useState(true);
-  const [initError, setInitError] = useState<string | null>(null);
+  const [_isProfileVisible, setIsProfileVisible] = useState(true);
+  const [_initError, setInitError] = useState<string | null>(null);
   const [_isRoomLoading, _setIsRoomLoading] = useState<string | null>(null); // Loading state for room selection
   const [isMessageSending, setIsMessageSending] = useState(false); // Loading state for message sending
   const [_isGreetingGenerating, setIsGreetingGenerating] = useState(false); // Loading state for greeting generation
@@ -474,7 +474,7 @@ const ChatComponent = ({
         flex-1 flex flex-col h-full relative
         transition-all duration-300 ease-in-out
         ${selectedRoom ? 'flex' : 'hidden md:flex'}
-        ${isProfileVisible ? 'md:mr-[400px]' : ''}
+        ${_isProfileVisible ? 'md:mr-[400px]' : ''}
       `}>
         {selectedRoom ? (
           <div className="relative flex flex-col h-full">
@@ -510,7 +510,7 @@ const ChatComponent = ({
             >
               <ChevronRight
                 className={`w-4 h-4 text-white transform transition-transform duration-200 ${
-                  isProfileVisible ? "rotate-180" : ""
+                  _isProfileVisible ? "rotate-180" : ""
                 }`}
               />
             </button>
@@ -530,7 +530,7 @@ const ChatComponent = ({
         w-[85vw] md:w-[400px] border-l border-[#1a1a1a] 
         flex-shrink-0 h-full overflow-y-auto bg-[#0a0a0a] 
         transition-transform duration-300 ease-in-out z-40
-        ${isProfileVisible 
+        ${_isProfileVisible 
           ? "translate-x-0" 
           : "translate-x-full md:translate-x-[400px]"
         }
