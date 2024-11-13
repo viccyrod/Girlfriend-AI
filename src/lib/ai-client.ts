@@ -85,6 +85,17 @@ export async function generateAIResponse(
   }
 
   try {
+    // Add logging to debug the client initialization
+    console.log('X.AI Client Status:', {
+      clientExists: !!grok,
+      apiKeyExists: !!process.env.XAI_API_KEY,
+      apiKeyLength: process.env.XAI_API_KEY?.length
+    });
+
+    if (!grok) {
+      throw new Error('X.AI client not initialized');
+    }
+
     // First, analyze the message sentiment and complexity using Grok-mini
     const analysis = await grok.chat.completions.create({
       model: 'grok-beta',
