@@ -115,44 +115,58 @@ export async function generateImage(prompt: string, chatRoomId: string) {
 
 // Subscribe to chat room messages using SSE
 export function subscribeToMessages(chatRoomId: string, onMessage: (message: Message) => void) {
-  const eventSource = new EventSource(`/api/chat/${chatRoomId}/sse`);
+  let retryCount = 0;
+  let eventSource: EventSource | null = null;
 
-  eventSource.onopen = () => {
-    console.log('SSE connection established for chat:', chatRoomId);
-  };
+  const connect = () => {
+    eventSource = new EventSource(`/api/chat/${chatRoomId}/sse`, {
+      withCredentials: true
+    });
 
-  eventSource.onmessage = (event) => {
-    try {
-      const message = JSON.parse(event.data);
+    eventSource.onopen = () => {
+      console.log('SSE connection established for chat:', chatRoomId);
+      retryCount = 0;
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        
+        if (message.type === 'ping' || message.type === 'connection') {
+          console.log(`Received ${message.type} message`);
+          return;
+        }
+
+        if (message && message.id) {
+          console.log('Received message:', message);
+          onMessage(message);
+        }
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('SSE Error:', error);
+      eventSource?.close();
       
-      // Skip connection status messages
-      if (message.type === 'connection') {
-        console.log('Connection status:', message.status);
-        return;
-      }
-
-      if (message && message.id) {
-        console.log('Received message:', message);
-        onMessage(message);
-      }
-    } catch (error) {
-      console.error('Error parsing SSE message:', error);
-    }
+      const backoff = Math.min(1000 * Math.pow(2, retryCount++), 30000);
+      setTimeout(() => {
+        console.log('Attempting to reconnect SSE...');
+        connect();
+      }, backoff);
+    };
   };
 
-  eventSource.onerror = (error) => {
-    console.error('SSE Error:', error);
-    eventSource.close();
-    // Attempt to reconnect after 5 seconds
-    setTimeout(() => {
-      console.log('Attempting to reconnect SSE...');
-      subscribeToMessages(chatRoomId, onMessage);
-    }, 5000);
-  };
+  connect();
 
+  // Return cleanup function
   return () => {
-    console.log('Closing SSE connection for chat:', chatRoomId);
-    eventSource.close();
+    if (eventSource) {
+      console.log('Cleaning up SSE connection');
+      eventSource.close();
+      eventSource = null;
+    }
   };
 }
 

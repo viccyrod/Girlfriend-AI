@@ -7,6 +7,7 @@ import { getOrCreateChatRoom } from "@/lib/actions/chat"; // Utility function to
 import {  ExtendedChatRoom } from "@/types/chat";
 import { Message } from '@prisma/client'; // Add this import
 import prisma from "@/lib/prisma";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 
 // Main function that renders the ChatPage component
@@ -97,10 +98,12 @@ const chatRoom = await getOrCreateChatRoom(params.id);
     return (
       <BaseLayout>
         <div className="h-[calc(100vh-4rem)]">
-          <ChatComponent 
-            initialChatRoom={extendedChatRoom} 
-            modelId={params.id} 
-          />
+          <ErrorBoundary>
+            <ChatComponent 
+              initialChatRoom={extendedChatRoom} 
+              modelId={params.id} 
+            />
+          </ErrorBoundary>
         </div>
       </BaseLayout>
     );

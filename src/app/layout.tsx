@@ -19,10 +19,47 @@ const geistSans = localFont({
 // });
 
 export const metadata: Metadata = {
-  title: "💜 GIRLFRIEND 💜",
-  description: "The most realistic AI Companions",
-};
-
+  title: {
+    default: 'Girlfriend - Your AI Companion',
+    template: '%s | Girlfriend - Your AI Companion'
+  },
+  description: 'Connect with AI companions for meaningful conversations and relationships.',
+  keywords: ['AI girlfriend', 'virtual companion', 'AI chat', 'relationship'],
+  authors: [{ name: 'Your Name' }],
+  creator: 'Your Name/Company',
+  metadataBase: new URL('https://girlfriend.cx'),
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://girlfriend.cx',
+    title: 'Girlfriend - Your AI Companion',
+    description: 'Connect with AI companions for meaningful conversations and relationships.',
+    siteName: 'Girlfriend - Your AI Companion',
+    images: [{
+      url: '/og-image.jpg', // Your OpenGraph image
+      width: 1200,
+      height: 630,
+      alt: 'Girlfriend.cx Preview'
+    }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Girlfriend - Your AI Companion',
+    description: 'Connect with AI companions for meaningful conversations and relationships.',
+    images: ['/twitter-image.jpg'], // Your Twitter card image
+    creator: '@yourtwitter'
+  },
+  icons: {
+    icon: '/gf-favicon.svg',
+    shortcut: '/favicon-16x16.png',
+    apple: '/apple-touch-icon.png',
+    other: {
+      rel: 'apple-touch-icon-precomposed',
+      url: '/apple-touch-icon-precomposed.png'
+    }
+  },
+  manifest: '/site.webmanifest'
+}
 export default async function RootLayout({
   children,
 }: Readonly<{

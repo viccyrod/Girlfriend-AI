@@ -27,6 +27,12 @@ export async function GET(
           controller.enqueue(encoder.encode(data));
         };
 
+        // Keep-alive ping
+        const pingInterval = setInterval(() => {
+          const pingMessage = `data: {"type":"ping"}\n\n`;
+          controller.enqueue(encoder.encode(pingMessage));
+        }, 30000);
+
         messageEmitter.on(`chat:${params.id}`, sendMessage);
 
         // Send initial connection message
@@ -37,6 +43,7 @@ export async function GET(
 
         request.signal.addEventListener('abort', () => {
           console.log('SSE connection aborted');
+          clearInterval(pingInterval);
           messageEmitter.off(`chat:${params.id}`, sendMessage);
           controller.close();
         });
@@ -46,8 +53,9 @@ export async function GET(
     return new Response(stream, {
       headers: {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive'
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
       }
     });
   } catch (error) {
