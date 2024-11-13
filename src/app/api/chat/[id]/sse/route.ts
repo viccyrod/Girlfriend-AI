@@ -4,7 +4,6 @@ import { Message } from '@prisma/client';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
-export const preferredRegion = 'home';
 
 export async function GET(
   request: Request,
@@ -21,21 +20,27 @@ export async function GET(
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
+        // Send initial connection message
+        controller.enqueue(encoder.encode('event: connected\ndata: {}\n\n'));
+
         const sendMessage = (message: Message) => {
-          const data = `data: ${JSON.stringify(message)}\n\n`;
-          controller.enqueue(encoder.encode(data));
+          try {
+            const data = JSON.stringify(message);
+            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+          } catch (error) {
+            console.error('Error sending message:', error);
+          }
         };
 
+        // Set up ping interval
         const pingInterval = setInterval(() => {
-          const pingMessage = `data: {"type":"ping","timestamp":${Date.now()}}\n\n`;
-          controller.enqueue(encoder.encode(pingMessage));
+          controller.enqueue(encoder.encode(`data: {"type":"ping"}\n\n`));
         }, 5000);
 
-        const connectionMessage = `data: {"type":"connection","timestamp":${Date.now()}}\n\n`;
-        controller.enqueue(encoder.encode(connectionMessage));
-
+        // Subscribe to messages for this chat room
         messageEmitter.on(`chat:${params.id}`, sendMessage);
 
+        // Clean up on connection close
         request.signal.addEventListener('abort', () => {
           clearInterval(pingInterval);
           messageEmitter.off(`chat:${params.id}`, sendMessage);
@@ -47,8 +52,9 @@ export async function GET(
     return new Response(stream, {
       headers: {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive'
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
       }
     });
   } catch (error) {

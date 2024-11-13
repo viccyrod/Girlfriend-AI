@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from '@/lib/session';
 import prisma from '@/lib/clients/prisma';
+import { messageEmitter } from '@/lib/messageEmitter';
 
 export async function getOrCreateChatRoomServer(modelId: string) {
   const currentUser = await getCurrentUser();
@@ -163,6 +164,7 @@ export async function createMessageServer(
     }
   });
 
+  messageEmitter.emit(`chat:${chatRoomId}`, message);
   return message;
 }
 
