@@ -118,73 +118,77 @@ export function subscribeToMessages(chatRoomId: string, onMessage: (message: Mes
   let retryCount = 0;
   let eventSource: EventSource | null = null;
   const maxRetries = 5;
+  let retryTimeout: NodeJS.Timeout | null = null;
   
-  const connect = () => {
-    if (retryCount >= maxRetries) {
-      console.error('Max SSE reconnection attempts reached');
-      return;
+  const cleanup = () => {
+    if (retryTimeout) {
+      clearTimeout(retryTimeout);
+      retryTimeout = null;
     }
-
-    if (eventSource) {
-      eventSource.close();
-    }
-
-    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-    const url = `${protocol}//${window.location.host}/api/chat/${chatRoomId}/sse`;
-    
-    eventSource = new EventSource(url, {
-      withCredentials: true
-    });
-
-    eventSource.onopen = () => {
-      console.log('SSE connection established for chat:', chatRoomId);
-      retryCount = 0;
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        
-        if (message.type === 'ping') {
-          console.debug('Received ping');
-          return;
-        }
-        
-        if (message.type === 'connection') {
-          console.log('Connection established');
-          return;
-        }
-
-        if (message && message.id) {
-          console.log('Received message:', message);
-          onMessage(message);
-        }
-      } catch (error) {
-        console.error('Error parsing SSE message:', error);
-      }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error('SSE Error:', error);
-      eventSource?.close();
-      
-      if (retryCount < maxRetries) {
-        const backoff = Math.min(1000 * Math.pow(2, retryCount++), 10000);
-        console.log(`Attempting to reconnect SSE in ${backoff}ms... (Attempt ${retryCount}/${maxRetries})`);
-        setTimeout(connect, backoff);
-      }
-    };
-  };
-
-  connect();
-
-  return () => {
-    console.log('Cleaning up SSE connection');
     if (eventSource) {
       eventSource.close();
       eventSource = null;
     }
   };
+
+  const connect = () => {
+    cleanup();
+
+    if (retryCount >= maxRetries) {
+      console.error('Max SSE reconnection attempts reached');
+      return;
+    }
+
+    try {
+      const url = new URL(`/api/chat/${chatRoomId}/sse`, window.location.origin);
+      eventSource = new EventSource(url.toString(), { withCredentials: true });
+
+      eventSource.onopen = () => {
+        console.log('SSE connection established for chat:', chatRoomId);
+        retryCount = 0;
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          
+          if (message.type === 'ping') {
+            console.debug('Received ping:', message.timestamp);
+            return;
+          }
+          
+          if (message.type === 'connection') {
+            console.log('Connection established:', message.timestamp);
+            return;
+          }
+
+          if (message && message.id) {
+            onMessage(message);
+          }
+        } catch (error) {
+          console.error('Error parsing SSE message:', error);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE Error:', error);
+        cleanup();
+        
+        if (retryCount < maxRetries) {
+          const backoff = Math.min(1000 * Math.pow(2, retryCount++), 10000);
+          console.log(`Attempting to reconnect SSE in ${backoff}ms... (Attempt ${retryCount}/${maxRetries})`);
+          retryTimeout = setTimeout(connect, backoff);
+        }
+      };
+    } catch (error) {
+      console.error('Error creating EventSource:', error);
+      cleanup();
+    }
+  };
+
+  connect();
+
+  return cleanup;
 }
 
 // Helper function to check if a message should generate an image

@@ -1,9 +1,13 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { messageEmitter } from '@/lib/messageEmitter';
 import { Message } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const preferredRegion = 'home';
 export const fetchCache = 'force-no-store';
 
 export async function GET(
@@ -15,7 +19,36 @@ export async function GET(
     const user = await getUser();
     
     if (!user?.email) {
-      return new Response('Unauthorized', { status: 401 });
+      return new Response('Unauthorized', { 
+        status: 401,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET',
+          'Access-Control-Allow-Headers': '*'
+        }
+      });
+    }
+
+    const chatRoom = await prisma.chatRoom.findFirst({
+      where: {
+        id: params.id,
+        users: {
+          some: {
+            email: user.email
+          }
+        }
+      }
+    });
+
+    if (!chatRoom) {
+      return new Response('Chat room not found', { 
+        status: 404,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET',
+          'Access-Control-Allow-Headers': '*'
+        }
+      });
     }
 
     const encoder = new TextEncoder();
@@ -26,18 +59,17 @@ export async function GET(
           controller.enqueue(encoder.encode(data));
         };
 
-        // Keep-alive ping every 15 seconds instead of 30
         const pingInterval = setInterval(() => {
-          const pingMessage = `data: {"type":"ping"}\n\n`;
+          const pingMessage = `data: {"type":"ping","timestamp":"${Date.now()}"}\n\n`;
           controller.enqueue(encoder.encode(pingMessage));
         }, 15000);
 
         messageEmitter.on(`chat:${params.id}`, sendMessage);
 
-        // Send initial connection message
         sendMessage({ 
           type: 'connection', 
-          status: 'established' 
+          status: 'established',
+          timestamp: Date.now()
         } as unknown as Message);
 
         request.signal.addEventListener('abort', () => {
@@ -54,15 +86,20 @@ export async function GET(
         'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
-        // Add CORS headers
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Credentials': 'true'
+        'Access-Control-Allow-Headers': '*'
       }
     });
   } catch (error) {
-    console.error('Error in SSE handler:', error);
-    return new Response('Internal Server Error', { status: 500 });
+    console.error('SSE Error:', error);
+    return new Response('Internal Server Error', { 
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET',
+        'Access-Control-Allow-Headers': '*'
+      }
+    });
   }
 } 
