@@ -30,8 +30,11 @@ const openai = typeof window === 'undefined'
 
 const grok = typeof window === 'undefined'
   ? new OpenAI({
-      baseURL: 'https://api.x.ai/v1', // Using a different base URL for Grok-mini API
-      apiKey: process.env.XAI_API_KEY || '', // Uses XAI API key from environment variables
+      baseURL: 'https://api.x.ai/v1',
+      apiKey: process.env.XAI_API_KEY || '',
+      defaultHeaders: {
+        'Authorization': `Bearer ${process.env.XAI_API_KEY || ''}`
+      }
     })
   : null;
 
@@ -249,7 +252,7 @@ export async function generateGreeting(
     4. ${memories.length > 0 ? 'Playfully references something from your past interactions' : 'Expresses anticipation about getting to know them'}
     5. Ends with an engaging question or flirty invitation to respond
     6. Keeps it tasteful and elegant but don't be afraid to be naughty
-    7. Optional: Use one emoji maximum (💋, 😘, 😊, 💕)
+    7. Optional: Use one emoji maximum (💋, 😘, ���, 💕)
 
     Example first greeting: "Hey there! *twirls hair playfully* I've been hoping someone interesting would come chat with me... and you look absolutely perfect 😊 What caught your eye about me?"
     
