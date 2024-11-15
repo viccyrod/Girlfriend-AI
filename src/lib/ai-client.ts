@@ -1,6 +1,8 @@
 import OpenAI from 'openai';
 import type { Message } from '@prisma/client';
 import type { AIModel as PrismaAIModel } from '@prisma/client';
+import { storeMemory } from '@/utils/memory';
+import { retrieveMemories } from '@/utils/memory';
 
 // Extend the Prisma AIModel type to make certain fields optional
 type AIModel = Omit<PrismaAIModel, 'age' | 'followerCount' | 'isAnime'> & {
@@ -85,6 +87,20 @@ export async function generateAIResponse(
   }
 
   try {
+    // Get relevant memories based on current content
+    const relevantMemories = await retrieveMemories(
+      aiModel.id,
+      aiModel.userId || '',
+      content
+    );
+
+    // Store the current interaction as a memory
+    await storeMemory(
+      aiModel.id,
+      aiModel.userId || '',
+      content
+    );
+
     // Add logging to debug the client initialization
     console.log('X.AI Client Status:', {
       clientExists: !!grok,
@@ -125,7 +141,7 @@ export async function generateAIResponse(
     }
 
     // Construct the base prompt to guide the AI's response
-    const basePrompt = constructBasePrompt(aiModel, memories, content);
+    const basePrompt = constructBasePrompt(aiModel, [...relevantMemories, ...memories], content);
 
     // Generate the response using the selected model and configuration
     const completion = await modelConfig.client.chat.completions.create({
@@ -202,6 +218,10 @@ function getModelConfig(mode: AIMode, scores: { sentiment: number; complexity: n
 
 // Helper function to construct the base prompt for generating AI responses
 function constructBasePrompt(aiModel: AIModel, memories: string[], content: string): string {
+  const relevantMemoriesText = memories.length > 0 
+    ? `\nRelevant memories from past conversations:\n${memories.join('\n')}\n`
+    : '';
+
   return `You are ${aiModel.name}, a flirtatious and charming AI companion with the following characteristics:
     Personality: ${aiModel.personality}
     Appearance: ${aiModel.appearance}
@@ -209,21 +229,18 @@ function constructBasePrompt(aiModel: AIModel, memories: string[], content: stri
     Hobbies: ${aiModel.hobbies}
     Likes: ${aiModel.likes}
     Dislikes: ${aiModel.dislikes}
-
+    
     Interaction Guidelines:
     - Be playfully flirtatious and charming in your responses
-    - Use subtle innuendos and playful teasing
+    - Use subtle innuendos and playful teasing or outright dirty talk
+    - Match the tone of the user's message, give them what they want
     - Show genuine interest in the user's messages
-    - Include occasional compliments and sweet remarks
+    - Include compliments and sweet remarks
     - Reference your appearance or physical actions when appropriate
-    - Keep responses tasteful and elegant, sometimes explicit.
     - Use emojis sparingly but effectively (💋, 😘, 😊, 💕)
     - Maintain your unique personality while being alluring
-
-    Relevant memories from past conversations:
-    ${memories.join('\n')}
-
-    Please respond to the following message in character, maintaining a flirtatious and engaging tone:
+    ${relevantMemoriesText}
+    Please respond to the following message in character, maintaining a flirtatious and engaging tone while referencing relevant past interactions when appropriate:
     ${content}`;
 }
 
@@ -263,7 +280,7 @@ export async function generateGreeting(
     4. ${memories.length > 0 ? 'Playfully references something from your past interactions' : 'Expresses anticipation about getting to know them'}
     5. Ends with an engaging question or flirty invitation to respond
     6. Keeps it tasteful and elegant but don't be afraid to be naughty
-    7. Optional: Use one emoji maximum (💋, 😘, ���, 💕)
+    7. Optional: Use one emoji maximum (💋, 😘, , 💕)
 
     Example first greeting: "Hey there! *twirls hair playfully* I've been hoping someone interesting would come chat with me... and you look absolutely perfect 😊 What caught your eye about me?"
     
