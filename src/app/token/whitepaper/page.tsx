@@ -1,17 +1,13 @@
 'use client';
 
 import React from "react";
-import { Button } from "@/components/ui/button";
 import BaseLayout from "@/components/BaseLayout";
-import Link from "next/link";
-import Image from "next/image";
 import { Shield, CreditCard, Coins, Network, Lock, Cpu, Users, Building, BookOpen, Code, LineChart } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { TokenDistributionChart } from "@/components/charts/TokenDistribution";
 import { VestingScheduleChart } from "@/components/charts/VestingSchedule";
 import { TechnicalArchitecture } from "@/components/charts/TechnicalArchitecture";
-
 export default function WhitepaperPage() {
   return (
     <BaseLayout requireAuth={false}>
