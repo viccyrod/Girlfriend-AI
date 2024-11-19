@@ -114,8 +114,8 @@ export type ExtendedMessage = {
 
 // Add this type definition
 export type MessageMetadata = {
-  type?: string;
-  imageData?: string;
+  type?: 'text' | 'image' | 'greeting';
+  imageUrl?: string;
   prompt?: string;
-  [key: string]: unknown; // Allows for additional properties while maintaining type safety
-};
+  style?: string;
+}

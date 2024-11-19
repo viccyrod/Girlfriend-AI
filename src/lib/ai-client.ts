@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { Message } from '@prisma/client';
+import type { Message as PrismaMessage } from '@prisma/client';
 import type { AIModel as PrismaAIModel } from '@prisma/client';
 import { storeMemory } from '@/utils/memory';
 import { retrieveMemories } from '@/utils/memory';
@@ -61,12 +61,13 @@ interface _XAIRequestPayload {
   context?: string[];
 }
 
-// // // Metadata for the message (optional fields)
-// // interface MessageMetadata {
-// //   mode?: AIMode;
-// //   confidence?: number;
-// //   isGreeting?: boolean;
-// }
+// Modify the local interface to extend the Prisma type
+export interface Message extends PrismaMessage {
+  metadata: {
+    type?: string;
+    imageUrl?: string;
+  } | null;
+}
 
 // Function to generate a response from AI
 export async function generateAIResponse(

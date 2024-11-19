@@ -10,6 +10,7 @@ import {
 import { messageEmitter } from '@/lib/messageEmitter';
 import prisma from '@/lib/clients/prisma';
 import { checkRateLimit } from '@/lib/utils/rate-limiter';
+import type { Message } from '@/lib/ai-client';
 
 export async function POST(
   request: Request,
@@ -87,7 +88,7 @@ export async function POST(
       content,
       chatRoom.aiModel,
       chatRoom.messages.map(message => message.content).reverse(),
-      chatRoom.messages,
+      chatRoom.messages as Message[],
       'creative'
     );
 

@@ -2,20 +2,30 @@
 
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
 import { useRouter } from 'next/navigation';
-import React, { ReactNode, useEffect } from 'react'
+import React, { ReactNode, useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
 
-const BaseLayout = ({ children }: { children: ReactNode }) => {
+interface BaseLayoutProps {
+    children: ReactNode;
+    requireAuth?: boolean;
+  }
+
+const BaseLayout = ({ children, requireAuth = true }: BaseLayoutProps) => {
     const { isAuthenticated, isLoading } = useKindeBrowserClient();
     const router = useRouter();
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        if (!isLoading && !isAuthenticated) {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isLoading && !isAuthenticated && requireAuth) {
             router.push("/");
         }
-    }, [isLoading, isAuthenticated, router]);
+    }, [isLoading, isAuthenticated, router, requireAuth]);
 
-    if (isLoading) return <div>Loading...</div>;
+    if (!mounted || (isLoading && requireAuth)) return null;
 
     return (
         <div className='flex h-screen w-full'>
@@ -26,5 +36,5 @@ const BaseLayout = ({ children }: { children: ReactNode }) => {
         </div>
     )
 }
-
 export default BaseLayout
+

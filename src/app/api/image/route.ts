@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/session';
+import { v2 as cloudinary } from 'cloudinary';
 import { RunPodClient } from '@/lib/clients/runpod';
 import prisma from '@/lib/clients/prisma';
-import { v2 as cloudinary } from 'cloudinary';
+import { messageEmitter } from '@/lib/messageEmitter';
 
-if (!cloudinary.config().cloud_name) {
-  cloudinary.config({
-    cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-}
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export async function POST(request: Request) {
   try {
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { prompt, chatRoomId } = await request.json();
+    const { prompt, chatRoomId, style = 'realistic' } = await request.json();
 
     if (!chatRoomId) {
       return NextResponse.json(
@@ -28,8 +28,27 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get the chat room and AI model details
+    const chatRoom = await prisma.chatRoom.findUnique({
+      where: { id: chatRoomId },
+      include: { aiModel: true }
+    });
+
+    if (!chatRoom?.aiModel) {
+      return NextResponse.json({ error: 'Chat room or AI model not found' }, { status: 404 });
+    }
+
+    // Enhance the prompt with AI model's characteristics
+    const enhancedPrompt = `${prompt}. 
+      Style: Ultra realistic, photogenic, beautiful lighting, high fashion photography style.
+      Character details: ${chatRoom.aiModel.appearance}
+      Setting: Elegant and sophisticated
+      Quality: 8k resolution, highly detailed`;
+
+    console.log('Generating image with prompt:', enhancedPrompt);
+
     // Generate image using RunPod
-    const base64Image = await RunPodClient.generateImage(prompt);
+    const base64Image = await RunPodClient.generateImage(enhancedPrompt);
     
     // Upload to Cloudinary
     const uploadResponse = await cloudinary.uploader.upload(
@@ -38,6 +57,10 @@ export async function POST(request: Request) {
         folder: 'chat-images',
         resource_type: 'image',
         public_id: `chat-${chatRoomId}-${Date.now()}`,
+        transformation: [
+          { quality: "auto:best" },
+          { fetch_format: "auto" }
+        ]
       }
     );
 
@@ -46,12 +69,12 @@ export async function POST(request: Request) {
       data: {
         content: prompt,
         chatRoomId: chatRoomId,
-        userId: currentUser.id,
         isAIMessage: true,
         metadata: {
           type: 'image',
           imageUrl: uploadResponse.secure_url,
-          prompt: prompt
+          prompt: enhancedPrompt,
+          style: style
         }
       },
       include: {
@@ -65,6 +88,9 @@ export async function POST(request: Request) {
       }
     });
 
+    // Emit the message for real-time updates
+    messageEmitter.emit(`chat:${chatRoomId}`, message);
+
     return NextResponse.json({ 
       success: true,
       message,
@@ -73,9 +99,9 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('Error generating image:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate image' },
-      { status: 500 }
-    );
+    return NextResponse.json({ 
+      error: 'Failed to generate image',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

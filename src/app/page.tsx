@@ -60,15 +60,21 @@ export default async function Home() {
   return (
     <AuthWrapper isAuthenticated={!!user}> {/* Ensure authentication context */}
       <BaseLayout> {/* Base layout that wraps the content of the page */}
-        {/* Subscription Banner */}
-        <div className="bg-primary/90 text-white p-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-pink-200">FIRST SUBSCRIPTION</span>
-            <span className="bg-pink-500 px-2 py-1 rounded-full text-xs">Up to 70% Off</span>
+        {/* Token Launch Banner */}
+        <div className="bg-gradient-to-r from-pink-500/90 to-purple-600/90 text-white p-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold">
+              🚀 Token Launch
+            </span>
+            <span className="text-white/90">
+              $GOON token is now live on Raydium! Join the future of AI Dating
+            </span>
           </div>
-          <div className="text-sm">
-            <span className="font-mono">59:29:26</span> {/* Timer countdown */}
-          </div>
+          <Link href="/token">
+            <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white">
+              Buy Now →
+            </Button>
+          </Link>
         </div>
 
         {/* Hero Section */}

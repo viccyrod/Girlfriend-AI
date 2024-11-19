@@ -10,7 +10,17 @@ export class RunPodClient {
   private static readonly API_URL = 'https://api.runpod.ai/v2/a1gzps0inilt37';
   private static readonly API_KEY = process.env.RUNPOD_API_KEY;
 
-  static async generateImage(prompt: string): Promise<string> {
+  static async generateImage(prompt: string, options = {
+    negative_prompt: "blurry, bad quality, distorted, deformed, disfigured, bad anatomy, watermark",
+    num_inference_steps: 40,
+    guidance_scale: 7.5,
+    width: 1024,
+    height: 1024,
+    scheduler: "DPMSolverMultistep", // Better quality scheduler
+    num_images: 1
+  }): Promise<string> {
+    console.log('RunPod generating image with prompt:', prompt);
+
     const response = await fetch(`${this.API_URL}/runsync`, {
       method: 'POST',
       headers: {
@@ -20,20 +30,24 @@ export class RunPodClient {
       body: JSON.stringify({
         input: {
           prompt,
-          negative_prompt: "blurry, bad quality, distorted",
-          num_inference_steps: 30,
-          guidance_scale: 4.5,
-          width: 1024,
-          height: 1024,
+          ...options
         }
       })
     });
 
     if (!response.ok) {
-      throw new Error('Failed to generate image');
+      const errorText = await response.text();
+      console.error('RunPod API error:', errorText);
+      throw new Error(`Failed to generate image: ${errorText}`);
     }
 
     const data: RunPodResponse = await response.json();
+    
+    if (data.status === 'FAILED') {
+      throw new Error('Image generation failed');
+    }
+
+    console.log('RunPod image generated successfully');
     return data.output.image;
   }
 }
