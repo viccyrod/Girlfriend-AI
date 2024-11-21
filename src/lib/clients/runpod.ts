@@ -19,7 +19,7 @@ export class RunPodClient {
     scheduler: "DPMSolverMultistep", // Better quality scheduler
     num_images: 1
   }): Promise<string> {
-    console.log('RunPod generating image with prompt:', prompt);
+    console.log('🎨 RunPod generating image with prompt:', prompt);
 
     const response = await fetch(`${this.API_URL}/runsync`, {
       method: 'POST',
@@ -37,17 +37,18 @@ export class RunPodClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('RunPod API error:', errorText);
+      console.error('❌ RunPod API error:', errorText);
       throw new Error(`Failed to generate image: ${errorText}`);
     }
 
     const data: RunPodResponse = await response.json();
+    console.log('✅ RunPod response:', data); // Log full response
     
     if (data.status === 'FAILED') {
       throw new Error('Image generation failed');
     }
 
-    console.log('RunPod image generated successfully');
+    console.log('🖼️ Generated image URL:', data.output.image);
     return data.output.image;
   }
 }

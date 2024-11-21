@@ -5,7 +5,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { AIModel, User } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import Image from 'next/image';
 import { format } from 'date-fns';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Send } from 'lucide-react';
@@ -18,6 +17,7 @@ import {
 } from '@/lib/actions/chat';
 
 
+
 // Message and ChatRoom Interfaces
 interface Message {
   id: string;
@@ -28,6 +28,7 @@ interface Message {
   updatedAt: string | Date;
   aiModelId: string | null;
   isAIMessage: boolean;
+  role: string;
   metadata: {
     type?: string;
     imageData?: string;
@@ -71,10 +72,7 @@ const TypingIndicator = () => (
 // MessageBubble Component for rendering each message
 const MessageBubble = ({ message }: { message: Message }) => {
   const isAIMessage = message.isAIMessage;
-  const hasImage = message.metadata?.type === 'image';
-  const imageData = message.metadata?.imageData;
 
-  // Add date parsing helper
   const formatMessageDate = (dateString: string | Date) => {
     try {
       const date = typeof dateString === 'string' 
@@ -83,7 +81,7 @@ const MessageBubble = ({ message }: { message: Message }) => {
       return format(date, 'HH:mm');
     } catch (error) {
       console.error('Error formatting date:', dateString, error);
-      return '--:--'; // Fallback time format
+      return '--:--';
     }
   };
 
@@ -102,19 +100,7 @@ const MessageBubble = ({ message }: { message: Message }) => {
               : 'bg-primary text-primary-foreground'
           }`}>
             <p className="text-sm md:text-base whitespace-pre-wrap break-words">{message.content}</p>
-            
-            {hasImage && imageData && (
-              <div className="mt-2 relative w-[512px] h-[512px]">
-                <Image
-                  src={`data:image/jpeg;base64,${imageData}`}
-                  alt={message.content}
-                  fill
-                  className="rounded-lg object-contain"
-                  sizes="(max-width: 768px) 100vw, 512px"
-                />
-              </div>
-            )}
-            
+                        
             <p className="text-xs mt-1 opacity-70 text-right">
               {formatMessageDate(message.createdAt)}
             </p>
@@ -135,6 +121,7 @@ interface Message {
   updatedAt: string | Date;
   aiModelId: string | null;
   isAIMessage: boolean;
+  role: string;
   metadata: {
     type?: string;
     imageData?: string;

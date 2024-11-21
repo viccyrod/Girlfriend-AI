@@ -3,6 +3,7 @@ import type { Message as PrismaMessage } from '@prisma/client';
 import type { AIModel as PrismaAIModel } from '@prisma/client';
 import { storeMemory } from '@/utils/memory';
 import { retrieveMemories } from '@/utils/memory';
+import { RunPodClient } from './clients/runpod';
 
 // Extend the Prisma AIModel type to make certain fields optional
 type AIModel = Omit<PrismaAIModel, 'age' | 'followerCount' | 'isAnime'> & {
@@ -64,8 +65,9 @@ interface _XAIRequestPayload {
 // Modify the local interface to extend the Prisma type
 export interface Message extends PrismaMessage {
   metadata: {
-    type?: string;
+    type?: 'text' | 'image';
     imageUrl?: string;
+    prompt?: string;
   } | null;
 }
 
@@ -76,7 +78,7 @@ export async function generateAIResponse(
   memories: string[],
   previousMessages: Message[],
   mode: AIMode = 'creative'
-): Promise<AIResponse> {
+): Promise<AIResponse & { metadata?: { type: 'text' | 'image'; imageUrl?: string; prompt?: string } }> {
   // Ensure function is called only from server-side (not browser)
   if (typeof window !== 'undefined') {
     throw new Error('This function must be called from the server side');
@@ -144,6 +146,53 @@ export async function generateAIResponse(
     // Construct the base prompt to guide the AI's response
     const basePrompt = constructBasePrompt(aiModel, [...relevantMemories, ...memories], content);
 
+    // Check if the message is requesting image generation
+    const isImageRequest = content.toLowerCase().includes('generate image') || 
+                          content.toLowerCase().includes('create image') ||
+                          content.toLowerCase().includes('show me');
+
+    if (isImageRequest) {
+      try {
+        // Extract the image prompt from the message
+        const prompt = await grok!.chat.completions.create({
+          model: 'grok-beta',
+          messages: [
+            {
+              role: 'system',
+              content: 'Extract or create a detailed image generation prompt from this message. Focus on visual details and style. Respond with only the prompt, no additional text.'
+            },
+            { role: 'user', content }
+          ],
+          temperature: 0.7
+        });
+
+        const imagePrompt = prompt.choices[0].message.content || '';
+        console.log('Image prompt:', imagePrompt); // Debug log
+
+        const imageUrl = await generateImage(imagePrompt);
+        console.log('Generated image URL:', imageUrl); // Debug log
+
+        // Create metadata object
+        const metadata = {
+          type: 'image' as const,
+          imageUrl: imageUrl,
+          prompt: imagePrompt
+        };
+        
+        console.log('Message metadata:', metadata); // Debug log
+
+        return {
+          content: content, // Use original content instead of truncating
+          mode,
+          confidence: 1,
+          metadata
+        };
+      } catch (error) {
+        console.error('Error in image generation:', error);
+        throw error;
+      }
+    }
+
     // Generate the response using the selected model and configuration
     const completion = await modelConfig.client.chat.completions.create({
       model: modelConfig.model,
@@ -167,9 +216,10 @@ export async function generateAIResponse(
   } catch (error) {
     console.error('Error generating AI response:', error);
     return {
-      content: "I apologize, but I'm having trouble connecting right now. Please try again later.",
+      content: "I apologize, but I'm having trouble processing your request right now. Please try again later.",
       mode,
-      confidence: 0
+      confidence: 0,
+      metadata: { type: 'text' }
     };
   }
 }
@@ -338,5 +388,29 @@ export async function testAIConnection(message: string = "Hello! This is a test 
       timestamp: new Date().toISOString()
     });
     throw error;
+  }
+}
+
+// Add a new function to handle image generation
+export async function generateImage(prompt: string): Promise<string> {
+  try {
+    console.log('Generating image with prompt:', prompt);
+    
+    // Use RunPod client to generate the image
+    const imageUrl = await RunPodClient.generateImage(prompt, {
+      negative_prompt: "blurry, bad quality, distorted, deformed, disfigured, bad anatomy, watermark",
+      num_inference_steps: 40,
+      guidance_scale: 7.5,
+      width: 512, // Reduced size for better performance
+      height: 512,
+      scheduler: "DPMSolverMultistep",
+      num_images: 1
+    });
+
+    console.log('Image generated successfully:', imageUrl);
+    return imageUrl;
+  } catch (error) {
+    console.error('Error generating image:', error);
+    throw new Error('Failed to generate image');
   }
 }
