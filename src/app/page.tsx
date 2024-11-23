@@ -11,6 +11,7 @@ import Image from "next/image";
 import { Users } from 'lucide-react';
 import ChatButton from "@/components/ChatButton";
 import AuthWrapper from "@/components/ClientAuthWrapper";
+import CreateAIButton from "@/components/CreateAIButton";
 
 // Function to fetch featured AI models from the database
 async function getFeaturedModels() {
@@ -78,7 +79,7 @@ export default async function Home() {
         {/* Hero Section */}
         <div className="relative bg-black text-white">
           <div className="container mx-auto flex items-center justify-between py-16 px-4 md:px-6">
-            {/* Left Content - Make it full width */}
+            {/* Left Content */}
             <div className="w-full z-10">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
                 Create your own <span className="text-[#ff4d8d]">AI Girlfriend</span>
@@ -86,18 +87,15 @@ export default async function Home() {
               <p className="text-lg text-gray-300 mb-8 max-w-xl">
                 Your dream companion awaits! Create your AI Girlfriend, shape her look, personality, and bring her to life in one click. 100% powered by Artificial Intelligence.
               </p>
-              <Link href={user ? "/community/create-ai-model" : "/auth/login"}>
-                <Button className="bg-[#ff4d8d] hover:bg-[#ff3377] text-white px-8 py-3 rounded-full text-lg font-semibold transition-all duration-300 hover:transform hover:scale-105">
-                  <span className="mr-2">✨</span>
-                  Create your AI
-                </Button>
-              </Link>
+              <div className="flex justify-start mt-8">
+                <CreateAIButton />
+              </div>
             </div>
 
             {/* Right Content - Image Group */}
             <div className="hidden md:block w-1/2 relative h-[400px]">
               <Image
-                src="/banner-models.jpeg" // Hero image for AI companions
+                src="/banner-models.jpeg"
                 alt="AI Companions"
                 fill
                 className="object-cover object-center rounded-2xl"
