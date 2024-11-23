@@ -498,9 +498,7 @@ const ChatComponent = ({
                     }
                   : null,
               }}
-              onSendMessage={(content) =>
-                handleSendMessage(content, selectedRoom)
-              }
+              _onSendMessage={(content) => handleSendMessage(content, selectedRoom)}
               _isLoading={isMessageSending || isGeneratingResponse}
             />
             

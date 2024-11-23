@@ -48,7 +48,7 @@ interface ClientChatMessagesProps {
     users: User[];
     aiModel: AIModel | null;
   };
-  onSendMessage: (content: string) => Promise<void>;
+  _onSendMessage: (content: string) => Promise<void>;
   _isLoading: boolean;
 }
 
@@ -142,7 +142,7 @@ interface ClientChatMessagesProps {
     users: User[];
     aiModel: AIModel | null;
   };
-  _onSendMessage?: (content: string) => Promise<void>;
+  _onSendMessage: (content: string) => Promise<void>;
   _isLoading: boolean;
 }
 
@@ -150,14 +150,22 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoadingResponse, setIsLoadingResponse] = useState(false);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollTimeout = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
 
-  // Scroll to bottom utility
-  const scrollToBottom = useCallback(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+  // Scroll to bottom helper function
+  const scrollToBottom = useCallback((behavior: 'auto' | 'smooth' = 'auto') => {
+    if (scrollTimeout.current) {
+      clearTimeout(scrollTimeout.current);
     }
+
+    scrollTimeout.current = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ 
+        behavior, 
+        block: 'end' 
+      });
+    }, 100);
   }, []);
 
   // Add this effect to load initial messages
@@ -204,11 +212,14 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
       });
-      scrollToBottom();
+      scrollToBottom('smooth');
     });
 
     return () => {
       isMounted = false;
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
       unsubscribe();
     };
   }, [chatRoom.id, scrollToBottom, toast]);
@@ -225,6 +236,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
       
       // Clear the input
       setNewMessage('');
+      scrollToBottom('smooth');
 
       // The AI response will come through the SSE connection
       // No need to manually add it here
@@ -251,23 +263,24 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
   return (
     <div className="flex flex-col h-full">
       {/* Message Display */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-2 md:p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-4">
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
         {isLoadingResponse && <TypingIndicator />}
+        <div ref={messagesEndRef} /> {/* Scroll anchor */}
       </div>
 
       {/* Message Input */}
       <div className="p-2 md:p-4 border-t border-gray-800 bg-[#0a0a0a]">
         <form onSubmit={handleSendMessage} className="flex items-end gap-2">
           <ImageGenerationMenu 
-            onSelect={async (prompt) => {
+            onSelect={async (prompt: string) => {
               try {
                 setIsLoadingResponse(true);
                 const response = await generateImage(prompt, chatRoom.id);
                 setMessages(prev => [...prev, response.message]);
-                scrollToBottom();
+                scrollToBottom('smooth');
               } catch (error) {
                 toast({
                   title: "Error",

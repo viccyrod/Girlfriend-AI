@@ -18,7 +18,7 @@ export function ChatImageMessage({ message }: ChatImageMessageProps) {
   
   // Get all images from the message metadata
   const images = message.metadata?.type === 'image' ? [
-    message.metadata.imageData,
+    message.metadata.imageUrl,
     ...(typeof message.metadata === 'string' ? [message.metadata] : [])
   ].filter((img): img is string => !!img) : [];
 

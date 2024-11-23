@@ -4,12 +4,13 @@ import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import Link from 'next/link';
 import React, { useState } from 'react';
-import { HomeIcon, CameraIcon, PersonIcon, GearIcon, ChatBubbleIcon, HamburgerMenuIcon, Cross1Icon, LayoutIcon, GlobeIcon } from '@radix-ui/react-icons';
+import { HomeIcon, CameraIcon, PersonIcon, GearIcon, ChatBubbleIcon, HamburgerMenuIcon, Cross1Icon, GlobeIcon } from '@radix-ui/react-icons';
 import { DropdownMenuTrigger } from '@radix-ui/react-dropdown-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from './ui/dropdown-menu';
 import { ModeToggle } from './ModeToggle';
 import LogoutButton from './LogoutButton';
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
+import AuthButton from "./AuthButton";
 
 const SIDEBAR_LINKS = [
     {
@@ -42,7 +43,7 @@ const SIDEBAR_LINKS = [
 const Sidebar = () => {
     const { user } = useKindeBrowserClient();
     const [isOpen, setIsOpen] = useState(false);
-    const isAdmin = user?.email === process.env.ADMIN_EMAIL;
+    // const isAdmin = user?.email === process.env.ADMIN_EMAIL;
 
     const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -94,55 +95,52 @@ const Sidebar = () => {
                                 <span>{link.label}</span>
                             </Link>
                         ))}
-                        {isAdmin && (
-                            <Link
-                                href="/secret-dashboard"
-                                className='flex items-center gap-3 p-3 text-sm hover:bg-primary-foreground hover:text-primary rounded-lg transition-colors'
-                            >
-                                <LayoutIcon className='w-5 h-5' />
-                                <span>Dashboard</span>
-                            </Link>
-                        )}
                     </nav>
 
                     {/* User Info & Settings at the Bottom */}
                     <div className="mt-auto">
-                        <div className="flex items-center justify-between p-2 hover:bg-primary-foreground rounded-lg transition-colors">
-                            <div className="flex items-center gap-3">
-                                <Avatar className="w-10 h-10">
-                                    <AvatarImage src={user?.picture || ""} className="object-cover" />
-                                    <AvatarFallback>CN</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <p className="text-sm font-medium">{user?.given_name} {user?.family_name}</p>
-                                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                        {user ? (
+                            <>
+                                <div className="flex items-center justify-between p-2 hover:bg-primary-foreground rounded-lg transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="w-10 h-10">
+                                            <AvatarImage src={user?.picture || ""} className="object-cover" />
+                                            <AvatarFallback>CN</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="text-sm font-medium">{user?.given_name} {user?.family_name}</p>
+                                            <p className="text-xs text-muted-foreground">{user?.email}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Gear Icon with Dropdown */}
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger className="p-2 hover:bg-gray-600 rounded-full transition-colors">
+                                            <GearIcon className="w-5 h-5" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem>
+                                                <Link href="/update-profile">Profile</Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem>
+                                                <Link href="#">Billing</Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <LogoutButton />
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
-                            </div>
 
-                            {/* Gear Icon with Dropdown */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger className="p-2 hover:bg-gray-600 rounded-full transition-colors">
-                                    <GearIcon className="w-5 h-5" />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem>
-                                        <Link href="/update-profile">Profile</Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem>
-                                        <Link href="#">Billing</Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <LogoutButton />
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-
-                        {/* Mode Toggle */}
-                        <div className="flex justify-center mt-4">
-                            <ModeToggle />
-                        </div>
+                                {/* Mode Toggle */}
+                                <div className="flex justify-center mt-4">
+                                    <ModeToggle />
+                                </div>
+                            </>
+                        ) : (
+                            <AuthButton isAuthenticated={false} />
+                        )}
                     </div>
                 </div>
             </div>

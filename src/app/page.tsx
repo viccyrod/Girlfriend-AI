@@ -60,38 +60,36 @@ export default async function Home() {
   return (
     <AuthWrapper isAuthenticated={!!user}> {/* Ensure authentication context */}
       <BaseLayout> {/* Base layout that wraps the content of the page */}
-        {/* Token Launch Banner */}
+        {/* Beta Banner */}
         <div className="bg-gradient-to-r from-pink-500/90 to-purple-600/90 text-white p-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold">
-              🚀 Token Launch
+              🚀 BETA
             </span>
             <span className="text-white/90">
-              $GOON token is now live on Raydium! Join the future of AI Dating
+              Full launch coming soon - join the waitlist!
             </span>
           </div>
-          <Link href="/token">
-            <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white">
-              Buy Now →
-            </Button>
-          </Link>
+          <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white">
+            Join Waitlist →
+          </Button>
         </div>
 
         {/* Hero Section */}
         <div className="relative bg-black text-white">
           <div className="container mx-auto flex items-center justify-between py-16 px-4 md:px-6">
-            {/* Left Content */}
-            <div className="w-full md:w-1/2 z-10">
+            {/* Left Content - Make it full width */}
+            <div className="w-full z-10">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
-                Create your own <span className="text-[#ff4d8d]">AI Girlfriend</span> {/* Highlighted keyword */}
+                Create your own <span className="text-[#ff4d8d]">AI Girlfriend</span>
               </h1>
               <p className="text-lg text-gray-300 mb-8 max-w-xl">
                 Your dream companion awaits! Create your AI Girlfriend, shape her look, personality, and bring her to life in one click. 100% powered by Artificial Intelligence.
               </p>
-              <Link href={user ? "/community/create-ai-model" : "/auth/login"}> {/* Redirect based on authentication status */}
+              <Link href={user ? "/community/create-ai-model" : "/auth/login"}>
                 <Button className="bg-[#ff4d8d] hover:bg-[#ff3377] text-white px-8 py-3 rounded-full text-lg font-semibold transition-all duration-300 hover:transform hover:scale-105">
                   <span className="mr-2">✨</span>
-                  Create your AI {/* Button to create an AI companion */}
+                  Create your AI
                 </Button>
               </Link>
             </div>

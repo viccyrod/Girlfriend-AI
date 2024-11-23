@@ -16,7 +16,7 @@ export interface Message extends PrismaMessage {
   aiModelId: string | null;
   metadata: {
     type: string;
-    imageData?: string;
+    imageUrl?: string;
     prompt?: string;
   };
 }
