@@ -2,14 +2,30 @@
 
 import { MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import { getOrCreateChatRoom } from '@/lib/actions/chat';
 
 export default function ChatButton({ modelId }: { modelId: string }) {
   const router = useRouter();
+  const { user } = useKindeBrowserClient();
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push(`/chat/${modelId}`);
+
+    if (!user) {
+      router.push('/api/auth/login?post_login_redirect_url=/chat');
+      return;
+    }
+
+    try {
+      const chatRoom = await getOrCreateChatRoom(modelId);
+      if (chatRoom) {
+        router.push(`/chat/${modelId}`);
+      }
+    } catch (error) {
+      console.error('Failed to create chat room:', error);
+    }
   };
 
   return (

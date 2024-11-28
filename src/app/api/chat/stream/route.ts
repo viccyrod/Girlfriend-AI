@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/session';
 import prisma from '@/lib/clients/prisma';
 import { getOpenAIClient } from '@/lib/clients/openai';
+import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 // Handles POST requests to generate and stream an AI response for a chat message
 export async function POST(request: Request) {
@@ -34,19 +35,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'AI model not found for this chat room' }, { status: 404 });
     }
 
-    // Create a prompt for the AI based on the AI model's characteristics and the user's message
-    const prompt = `You are ${aiModel.name}, an AI with the following characteristics:
-      Personality: ${aiModel.personality}
-      Appearance: ${aiModel.appearance}
-      Backstory: ${aiModel.backstory}
-      Hobbies: ${aiModel.hobbies}
-      Likes: ${aiModel.likes}
-      Dislikes: ${aiModel.dislikes}
+    // Get recent messages for context
+    const recentMessages = await prisma.message.findMany({
+      where: {
+        chatRoomId: chatRoomId
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 10,
+      select: {
+        content: true,
+        isAIMessage: true,
+        createdAt: true
+      }
+    });
 
-      Please respond to the following message in character:
-      ${currentUser.name}'s message: ${message}`;
+    // Format messages for context
+    const messageHistory: ChatCompletionMessageParam[] = recentMessages.reverse().map(msg => ({
+      role: msg.isAIMessage ? "assistant" as const : "user" as const,
+      content: msg.content
+    }));
 
-    // Generate an AI response using OpenAI's GPT-4 model, streaming the response back to the client
+    // Create the system message with AI characteristics
+    const systemMessage: ChatCompletionMessageParam = {
+      role: "system",
+      content: `You are ${aiModel.name}, an AI with the following characteristics:
+        Personality: ${aiModel.personality}
+        Appearance: ${aiModel.appearance}
+        Backstory: ${aiModel.backstory}
+        Hobbies: ${aiModel.hobbies}
+        Likes: ${aiModel.likes}
+        Dislikes: ${aiModel.dislikes}`
+    };
+
+    // Create stream with full context
     const openAIClient = getOpenAIClient();
     if (!openAIClient) {
       return NextResponse.json({ error: 'OpenAI client not initialized' }, { status: 500 });
@@ -54,8 +77,14 @@ export async function POST(request: Request) {
 
     const stream = await openAIClient.chat.completions.create({
       model: "gpt-4",
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        systemMessage,
+        ...messageHistory,
+        { role: "user" as const, content: message }
+      ],
       stream: true,
+      temperature: 0.9,
+      max_tokens: 100,
     });
 
     // Set up a readable stream to return the AI response in chunks

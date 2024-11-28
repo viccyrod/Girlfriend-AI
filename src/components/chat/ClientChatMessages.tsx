@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { AIModel, User } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
@@ -53,11 +53,10 @@ interface ClientChatMessagesProps {
 }
 
 // Typing Indicator Component
-const TypingIndicator = () => (
+const TypingIndicator = ({ modelImage }: { modelImage: string | null }) => (
   <div className="flex items-start gap-3 animate-fade-in">
     <Avatar className="w-8 h-8">
-      <AvatarImage src="/default-avatar.png" alt="AI" />
-      <AvatarFallback>AI</AvatarFallback>
+      <AvatarImage src={modelImage || '/user-placeholder.png'} alt="AI" />
     </Avatar>
     <div className="bg-secondary rounded-lg px-4 py-2 max-w-[75%]">
       <div className="flex gap-1 items-center h-6">
@@ -70,7 +69,7 @@ const TypingIndicator = () => (
 );
 
 // MessageBubble Component for rendering each message
-const MessageBubble = ({ message }: { message: Message }) => {
+const MessageBubble = ({ message, modelImage }: { message: Message; modelImage: string | null }) => {
   const isAIMessage = message.isAIMessage;
 
   const formatMessageDate = (dateString: string | Date) => {
@@ -89,8 +88,10 @@ const MessageBubble = ({ message }: { message: Message }) => {
     <div className={`flex ${isAIMessage ? 'justify-start' : 'justify-end'} mb-2 md:mb-4 group px-2 md:px-0`}>
       <div className={`flex ${isAIMessage ? 'flex-row' : 'flex-row-reverse'} items-end max-w-[85%] md:max-w-[75%]`}>
         <Avatar className={`hidden md:flex flex-shrink-0 ${isAIMessage ? 'mr-2' : 'ml-2'}`}>
-          <AvatarImage src={message.user?.image || '/ai-models/default-avatar.png'} alt="Avatar" />
-          <AvatarFallback>?</AvatarFallback>
+          <AvatarImage 
+            src={isAIMessage ? (modelImage || '/user-placeholder.png') : (message.user?.image || '/user-placeholder.png')} 
+            alt="Avatar" 
+          />
         </Avatar>
         
         <div className={`flex flex-col ${isAIMessage ? 'items-start' : 'items-end'}`}>
@@ -161,10 +162,13 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     }
 
     scrollTimeout.current = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ 
-        behavior, 
-        block: 'end' 
-      });
+      const chatContainer = messagesEndRef.current?.parentElement;
+      if (chatContainer) {
+        chatContainer.scrollTo({
+          top: chatContainer.scrollHeight,
+          behavior: behavior
+        });
+      }
     }, 100);
   }, []);
 
@@ -260,14 +264,28 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     }
   };
 
+  useEffect(() => {
+    // Scroll on new messages
+    scrollToBottom('smooth');
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    // Scroll on initial load
+    scrollToBottom('auto');
+  }, [scrollToBottom]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Message Display */}
       <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-4">
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble 
+            key={message.id} 
+            message={message} 
+            modelImage={chatRoom.aiModel?.imageUrl || null}
+          />
         ))}
-        {isLoadingResponse && <TypingIndicator />}
+        {isLoadingResponse && <TypingIndicator modelImage={chatRoom.aiModel?.imageUrl || null} />}
         <div ref={messagesEndRef} /> {/* Scroll anchor */}
       </div>
 

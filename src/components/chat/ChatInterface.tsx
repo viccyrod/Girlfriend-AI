@@ -97,6 +97,23 @@ export function ChatInterface({ modelId, modelName, modelImage }: {
             </div>
           </div>
         ))}
+        {isLoading && (
+          <div className="flex items-start gap-3">
+            <Avatar className="w-8 h-8">
+              <AvatarImage
+                src={modelImage}
+                alt={modelName}
+              />
+            </Avatar>
+            <div className="p-3 rounded-lg max-w-[80%] bg-gray-800">
+              <span className="flex gap-1">
+                <span className="animate-bounce">.</span>
+                <span className="animate-bounce delay-100">.</span>
+                <span className="animate-bounce delay-200">.</span>
+              </span>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
       

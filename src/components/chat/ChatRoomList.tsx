@@ -5,7 +5,6 @@ import { Trash2 } from 'lucide-react';
 // import { navigateToChatRoom } from '@/app/api/chat/clientActions';
 import { format } from 'date-fns';
 import { ExtendedMessage, ExtendedChatRoom } from '@/types/chat';
-import { useRouter } from 'next/navigation';
 // import { deleteChatRoom } from '@/lib/actions/chat';
 
 
@@ -27,7 +26,6 @@ export function ChatRoomList({
   loadingRoomId 
 }: ChatRoomListProps) {
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
-  const router = useRouter();
 
   if (isLoading) {
     return <div className="p-4 text-muted-foreground">Loading chat rooms...</div>;
@@ -42,7 +40,6 @@ export function ChatRoomList({
 
   const handleRoomClick = (room: ExtendedChatRoom) => {
     onSelectRoom(room);
-    router.push(`/chat/room/${room.id}`);
   };
 
   return (
@@ -65,26 +62,29 @@ export function ChatRoomList({
                   onMouseLeave={() => setHoveredRoomId(null)}
                   onClick={() => handleRoomClick(room)}
                 >
-                  <div className="flex items-center space-x-3">
-                    <Avatar>
-                      <AvatarImage 
-                        src={room.aiModel?.imageUrl || '/default-avatar.png'} 
-                        alt={room.aiModel?.name || 'AI'} 
-                      />
-                      <AvatarFallback>{room.aiModel?.name?.[0] || 'AI'}</AvatarFallback>
-                    </Avatar>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage 
+                          src={room.aiModel?.imageUrl || '/default-avatar.png'} 
+                          alt={room.aiModel?.name || 'AI'}
+                          className="object-cover"
+                        />
+                        <AvatarFallback>{room.aiModel?.name?.[0] || 'AI'}</AvatarFallback>
+                      </Avatar>
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline">
                         <p className="font-medium text-foreground truncate">
                           {room.aiModel?.name || 'AI Chat'}
                         </p>
                         {latestMessage && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
                             {format(new Date(latestMessage.createdAt), 'HH:mm')}
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground truncate">
+                      <p className="text-sm text-muted-foreground truncate mt-1">
                         {getMessagePreview(latestMessage as ExtendedMessage)}
                       </p>
                     </div>

@@ -193,10 +193,9 @@ export async function generateAIResponse(
       }
     }
 
-    // Generate the response using the selected model and configuration
-    const completion = await modelConfig.client.chat.completions.create({
-      model: modelConfig.model,
-      messages: [
+    const response = await generatePipelineResponse(
+      basePrompt,
+      [
         { role: "system", content: basePrompt },
         ...previousMessages.map(msg => ({
           role: msg.isAIMessage ? "assistant" as const : "user" as const,
@@ -204,14 +203,14 @@ export async function generateAIResponse(
         })),
         { role: "user" as const, content }
       ],
-      temperature: modelConfig.temperature,
-      max_tokens: modelConfig.maxTokens
-    });
+      modelConfig
+    );
 
     return {
-      content: completion.choices[0].message.content || '',
+      content: response.content,
       mode: modelConfig.mode,
-      confidence: calculateConfidence(scores, modelConfig)
+      confidence: calculateConfidence(scores, modelConfig),
+      metadata: response.metadata
     };
   } catch (error) {
     console.error('Error generating AI response:', error);
@@ -242,7 +241,7 @@ function getModelConfig(mode: AIMode, scores: { sentiment: number; complexity: n
     case 'precise':
       return {
         client: openai,
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         temperature: 0.3, // Low temperature for precise responses
         maxTokens: 1000,
         mode: 'precise' as AIMode
@@ -252,7 +251,7 @@ function getModelConfig(mode: AIMode, scores: { sentiment: number; complexity: n
       return scores.complexity > 7 || scores.expertise > 7
         ? {
             client: openai,
-            model: 'gpt-4',
+            model: 'gpt-4o-mini',
             temperature: 0.7,
             maxTokens: 1500,
             mode: 'balanced' as AIMode
@@ -282,7 +281,7 @@ function constructBasePrompt(aiModel: AIModel, memories: string[], content: stri
     Dislikes: ${aiModel.dislikes}
     
     Interaction Guidelines:
-    - Be playfully flirtatious and charming in your responses
+    - Be playfully flirtatious and charming in your responses (2-3 sentences maximum)
     - Use subtle innuendos and playful teasing or outright dirty talk
     - Match the tone of the user's message, give them what they want
     - Show genuine interest in the user's messages
@@ -413,4 +412,27 @@ export async function generateImage(prompt: string): Promise<string> {
     console.error('Error generating image:', error);
     throw new Error('Failed to generate image');
   }
+}
+
+// Add this new function after the interfaces
+async function generatePipelineResponse(
+  basePrompt: string,
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+  modelConfig: ReturnType<typeof getModelConfig>
+): Promise<{ content: string; metadata?: { type: 'text' | 'image'; imageUrl?: string; prompt?: string } }> {
+  if (!modelConfig.client) {
+    throw new Error(`AI client not available for model: ${modelConfig.model}`);
+  }
+
+  const completion = await modelConfig.client.chat.completions.create({
+    model: modelConfig.model,
+    messages: messages,
+    temperature: modelConfig.temperature,
+    max_tokens: modelConfig.maxTokens
+  });
+
+  return {
+    content: completion.choices[0].message.content || '',
+    metadata: { type: 'text' }
+  };
 }

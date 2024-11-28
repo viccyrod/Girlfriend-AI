@@ -13,52 +13,79 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+interface AIResponse {
+  content: string;
+}
+
+// Increase timeout to 120 seconds (2 minutes)
+const AI_TIMEOUT = 120000;
+
 export async function POST(request: Request) {
   try {
-    // Get any parameters from the request body if needed
-    const { customPrompt } = await request.json().catch(() => ({}));
+    const { customPrompt } = await request.json().catch((error) => {
+      console.error('Error parsing request body:', error);
+      throw new Error('Invalid request format');
+    });
 
     const currentUser = await getCurrentUser();
     if (!currentUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('Generating AI model details with Grok...');
-    // Use customPrompt if provided, otherwise use default MAGIC_AI_PROMPT
-    const promptToUse = customPrompt || MAGIC_AI_PROMPT;
-    const aiResponse = await generateAIResponse(
-        promptToUse,      
+    console.log('Starting AI model generation with prompt:', customPrompt);
+
+    // Generate AI response with timeout handling
+    const aiResponse = (await Promise.race([
+      generateAIResponse(
+        customPrompt || MAGIC_AI_PROMPT,      
         {
-            id: 'magic-ai',
-            name: 'flirty and creative character generator',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            likes: '',
-            appearance: '',
-            personality: '',
-            backstory: '',
-            hobbies: '',
-            dislikes: '',
-            followerCount: 0,
-            userId: currentUser.id,
-            imageUrl: '',
-            isPrivate: false,
-            isHumanX: false
+          id: 'magic-ai',
+          name: 'flirty and creative character generator',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          likes: '',
+          appearance: '',
+          personality: '',
+          backstory: '',
+          hobbies: '',
+          dislikes: '',
+          followerCount: 0,
+          userId: currentUser.id,
+          imageUrl: '',
+          isPrivate: false,
+          isHumanX: false
         },
         [],
         [],
         'creative'
-    );
+      ),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error(`AI response timed out after ${AI_TIMEOUT/1000} seconds`)), AI_TIMEOUT)
+      )
+    ])) as AIResponse;
 
-    // Clean and parse the response
+    // Parse AI response
     const cleanJson = aiResponse.content.replace(/```json\n|\n```/g, '').trim();
-    const aiModelDetails = JSON.parse(cleanJson);
+    let aiModelDetails;
+    try {
+      aiModelDetails = JSON.parse(cleanJson);
+    } catch (error) {
+      console.error('Error parsing AI response:', error);
+      throw new Error('Invalid AI response format');
+    }
 
+    // Generate image with timeout handling
     console.log('Generating image...');
     let cloudinaryImageUrl = '';
     try {
       const imagePrompt = `Stunning portrait of ${aiModelDetails.appearance}. Ultra realistic, photogenic, beautiful lighting, high fashion photography style, 8k resolution.`;
-      const base64Image = await RunPodClient.generateImage(imagePrompt);
+      
+      const base64Image = await Promise.race([
+        RunPodClient.generateImage(imagePrompt),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`Image generation timed out after ${AI_TIMEOUT/1000} seconds`)), AI_TIMEOUT)
+        )
+      ]);
 
       const uploadResponse = await cloudinary.uploader.upload(
         `data:image/png;base64,${base64Image}`,
@@ -106,9 +133,9 @@ export async function POST(request: Request) {
     return NextResponse.json(aiModel);
   } catch (error) {
     console.error('Error in magic AI creation:', error);
-    return NextResponse.json(
-      { error: 'Failed to create magic AI model' },
-      { status: 500 }
-    );
+    return NextResponse.json({ 
+      error: 'Failed to create magic AI model',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

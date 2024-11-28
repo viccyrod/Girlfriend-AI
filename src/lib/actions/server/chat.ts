@@ -146,7 +146,8 @@ export async function createMessageServer(
         userId: isAIMessage ? null : dbUser.id,
         isAIMessage,
         aiModelId: isAIMessage ? chatRoom.aiModel?.id : null,
-        metadata: isAIMessage ? { type: 'ai_response' } : {}
+        metadata: isAIMessage ? { type: 'ai_response' } : {},
+        role: isAIMessage ? 'assistant' : 'user'
       },
       include: {
         user: {

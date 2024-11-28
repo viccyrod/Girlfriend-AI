@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   description: z.string().min(20, 'Description must be at least 20 characters'),
@@ -22,6 +23,7 @@ export function MagicAIModelCreationForm() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
@@ -29,21 +31,28 @@ export function MagicAIModelCreationForm() {
       const response = await fetch('/api/ai-models/magic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ 
+          customPrompt: `Create an AI girlfriend with the following description: ${data.description}` 
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Error response:', errorData);
         throw new Error(errorData.error || 'Failed to create AI model');
       }
 
       const newAIModel = await response.json();
+      console.log('Created AI model:', newAIModel);
+      
       toast({
         title: 'Success',
         description: `AI Model "${newAIModel.name}" created successfully!`,
       });
-      window.location.href = `/community/AIModelProfile/${newAIModel.id}`;
+      
+      router.push(`/community/AIModelProfile/${newAIModel.id}`);
     } catch (error) {
+      console.error('Error in magic AI creation:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to create AI model. Please try again.',

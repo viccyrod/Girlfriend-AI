@@ -5,7 +5,7 @@ import Image from 'next/image';
 import CreateAIButton from "./CreateAIButton";
 
 export default function HeroSection() {
-  const { user } = useKindeBrowserClient();
+  const { user: _user } = useKindeBrowserClient();
 
   return (
     <div className="relative bg-black text-white">

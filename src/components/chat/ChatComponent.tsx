@@ -405,11 +405,9 @@ const ChatComponent = ({
             isPrivate: room.aiModel.isPrivate || false,
             isHumanX: room.aiModel.isHumanX || false
           },
-          [], // Empty memories array for new chat
-          true // isFirstInteraction = true
+          [],
+          true
         );
-        
-        // Send the greeting as a message
         await sendMessage(room.id, greeting);
       }
     } catch (error) {
