@@ -139,6 +139,26 @@ export async function createMessageServer(
       throw new Error('Access denied');
     }
 
+    // Mark previous messages as read when AI responds
+    if (isAIMessage) {
+      await prisma.message.updateMany({
+        where: {
+          chatRoomId,
+          isAIMessage: false,
+          metadata: {
+            path: ['isRead'],
+            equals: false
+          }
+        },
+        data: {
+          metadata: {
+            isRead: true,
+            readAt: new Date().toISOString()
+          }
+        }
+      });
+    }
+
     const message = await prisma.message.create({
       data: {
         content,
@@ -146,7 +166,9 @@ export async function createMessageServer(
         userId: isAIMessage ? null : dbUser.id,
         isAIMessage,
         aiModelId: isAIMessage ? chatRoom.aiModel?.id : null,
-        metadata: isAIMessage ? { type: 'ai_response' } : {},
+        metadata: isAIMessage 
+          ? { type: 'ai_response', isRead: true } 
+          : { isRead: false },
         role: isAIMessage ? 'assistant' : 'user'
       },
       include: {

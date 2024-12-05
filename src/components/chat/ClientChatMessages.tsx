@@ -9,14 +9,15 @@ import { format } from 'date-fns';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Send } from 'lucide-react';
 import ImageGenerationMenu from './ImageGenerationMenu';
+import { VoiceMessage } from './VoiceMessage';
 import { 
   sendMessage, 
   generateImage, 
   subscribeToMessages,
   getChatRoomMessages
 } from '@/lib/actions/chat';
-
-
+import { MessageBubble } from './MessageBubble';
+import { debounce } from 'lodash';
 
 // Message and ChatRoom Interfaces
 interface Message {
@@ -33,6 +34,7 @@ interface Message {
     type?: string;
     imageData?: string;
     prompt?: string;
+    isRead?: boolean;
     [key: string]: unknown;
   };
   user?: {
@@ -54,106 +56,115 @@ interface ClientChatMessagesProps {
 
 // Typing Indicator Component
 const TypingIndicator = ({ modelImage }: { modelImage: string | null }) => (
-  <div className="flex items-start gap-3 animate-fade-in">
-    <Avatar className="w-8 h-8">
-      <AvatarImage src={modelImage || '/user-placeholder.png'} alt="AI" />
-    </Avatar>
-    <div className="bg-secondary rounded-lg px-4 py-2 max-w-[75%]">
-      <div className="flex gap-1 items-center h-6">
-        <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce [animation-delay:-0.3s]" />
-        <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce [animation-delay:-0.15s]" />
-        <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce" />
-      </div>
+  <div className="flex items-start space-x-2 p-4">
+    <div className="w-8 h-8 rounded-full overflow-hidden">
+      <img 
+        src={modelImage || '/default-avatar.png'} 
+        alt="AI" 
+        className="w-full h-full object-cover"
+      />
+    </div>
+    <div className="flex items-center space-x-1 bg-muted/30 px-4 py-2 rounded-lg">
+      <span className="w-2 h-2 bg-current rounded-full animate-bounce" />
+      <span className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:0.2s]" />
+      <span className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:0.4s]" />
     </div>
   </div>
 );
-
-// MessageBubble Component for rendering each message
-const MessageBubble = ({ message, modelImage }: { message: Message; modelImage: string | null }) => {
-  const isAIMessage = message.isAIMessage;
-
-  const formatMessageDate = (dateString: string | Date) => {
-    try {
-      const date = typeof dateString === 'string' 
-        ? new Date(dateString.replace('Z', '')) // Handle ISO strings
-        : dateString;
-      return format(date, 'HH:mm');
-    } catch (error) {
-      console.error('Error formatting date:', dateString, error);
-      return '--:--';
-    }
-  };
-
-  return (
-    <div className={`flex ${isAIMessage ? 'justify-start' : 'justify-end'} mb-2 md:mb-4 group px-2 md:px-0`}>
-      <div className={`flex ${isAIMessage ? 'flex-row' : 'flex-row-reverse'} items-end max-w-[85%] md:max-w-[75%]`}>
-        <Avatar className={`hidden md:flex flex-shrink-0 ${isAIMessage ? 'mr-2' : 'ml-2'}`}>
-          <AvatarImage 
-            src={isAIMessage ? (modelImage || '/user-placeholder.png') : (message.user?.image || '/user-placeholder.png')} 
-            alt="Avatar" 
-          />
-        </Avatar>
-        
-        <div className={`flex flex-col ${isAIMessage ? 'items-start' : 'items-end'}`}>
-          <div className={`rounded-lg px-3 py-2 md:px-4 md:py-2 ${
-            isAIMessage 
-              ? 'bg-secondary text-secondary-foreground' 
-              : 'bg-primary text-primary-foreground'
-          }`}>
-            <p className="text-sm md:text-base whitespace-pre-wrap break-words">{message.content}</p>
-                        
-            <p className="text-xs mt-1 opacity-70 text-right">
-              {formatMessageDate(message.createdAt)}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Main Component
-interface Message {
-  id: string;
-  content: string;
-  userId: string | null;
-  chatRoomId: string;
-  createdAt: string | Date;
-  updatedAt: string | Date;
-  aiModelId: string | null;
-  isAIMessage: boolean;
-  role: string;
-  metadata: {
-    type?: string;
-    imageData?: string;
-    prompt?: string;
-    [key: string]: unknown;
-  };
-  user?: {
-    id: string;
-    name: string | null;
-    image: string | null;
-  } | null;
-}
-
-// Update the props interface to mark onSendMessage as optional with underscore
-interface ClientChatMessagesProps {
-  chatRoom: {
-    id: string;
-    users: User[];
-    aiModel: AIModel | null;
-  };
-  _onSendMessage: (content: string) => Promise<void>;
-  _isLoading: boolean;
-}
 
 export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoading }: ClientChatMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoadingResponse, setIsLoadingResponse] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [rateLimitTimer, setRateLimitTimer] = useState<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollTimeout = useRef<NodeJS.Timeout>();
+  const messageQueue = useRef<string[]>([]);
   const { toast } = useToast();
+
+  // Debounce message sending
+  const debouncedSendMessage = useCallback(
+    debounce(async (content: string) => {
+      try {
+        setIsLoadingResponse(true);
+        const response = await sendMessage(chatRoom.id, content);
+        
+        if (response?.error?.includes('rate limit')) {
+          setIsRateLimited(true);
+          const waitTime = parseInt(response.error.match(/\d+/)?.[0] || '60');
+          setRateLimitTimer(waitTime);
+          
+          toast({
+            title: 'Taking a short break',
+            description: `The AI needs a moment to process. Please wait ${waitTime} seconds.`,
+            duration: 5000,
+          });
+          
+          // Start countdown
+          const interval = setInterval(() => {
+            setRateLimitTimer((prev) => {
+              if (prev <= 1) {
+                clearInterval(interval);
+                setIsRateLimited(false);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+          
+          return;
+        }
+
+        // Process message queue
+        if (messageQueue.current.length > 0) {
+          const nextMessage = messageQueue.current.shift();
+          if (nextMessage) {
+            debouncedSendMessage(nextMessage);
+          }
+        }
+        
+      } catch (error) {
+        console.error('Error sending message:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to send message. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoadingResponse(false);
+      }
+    }, 1000),
+    [chatRoom.id, toast]
+  );
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || isLoadingResponse) return;
+
+    const messageContent = newMessage.trim();
+    setNewMessage('');
+
+    if (isRateLimited) {
+      messageQueue.current.push(messageContent);
+      toast({
+        title: 'Message queued',
+        description: `Your message will be sent in ${rateLimitTimer} seconds.`,
+        duration: 3000,
+      });
+      return;
+    }
+
+    await debouncedSendMessage(messageContent);
+  };
+
+  // Add cleanup
+  useEffect(() => {
+    return () => {
+      debouncedSendMessage.cancel();
+    };
+  }, [debouncedSendMessage]);
 
   // Scroll to bottom helper function
   const scrollToBottom = useCallback((behavior: 'auto' | 'smooth' = 'auto') => {
@@ -228,28 +239,29 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     };
   }, [chatRoom.id, scrollToBottom, toast]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || isLoadingResponse) return;
-
+  const handleVoiceMessage = async (audioBlob: Blob) => {
     try {
       setIsLoadingResponse(true);
       
-      // Send the user message
-      await sendMessage(chatRoom.id, newMessage);
-      
-      // Clear the input
-      setNewMessage('');
-      scrollToBottom('smooth');
-
-      // The AI response will come through the SSE connection
-      // No need to manually add it here
-      
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      reader.onloadend = async () => {
+        const base64Audio = reader.result as string;
+        
+        // Send voice message
+        await sendMessage(chatRoom.id, '[Voice Message]', {
+          type: 'voice_message',
+          audioData: base64Audio
+        });
+        
+        scrollToBottom('smooth');
+      };
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error sending voice message:', error);
       toast({
         title: "Error",
-        description: "Failed to send message. Please try again.",
+        description: "Failed to send voice message. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -283,6 +295,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
             key={message.id} 
             message={message} 
             modelImage={chatRoom.aiModel?.imageUrl || null}
+            isRead={message.isAIMessage ? true : message.metadata?.isRead || false}
           />
         ))}
         {isLoadingResponse && <TypingIndicator modelImage={chatRoom.aiModel?.imageUrl || null} />}
@@ -310,6 +323,11 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
               }
             }} 
           />
+          <VoiceMessage
+            onVoiceMessage={handleVoiceMessage}
+            isRecording={isRecording}
+            setIsRecording={setIsRecording}
+          />
           <TextareaAutosize
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
@@ -320,7 +338,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
           <Button
             type="submit"
             className="bg-[#ff4d8d] hover:bg-[#ff3377] text-white rounded-full p-2 h-10 w-10 flex-shrink-0"
-            disabled={isLoadingResponse}
+            disabled={isLoadingResponse || isRecording}
           >
             <Send className="h-5 w-5" />
           </Button>

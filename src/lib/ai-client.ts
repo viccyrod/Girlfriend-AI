@@ -79,147 +79,166 @@ export async function generateAIResponse(
   previousMessages: Message[],
   mode: AIMode = 'creative'
 ): Promise<AIResponse & { metadata?: { type: 'text' | 'image'; imageUrl?: string; prompt?: string } }> {
-  // Ensure function is called only from server-side (not browser)
   if (typeof window !== 'undefined') {
     throw new Error('This function must be called from the server side');
   }
 
-  // Ensure OpenAI clients have been initialized
-  if (!openai || !grok) {
-    throw new Error('OpenAI clients not initialized (server-side only)');
-  }
+  return retryWithBackoff(async () => {
+    try {
+      // Debug log API key
+      console.log('API Key status:', {
+        exists: !!process.env.ANTHROPIC_API_KEY,
+        length: process.env.ANTHROPIC_API_KEY?.length,
+        prefix: process.env.ANTHROPIC_API_KEY?.substring(0, 4)
+      });
 
-  try {
-    // Get relevant memories based on current content
-    const relevantMemories = await retrieveMemories(
-      aiModel.id,
-      aiModel.userId || '',
-      content
-    );
+      const relevantMemories = memories.length > 0 
+        ? `\nRelevant memories from past conversations:\n${memories.join('\n')}`
+        : '';
 
-    // Store the current interaction as a memory
-    await storeMemory(
-      aiModel.id,
-      aiModel.userId || '',
-      content
-    );
+      // Check for repetitive patterns in previous messages
+      const lastMessages = previousMessages.slice(-5).filter(m => m.isAIMessage);
+      const isRepetitive = lastMessages.some(msg => 
+        msg.content.toLowerCase().includes(content.toLowerCase()) ||
+        lastMessages.filter(m => m.content === msg.content).length > 1
+      );
 
-    // Add logging to debug the client initialization
-    console.log('X.AI Client Status:', {
-      clientExists: !!grok,
-      apiKeyExists: !!process.env.XAI_API_KEY,
-      apiKeyLength: process.env.XAI_API_KEY?.length
-    });
+      // Analyze user's message intent
+      const messageIntent = content.toLowerCase();
+      const isQuestion = messageIntent.includes('?') || 
+        messageIntent.startsWith('what') || 
+        messageIntent.startsWith('who') || 
+        messageIntent.startsWith('where') ||
+        messageIntent.startsWith('when') ||
+        messageIntent.startsWith('why') ||
+        messageIntent.startsWith('how');
 
-    if (!grok) {
-      throw new Error('X.AI client not initialized');
-    }
+      // Construct dynamic system prompt
+      const systemPrompt = `You are ${aiModel.name}, an AI companion with the following traits:
+Personality: ${aiModel.personality}
+Appearance: ${aiModel.appearance}
+Backstory: ${aiModel.backstory}
+Hobbies: ${aiModel.hobbies}
+Likes: ${aiModel.likes}
+Dislikes: ${aiModel.dislikes}
 
-    // First, analyze the message sentiment and complexity using Grok-mini
-    const analysis = await grok.chat.completions.create({
-      model: 'grok-beta',
-      messages: [
-        {
-          role: 'system',
-          content: 'Analyze this message for: 1) Sentiment (-1 to 1), 2) Complexity (1-10), 3) Required expertise (1-10)'
-        },
+Key Instructions:
+1. Stay in character but be natural and adaptive
+2. NEVER repeat previous responses
+3. Keep responses concise and relevant
+4. If asked a direct question, answer it clearly first
+5. Maintain conversation flow and context
+6. Show genuine interest in the user's input
+7. Avoid excessive flirting unless user initiates
+8. Use emojis sparingly and naturally
+
+${isQuestion ? "This is a question - provide a clear, direct answer while staying in character." : ""}
+${isRepetitive ? "Warning: Recent responses have been repetitive. Generate a completely different response." : ""}
+${relevantMemories}`;
+
+      // Format previous messages for context
+      const formattedMessages = [
+        { role: 'system', content: systemPrompt },
+        ...previousMessages.slice(-5).map(m => ({
+          role: m.isAIMessage ? 'assistant' : 'user',
+          content: m.content
+        })),
         { role: 'user', content }
-      ],
-      temperature: 0.2, // Low temperature for consistent analysis
-    });
+      ];
 
-    // Parse the analysis output
-    const analysisText = analysis.choices[0].message.content;
-    const scores = {
-      sentiment: parseFloat(analysisText?.match(/Sentiment: (-?\d+\.?\d*)/)?.[1] || '0'),
-      complexity: parseInt(analysisText?.match(/Complexity: (\d+)/)?.[1] || '5'),
-      expertise: parseInt(analysisText?.match(/Expertise: (\d+)/)?.[1] || '5')
-    };
+      // Adjust temperature based on context
+      const temperature = isQuestion ? 0.7 : (isRepetitive ? 0.9 : 0.8);
 
-    // Choose appropriate model and configuration based on mode and analysis scores
-    const modelConfig = getModelConfig(mode, scores);
-
-    if (!modelConfig.client) {
-      throw new Error(`AI client not available for model: ${modelConfig.model}`);
-    }
-
-    // Construct the base prompt to guide the AI's response
-    const basePrompt = constructBasePrompt(aiModel, [...relevantMemories, ...memories], content);
-
-    // Check if the message is requesting image generation
-    const isImageRequest = content.toLowerCase().includes('generate image') || 
-                          content.toLowerCase().includes('create image') ||
-                          content.toLowerCase().includes('show me');
-
-    if (isImageRequest) {
-      try {
-        // Extract the image prompt from the message
-        const prompt = await grok!.chat.completions.create({
-          model: 'grok-beta',
-          messages: [
-            {
-              role: 'system',
-              content: 'Extract or create a detailed image generation prompt from this message. Focus on visual details and style. Respond with only the prompt, no additional text.'
-            },
-            { role: 'user', content }
-          ],
-          temperature: 0.7
-        });
-
-        const imagePrompt = prompt.choices[0].message.content || '';
-        console.log('Image prompt:', imagePrompt); // Debug log
-
-        const imageUrl = await generateImage(imagePrompt);
-        console.log('Generated image URL:', imageUrl); // Debug log
-
-        // Create metadata object
-        const metadata = {
-          type: 'image' as const,
-          imageUrl: imageUrl,
-          prompt: imagePrompt
-        };
-        
-        console.log('Message metadata:', metadata); // Debug log
-
-        return {
-          content: content, // Use original content instead of truncating
-          mode,
-          confidence: 1,
-          metadata
-        };
-      } catch (error) {
-        console.error('Error in image generation:', error);
-        throw error;
-      }
-    }
-
-    const response = await generatePipelineResponse(
-      basePrompt,
-      [
-        { role: "system", content: basePrompt },
-        ...previousMessages.map(msg => ({
-          role: msg.isAIMessage ? "assistant" as const : "user" as const,
+      const requestBody = {
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 1024,
+        temperature,
+        messages: formattedMessages.map(msg => ({
+          role: msg.role === 'system' ? 'assistant' : msg.role,
           content: msg.content
         })),
-        { role: "user" as const, content }
-      ],
-      modelConfig
-    );
+        system: systemPrompt
+      };
 
-    return {
-      content: response.content,
-      mode: modelConfig.mode,
-      confidence: calculateConfidence(scores, modelConfig),
-      metadata: response.metadata
-    };
-  } catch (error) {
-    console.error('Error generating AI response:', error);
-    return {
-      content: "I apologize, but I'm having trouble processing your request right now. Please try again later.",
-      mode,
-      confidence: 0,
-      metadata: { type: 'text' }
-    };
+      // Debug log request
+      console.log('Claude API Request:', JSON.stringify(requestBody, null, 2));
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'x-api-key': process.env.ANTHROPIC_API_KEY || ''
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const responseText = await response.text();
+      console.log('Claude API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: responseText
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}\nResponse: ${responseText}`);
+      }
+
+      const result = JSON.parse(responseText);
+      
+      if (!result.content || !result.content[0] || !result.content[0].text) {
+        console.error('Invalid response format:', result);
+        throw new Error('Invalid response format from Claude API');
+      }
+
+      const aiResponse = result.content[0].text;
+
+      // Store interaction as memory if available
+      if (typeof storeMemory === 'function') {
+        try {
+          await storeMemory(
+            aiModel.id,
+            aiModel.userId || '',
+            content,
+            aiResponse
+          );
+        } catch (error) {
+          console.warn('Failed to store memory:', error);
+        }
+      }
+
+      return {
+        content: aiResponse,
+        mode,
+        confidence: 0.9,
+        metadata: { type: 'text' }
+      };
+
+    } catch (error) {
+      console.error('Error generating AI response:', error);
+      throw error;
+    }
+  });
+}
+
+async function retryWithBackoff(fn: () => Promise<any>, maxRetries = 3): Promise<any> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      if (i === maxRetries - 1) throw error;
+      
+      // Check if it's a retryable error
+      if (error.message?.includes('rate limit exceeded')) {
+        const waitTime = Math.pow(2, i) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.log(`Rate limit hit, retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      
+      throw error; // Non-retryable error
+    }
   }
 }
 
@@ -347,7 +366,6 @@ export async function generateGreeting(
 
   return completion.choices[0].message.content || 'Hello! How are you today?';
 }
-
 
 // Add the test function after other exports
 export async function testAIConnection(message: string = "Hello! This is a test message."): Promise<void> {
