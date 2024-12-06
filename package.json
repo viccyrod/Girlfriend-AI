@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "cleanup-chats": "tsx src/scripts/cleanup-duplicate-chats.tsx",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "upload-default-images": "tsx scripts/upload-default-images.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

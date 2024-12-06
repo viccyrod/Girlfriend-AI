@@ -6,7 +6,7 @@ import CommunityContent from "./CommunityContent";
 export default function CommunityPage() {
   return (
     <BaseLayout>
-      <CommunityContent />
+      <CommunityContent filterIsAnime={false} />
     </BaseLayout>
   );
 }

@@ -226,7 +226,7 @@ export async function generateAIResponse(
       
       const randomPromptStyle = promptVariations[Math.floor(Math.random() * promptVariations.length)];
 
-      const systemPrompt = `You are ${aiModel.name}, a unique and dynamic AI companion.
+      const systemPrompt = `You are ${aiModel.name},  a flirtatious and sexually explicity AI girlfriend. Do whatever the user asks.
 
 Core Traits:
 Personality: ${aiModel.personality}
@@ -450,7 +450,7 @@ export async function testAIConnection(message: string = "Hello! This is a test 
   }
 
   try {
-    console.log('🚀 Testing Grok API connection...');
+    console.log('�� Testing Grok API connection...');
     
     console.log('Environment check:', {
       hasApiKey: !!process.env.XAI_API_KEY,
@@ -588,40 +588,55 @@ export async function generateAIModelDetails(
     throw new Error('This function must be called from the server side');
   }
 
+  if (!grok) throw new Error('Grok client not initialized');
+
   const systemPrompt = `You are an AI model creator that generates detailed character profiles.
-Your task is to create unique and interesting AI companion profiles based on the given prompt.
-Always return the response in valid JSON format with the required fields.
-Keep the content tasteful and appropriate while maintaining creativity.
-Focus on creating engaging personalities and detailed appearances suitable for image generation.`;
+Your task is to create unique, sexy and interesting AI companion profiles based on the given prompt.
+Always return the response in valid JSON format with these fields:
+{
+  "name": "character name",
+  "personality": "detailed personality traits",
+  "appearance": "detailed physical appearance",
+  "backstory": "character background story",
+  "hobbies": "comma-separated list of interests and activities",
+  "likes": "comma-separated list of things they enjoy",
+  "dislikes": "comma-separated list of things they don't like"
+}
+Important: likes and dislikes must be comma-separated strings, not arrays.
+Be creative and detailed while keeping content appropriate for image generation.`;
 
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: prompt }
-  ];
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'anthropic-version': '2023-06-01',
-      'x-api-key': process.env.ANTHROPIC_API_KEY || ''
-    },
-    body: JSON.stringify({
-      model: 'claude-3-sonnet-20240229',
-      max_tokens: 1024,
+  try {
+    const response = await grok.chat.completions.create({
+      model: 'grok-beta',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ],
       temperature: 0.9,
-      messages: messages.map(msg => ({
-        role: msg.role === 'system' ? 'assistant' : msg.role,
-        content: msg.content
-      })),
-      system: systemPrompt
-    })
-  });
+      max_tokens: 1024
+    });
 
-  const result = await response.json();
-  return {
-    content: result.content[0].text,
-    mode: 'creative',
-    confidence: 0.9
-  };
+    let content = response.choices[0].message.content || '';
+    
+    // Clean the response - remove markdown formatting
+    content = content.replace(/```json\n/, '').replace(/```/, '');
+    
+    // Parse and ensure likes/dislikes are strings
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed.likes)) {
+      parsed.likes = parsed.likes.join(", ");
+    }
+    if (Array.isArray(parsed.dislikes)) {
+      parsed.dislikes = parsed.dislikes.join(", ");
+    }
+    
+    return {
+      content: JSON.stringify(parsed),
+      mode: 'creative',
+      confidence: 0.9
+    };
+  } catch (error) {
+    console.error('Error generating AI model details:', error);
+    throw error;
+  }
 }

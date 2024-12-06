@@ -3,6 +3,7 @@ import { ExtendedChatRoom } from '@/types/chat';
 import ClientChatMessages from './ClientChatMessages';
 import { sendMessage } from '@/lib/actions/chat';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface ChatMessagesProps {
   chatRoom: ExtendedChatRoom;

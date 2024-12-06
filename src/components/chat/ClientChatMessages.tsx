@@ -48,14 +48,31 @@ const TypingIndicator = ({ modelImage }: { modelImage: string | null }) => (
 );
 
 const transformPrismaMessage = (message: any): Message => {
+  // Ensure we have a valid metadata object
+  const metadata: MessageMetadata = {
+    type: message.metadata?.type || 'text',
+    ...message.metadata
+  };
+
+  // Handle the user property which can be null
+  const user = message.user || (message.userId ? {
+    id: message.userId,
+    name: null,
+    image: null
+  } : null);
+
   return {
-    ...message,
-    metadata: message.metadata as MessageMetadata,
-    user: message.user || {
-      id: message.userId || '',
-      name: null,
-      image: null
-    }
+    id: message.id,
+    content: message.content,
+    userId: message.userId,
+    chatRoomId: message.chatRoomId,
+    createdAt: new Date(message.createdAt),
+    updatedAt: new Date(message.updatedAt),
+    aiModelId: message.aiModelId,
+    isAIMessage: message.isAIMessage,
+    metadata,
+    role: message.role || (message.isAIMessage ? 'assistant' : 'user'),
+    user
   };
 };
 
@@ -135,18 +152,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     setIsLoadingResponse(true);
 
     try {
-      const response = await sendMessage(chatRoom.id, messageContent);
-      
-      setMessages(prev => {
-        const newMessage = response.userMessage;
-        if (!newMessage) return prev;
-        
-        const typedMessage = transformPrismaMessage(newMessage);
-        return [...prev, typedMessage].sort((a, b) => 
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-      });
-
+      await sendMessage(chatRoom.id, messageContent);
       scrollToBottom();
     } catch (error) {
       console.error('Error sending message:', error);
@@ -258,6 +264,44 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     scrollToBottom('auto');
   }, [scrollToBottom]);
 
+  // Add this effect back for real-time message updates
+  useEffect(() => {
+    // Subscribe to new messages
+    const cleanup = subscribeToMessages(chatRoom.id, (newMessage) => {
+      handleNewMessage(transformPrismaMessage(newMessage));
+      scrollToBottom('smooth');
+    });
+
+    return () => cleanup();
+  }, [chatRoom.id]);
+
+  const handleNewMessage = (newMessage: Message) => {
+    console.log('📩 New message received:', newMessage);
+    
+    setMessages(prevMessages => {
+      // Find if we already have this message
+      const index = prevMessages.findIndex(msg => msg.id === newMessage.id);
+      
+      if (index !== -1) {
+        // Update existing message
+        const updatedMessages = [...prevMessages];
+        updatedMessages[index] = {
+          ...updatedMessages[index],
+          ...newMessage,
+          metadata: {
+            ...updatedMessages[index].metadata,
+            ...newMessage.metadata
+          }
+        };
+        console.log('🔄 Updated message:', updatedMessages[index]);
+        return updatedMessages;
+      } else {
+        // Add new message
+        return [...prevMessages, newMessage];
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Message Display */}
@@ -279,6 +323,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
         <form onSubmit={handleSendMessage} className="flex items-end gap-2">
           <ImageGenerationMenu 
             chatRoom={chatRoom}
+            setIsLoadingResponse={setIsLoadingResponse}
             onClose={() => setIsLoadingResponse(false)}
           />
           <VoiceMessage

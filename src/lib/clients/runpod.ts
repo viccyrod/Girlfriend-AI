@@ -4,6 +4,9 @@ interface RunPodResponse {
   output?: {
     image: string;
   };
+  statusDetail?: {
+    error?: string;
+  };
 }
 
 export class RunPodClient {

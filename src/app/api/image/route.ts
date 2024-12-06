@@ -19,6 +19,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Verify RunPod API key is set
+    if (!process.env.RUNPOD_API_KEY) {
+      console.error('❌ RunPod API key is not configured');
+      return NextResponse.json({ error: 'RunPod API key is not configured' }, { status: 500 });
+    }
+
     const { prompt, chatRoomId, style = 'realistic' } = await request.json();
 
     if (!chatRoomId) {
@@ -100,65 +106,131 @@ export async function GET(request: Request) {
     const chatRoomId = searchParams.get('chatRoomId');
     const messageId = searchParams.get('messageId');
 
+    console.log('🔍 Checking image status:', { jobId, chatRoomId, messageId });
+
     if (!jobId || !chatRoomId || !messageId) {
+      console.error('❌ Missing parameters:', { jobId, chatRoomId, messageId });
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    const status = await RunPodClient.checkJobStatus(jobId);
+    // First check if message already has an image URL
+    const message = await prisma.message.findUnique({
+      where: { id: messageId }
+    });
 
-    if (status.status === 'COMPLETED' && status.output?.image) {
-      // Upload to Cloudinary
-      const uploadResponse = await cloudinary.uploader.upload(
-        `data:image/png;base64,${status.output.image}`,
-        {
-          folder: 'chat-images',
-          resource_type: 'image',
-          public_id: `chat-${chatRoomId}-${Date.now()}`,
-          transformation: [
-            { quality: "auto:best" },
-            { fetch_format: "auto" }
-          ]
-        }
-      );
+    console.log('📝 Message metadata:', {
+      id: message?.id,
+      content: message?.content,
+      metadata: message?.metadata,
+      status: (message?.metadata as { status?: string })?.status,
+      imageUrl: (message?.metadata as { imageUrl?: string })?.imageUrl
+    });
 
-      // Update the message with the image URL
-      const updatedMessage = await prisma.message.update({
-        where: { id: messageId },
-        data: {
-          metadata: {
-            type: 'image',
-            status: 'completed',
-            imageUrl: uploadResponse.secure_url
-          }
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              image: true
-            }
-          }
-        }
-      });
-
-      // Emit the updated message
-      messageEmitter.emit(`chat:${chatRoomId}`, updatedMessage);
-
+    // Check if message has completed image metadata
+    if (message?.metadata && 
+        typeof message.metadata === 'object' && 
+        'type' in message.metadata && 
+        message.metadata.type === 'image' &&
+        'status' in message.metadata &&
+        message.metadata.status === 'completed') {
+      console.log('✅ Image already processed');
       return NextResponse.json({ 
         success: true,
         status: 'completed',
-        message: updatedMessage
+        message
       });
     }
 
+    console.log('🤖 Checking RunPod job status...');
+    const status = await RunPodClient.checkJobStatus(jobId);
+    console.log('🤖 RunPod status:', status);
+
+    if (status.status === 'COMPLETED' && status.output?.image) {
+      console.log('🎨 Image generated, uploading to Cloudinary...', {
+        imageDataLength: status.output.image.length,
+        cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+        hasApiKey: !!process.env.CLOUDINARY_API_KEY,
+        hasApiSecret: !!process.env.CLOUDINARY_API_SECRET
+      });
+      
+      try {
+        // Verify Cloudinary configuration
+        const cloudinaryConfig = cloudinary.config();
+        console.log('☁️ Cloudinary configuration:', {
+          cloudName: cloudinaryConfig.cloud_name,
+          hasApiKey: !!cloudinaryConfig.api_key,
+          hasApiSecret: !!cloudinaryConfig.api_secret
+        });
+
+        // Upload to Cloudinary
+        const uploadResponse = await cloudinary.uploader.upload(
+          `data:image/png;base64,${status.output.image}`,
+          {
+            folder: 'chat-images',
+            resource_type: 'image',
+            public_id: `chat-${chatRoomId}-${Date.now()}`,
+            transformation: [
+              { quality: "auto:best" },
+              { fetch_format: "auto" }
+            ]
+          }
+        );
+
+        console.log('☁️ Cloudinary upload successful:', {
+          url: uploadResponse.secure_url,
+          publicId: uploadResponse.public_id,
+          format: uploadResponse.format,
+          size: uploadResponse.bytes
+        });
+
+        // Update the message with the image URL
+        const updatedMessage = await prisma.message.update({
+          where: { id: messageId },
+          data: {
+            metadata: {
+              type: 'image',
+              status: 'completed',
+              imageUrl: uploadResponse.secure_url
+            }
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true
+              }
+            }
+          }
+        });
+
+        console.log('📝 Message updated with image URL');
+        
+        console.log('📢 Emitting updated message to chat:', updatedMessage);
+        messageEmitter.emit(`chat:${chatRoomId}`, updatedMessage);
+
+        return NextResponse.json({ 
+          success: true,
+          status: 'completed',
+          message: updatedMessage
+        });
+      } catch (error) {
+        console.error('❌ Error processing completed image:', error);
+        return NextResponse.json({ 
+          error: 'Failed to process completed image',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }, { status: 500 });
+      }
+    }
+
+    console.log('⏳ Image not ready yet, status:', status.status);
     return NextResponse.json({ 
       success: true,
       status: status.status
     });
 
   } catch (error) {
-    console.error('Error checking image status:', error);
+    console.error('❌ Error checking image status:', error);
     return NextResponse.json({ 
       error: 'Failed to check image status',
       details: error instanceof Error ? error.message : 'Unknown error'

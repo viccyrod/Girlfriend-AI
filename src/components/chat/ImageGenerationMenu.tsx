@@ -11,13 +11,15 @@ import { ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from "@/components/ui/input";
 import { ExtendedChatRoom } from '@/types/chat';
+import { RunPodResponse } from '@/types/runpod';
 
 interface ImageGenerationMenuProps {
   chatRoom: ExtendedChatRoom;
   onClose: () => void;
+  setIsLoadingResponse: (loading: boolean) => void;
 }
 
-export function ImageGenerationMenu({ chatRoom, onClose }: ImageGenerationMenuProps) {
+export function ImageGenerationMenu({ chatRoom, onClose, setIsLoadingResponse }: ImageGenerationMenuProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
@@ -32,66 +34,59 @@ export function ImageGenerationMenu({ chatRoom, onClose }: ImageGenerationMenuPr
   ];
 
   const handleImageGeneration = async (promptPrefix: string) => {
+    let pollInterval: NodeJS.Timeout | undefined;
+
     try {
       setIsGenerating(true);
+      setIsLoadingResponse(true);
       setError(null);
 
-      // Start image generation
       const response = await fetch('/api/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: customPrompt,
+          prompt: promptPrefix + (customPrompt ? ` ${customPrompt}` : ''),
           chatRoomId: chatRoom.id,
           style: selectedStyle
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to start image generation');
-      }
-
+      if (!response.ok) throw new Error('Failed to start image generation');
       const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      if (data.error) throw new Error(data.error);
 
-      // Start polling for status
-      const pollInterval = setInterval(async () => {
+      pollInterval = setInterval(async () => {
         try {
           const statusResponse = await fetch(`/api/image?jobId=${data.jobId}&chatRoomId=${chatRoom.id}&messageId=${data.message.id}`);
           const statusData = await statusResponse.json();
 
-          if (statusData.status === 'COMPLETED') {
+          if (statusData.status === 'COMPLETED' || statusData.message?.metadata?.imageUrl) {
             clearInterval(pollInterval);
             setIsGenerating(false);
+            setIsLoadingResponse(false);
+            setCustomPrompt('');
             onClose();
-          } else if (statusData.status === 'FAILED') {
-            clearInterval(pollInterval);
-            setIsGenerating(false);
-            setError('Image generation failed. Please try again.');
+            return;
           }
         } catch (error) {
           clearInterval(pollInterval);
           setIsGenerating(false);
+          setIsLoadingResponse(false);
           setError('Failed to check image status');
         }
-      }, 2000); // Poll every 2 seconds
-
-      // Clean up interval after 5 minutes (safety timeout)
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        if (isGenerating) {
-          setIsGenerating(false);
-          setError('Image generation timed out. Please try again.');
-        }
-      }, 300000);
+      }, 2000);
 
     } catch (error) {
+      if (pollInterval) clearInterval(pollInterval);
       setIsGenerating(false);
+      setIsLoadingResponse(false);
       setError(error instanceof Error ? error.message : 'Failed to generate image');
     }
+
+    // Cleanup function
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
   };
 
   return (
@@ -113,6 +108,7 @@ export function ImageGenerationMenu({ chatRoom, onClose }: ImageGenerationMenuPr
             onChange={(e) => setCustomPrompt(e.target.value)}
             placeholder="Add details to your prompt..."
             className="bg-[#2a2a2a] border-none text-white"
+            disabled={isGenerating}
           />
         </div>
         <DropdownMenuSeparator />

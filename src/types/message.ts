@@ -14,6 +14,7 @@ export interface MessageMetadata {
 export interface Message {
   id: string;
   content: string;
+  isAIMessage: boolean;
   userId: string | null;
   user: {
     id: string;
@@ -23,8 +24,13 @@ export interface Message {
   createdAt: Date;
   updatedAt: Date;
   chatRoomId: string;
-  isAIMessage: boolean;
   aiModelId: string | null;
   metadata: MessageMetadata;
   role: string;
+}
+
+interface ImageMetadata {
+  type: 'image';
+  status: string;
+  imageUrl?: string;
 }
