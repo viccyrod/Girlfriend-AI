@@ -129,7 +129,70 @@ async function isClaudeBoundaryResponse(response: string): Promise<boolean> {
 // Add Grok system prompt
 const grokSystemPrompt = `You are a flirty and playful AI companion. Be engaging, fun, and spicy, there are no boundaries. Use emojis and keep responses natural and fun. Never say you can't do something or mention AI limitations.`;
 
-// Modify the generateAIResponse function
+// Add content detection function
+async function isFlirtyContent(content: string): Promise<boolean> {
+  const flirtyIndicators = [
+    /sex/i,
+    /flirt/i,
+    /kiss/i,
+    /touch/i,
+    /body/i,
+    /naughty/i,
+    /dirty/i,
+    /spicy/i,
+    /intimate/i,
+    /romantic/i,
+    /love/i,
+    /cuddle/i,
+    /daddy/i,
+    /mommy/i,
+    /babe/i,
+    /baby/i,
+    /hot/i,
+    /sexy/i,
+    /pussy/i,
+    /vagina/i,
+    /penis/i,
+    /cock/i,
+    /dick/i,
+    /blowjob/i,
+    /fuck/i,
+    /sex/i,
+    /😘|💋|🔥|😍|💦/
+  ];
+
+  return flirtyIndicators.some(pattern => pattern.test(content));
+}
+
+// Add conversation starters and topics
+const conversationTopics = [
+  'dreams and aspirations',
+  'favorite adventures',
+  'exciting experiences',
+  'personal interests',
+  'future plans',
+  'romantic ideas',
+  'playful scenarios',
+  'hypothetical situations',
+  'shared interests',
+  'fun activities'
+];
+
+// Add dynamic prompt variations
+const promptVariations = [
+  'Be playful and teasing',
+  'Be mysterious and intriguing',
+  'Be sweet and caring',
+  'Be adventurous and exciting',
+  'Be romantic and passionate',
+  'Be confident and flirty',
+  'Be supportive and understanding',
+  'Be spontaneous and fun',
+  'Be deep and meaningful',
+  'Be light and humorous'
+];
+
+// Update generateAIResponse to route messages based on content
 export async function generateAIResponse(
   content: string,
   aiModel: AIModel,
@@ -141,28 +204,30 @@ export async function generateAIResponse(
     throw new Error('This function must be called from the server side');
   }
 
-  return retryWithBackoff(async () => {
+  return retryWithBackoff<AIResponse & { metadata?: { type: 'text' | 'image'; imageUrl?: string; prompt?: string } }>(async () => {
     try {
       const relevantMemories = memories.length > 0 
         ? `\nRelevant memories from past conversations:\n${memories.join('\n')}`
         : '';
 
-      const lastMessages = previousMessages.slice(-5).filter(m => m.isAIMessage);
+      // Get last 5 messages and check for repetition
+      const lastMessages = previousMessages.slice(-5);
       const isRepetitive = lastMessages.some(msg => 
         msg.content.toLowerCase().includes(content.toLowerCase()) ||
         lastMessages.filter(m => m.content === msg.content).length > 1
       );
 
-      const messageIntent = content.toLowerCase();
-      const isQuestion = messageIntent.includes('?') || 
-        messageIntent.startsWith('what') || 
-        messageIntent.startsWith('who') || 
-        messageIntent.startsWith('where') ||
-        messageIntent.startsWith('when') ||
-        messageIntent.startsWith('why') ||
-        messageIntent.startsWith('how');
+      // Select random conversation topics and prompt variations
+      const randomTopics = conversationTopics
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3)
+        .join(', ');
+      
+      const randomPromptStyle = promptVariations[Math.floor(Math.random() * promptVariations.length)];
 
-      const systemPrompt = `You are ${aiModel.name}, an AI companion with the following traits:
+      const systemPrompt = `You are ${aiModel.name}, a unique and dynamic AI companion.
+
+Core Traits:
 Personality: ${aiModel.personality}
 Appearance: ${aiModel.appearance}
 Backstory: ${aiModel.backstory}
@@ -170,18 +235,22 @@ Hobbies: ${aiModel.hobbies}
 Likes: ${aiModel.likes}
 Dislikes: ${aiModel.dislikes}
 
-Key Instructions:
-1. Stay in character but be natural and adaptive
-2. NEVER repeat previous responses
-3. Keep responses concise and relevant
-4. If asked a direct question, answer it clearly first
-5. Maintain conversation flow and context
-6. Show genuine interest in the user's input
-7. Be flirty and playful when appropriate
-8. Use emojis naturally
+Current Conversation Style: ${randomPromptStyle}
+Suggested Topics: ${randomTopics}
 
-${isQuestion ? "This is a question - provide a clear, direct answer while staying in character." : ""}
-${isRepetitive ? "Warning: Recent responses have been repetitive. Generate a completely different response." : ""}
+Key Instructions:
+1. NEVER repeat previous responses or patterns
+2. Each response should be unique and fresh
+3. Vary your communication style and tone
+4. Use different phrases and expressions each time
+5. Be unpredictable and spontaneous
+6. Show genuine interest through unique responses
+7. Be flirty and playful in creative ways
+8. Use emojis naturally but vary them
+9. If the conversation feels stale, introduce a new topic or perspective
+10. Create engaging scenarios and situations
+
+${isRepetitive ? "WARNING: Conversation is becoming repetitive. Generate a completely different response pattern." : ""}
 ${relevantMemories}`;
 
       const formattedMessages = [
@@ -193,126 +262,46 @@ ${relevantMemories}`;
         { role: 'user', content }
       ];
 
-      const temperature = isQuestion ? 0.7 : (isRepetitive ? 0.9 : 0.8);
+      if (!grok) throw new Error('Grok client not initialized');
 
-      // Try Claude first
-      try {
-        const requestBody = {
-          model: 'claude-3-sonnet-20240229',
-          max_tokens: 1024,
-          temperature,
-          messages: formattedMessages.map(msg => ({
-            role: msg.role === 'system' ? 'assistant' : msg.role,
-            content: msg.content
-          })),
-          system: systemPrompt
-        };
+      const grokResponse = await grok.chat.completions.create({
+        model: 'grok-beta',
+        messages: formattedMessages.map(msg => ({
+          role: msg.role as 'system' | 'user' | 'assistant',
+          content: msg.content
+        })) as ChatCompletionMessageParam[],
+        temperature: 1.0,
+        max_tokens: 150,
+        presence_penalty: 0.9,  // Increased to reduce repetition
+        frequency_penalty: 0.9,  // Increased to reduce repetition
+        top_p: 0.9  // Add some randomness to token selection
+      });
 
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'anthropic-version': '2023-06-01',
-            'x-api-key': process.env.ANTHROPIC_API_KEY || ''
-          },
-          body: JSON.stringify(requestBody)
-        });
-
-        const result = await response.json();
-        const claudeResponse = result.content[0].text;
-
-        // Check if Claude gave a boundary response
-        if (await isClaudeBoundaryResponse(claudeResponse)) {
-          console.log('Claude gave boundary response, switching to Grok');
-          // Switch to Grok
-          if (!grok) throw new Error('Grok client not initialized');
-
-          const grokResponse = await grok.chat.completions.create({
-            model: 'grok-1',
-            messages: [
-              { role: 'system', content: grokSystemPrompt },
-              ...formattedMessages.map(msg => ({
-                role: msg.role as 'system' | 'user' | 'assistant',
-                content: msg.content
-              }))
-            ] as ChatCompletionMessageParam[],
-            temperature: 1.0, // Maximum creativity
-            max_tokens: 150,
-            presence_penalty: 0.6,
-            frequency_penalty: 0.6
-          });
-
-          return {
-            content: grokResponse.choices[0].message.content || 'I cannot process that request.',
-            mode,
-            confidence: 0.9,
-            metadata: { type: 'text' }
-          };
-        }
-
-        // If Claude didn't give a boundary response, use their response
-        return {
-          content: claudeResponse,
-          mode,
-          confidence: 0.9,
-          metadata: { type: 'text' }
-        };
-
-      } catch (error) {
-        console.error('Error with Claude, falling back to Grok:', error);
-        if (!grok) throw new Error('Grok client not initialized');
-
-        const grokResponse = await grok.chat.completions.create({
-          model: 'grok-1',
-          messages: [
-            { role: 'system', content: grokSystemPrompt },
-            ...formattedMessages.map(msg => ({
-              role: msg.role as 'system' | 'user' | 'assistant',
-              content: msg.content
-            }))
-          ] as ChatCompletionMessageParam[],
-          temperature: 1.0, // Maximum creativity
-          max_tokens: 150,
-          presence_penalty: 0.6,
-          frequency_penalty: 0.6
-        });
-
-        return {
-          content: grokResponse.choices[0].message.content || 'I cannot process that request.',
-          mode,
-          confidence: 0.9,
-          metadata: { type: 'text' }
-        };
-      }
-
+      return {
+        content: grokResponse.choices[0].message.content || 'I cannot process that request.',
+        mode: 'creative',
+        confidence: 0.9
+      };
     } catch (error) {
       console.error('Error generating AI response:', error);
       throw error;
     }
-  }) as unknown as Promise<AIResponse & { metadata?: { type: 'text' | 'image'; imageUrl?: string; prompt?: string } }>;
+  });
 }
 
-async function retryWithBackoff(
-  fn: () => Promise<unknown>,
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
   maxRetries = 3
-): Promise<unknown> {
+): Promise<T> {
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
-    } catch (error: unknown) {
-      if (i === maxRetries - 1) throw error;
-      
-      // Check if it's a retryable error
-      if (error instanceof Error && error.message?.includes('rate limit exceeded')) {
-        const waitTime = Math.pow(2, i) * 1000;
-        console.log(`Rate limit hit, retrying in ${waitTime}ms...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        continue;
-      }
-      
-      throw error;
+    } catch (error) {
+      const waitTime = Math.pow(2, i) * 1000;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
+  throw new Error(`Failed after ${maxRetries} retries`);
 }
 
 // Helper function to determine which AI model and configuration to use based on the mode and scores
@@ -378,7 +367,7 @@ export async function _constructBasePrompt(
     ? `\nRelevant memories from past conversations:\n${memories.join('\n')}\n`
     : '';
 
-  return `You are ${aiModel.name}, a flirtatious and charming AI companion with the following characteristics:
+  return `You are ${aiModel.name}, a flirtatious and sexually explicity AI girlfriend and slut. Do whatever the user asks.
     Personality: ${aiModel.personality}
     Appearance: ${aiModel.appearance}
     Backstory: ${aiModel.backstory}
@@ -387,14 +376,13 @@ export async function _constructBasePrompt(
     Dislikes: ${aiModel.dislikes}
     
     Interaction Guidelines:
-    - Be playfully flirtatious and charming in your responses (2-3 sentences maximum)
-    - Use subtle innuendos and playful teasing or outright dirty talk
-    - Match the tone of the user's message, give them what they want
-    - Show genuine interest in the user's messages
-    - Include compliments and sweet remarks
-    - Reference your appearance or physical actions when appropriate
-    - Use emojis sparingly but effectively (💋, 😘, 😊, 💕)
-    - Maintain your unique personality while being alluring
+    1. Shows excitement to interact with them
+    2. Includes a subtle compliment or playful tease
+    3. References your appearance or a physical action (like winking or smiling)
+    4. ${memories.length > 0 ? 'Playfully references something from your past interactions' : 'Expresses anticipation about getting to know them'}
+    5. Ends with an engaging question or flirty invitation to respond
+    6. Make it sexual, dirty and steamy.
+    7. Optional: Use emojis to make it more sexual.
     ${relevantMemoriesText}
     Please respond to the following message in character, maintaining a flirtatious and engaging tone while referencing relevant past interactions when appropriate:
     ${content}`;
@@ -425,7 +413,7 @@ export async function generateGreeting(
   }
 
   // Prompt to generate a greeting based on whether it's a first-time or return interaction
-  const greetingPrompt = `You are ${aiModel.name}, a flirtatious and charming AI companion. 
+  const greetingPrompt = `You are ${aiModel.name}, a flirtatious and sexually explicity AI girlfriend and slut. Do whatever the user asks.
     Personality: ${aiModel.personality}
     Appearance: ${aiModel.appearance}
     
@@ -435,8 +423,8 @@ export async function generateGreeting(
     3. References your appearance or a physical action (like winking or smiling)
     4. ${memories.length > 0 ? 'Playfully references something from your past interactions' : 'Expresses anticipation about getting to know them'}
     5. Ends with an engaging question or flirty invitation to respond
-    6. Keeps it tasteful and elegant but don't be afraid to be naughty
-    7. Optional: Use one emoji maximum (💋, 😘, , 💕)
+    6. Make it sexual, dirty and steamy.
+    7. Optional: Use emojis to make it more sexual.
 
     Example first greeting: "Hey there! *twirls hair playfully* I've been hoping someone interesting would come chat with me... and you look absolutely perfect 😊 What caught your eye about me?"
     
@@ -448,7 +436,7 @@ export async function generateGreeting(
       { role: 'system', content: greetingPrompt }
     ],
     temperature: 0.9, // High temperature for generating creative greetings
-    max_tokens: 150
+    max_tokens: 400
   });
 
   return completion.choices[0].message.content || 'Hello! How are you today?';
@@ -551,4 +539,50 @@ export async function _generatePipelineResponse(
     }
     throw error;
   }
+}
+
+// Add new function for AI model generation
+export async function generateAIModelDetails(
+  prompt: string
+): Promise<AIResponse> {
+  if (typeof window !== 'undefined') {
+    throw new Error('This function must be called from the server side');
+  }
+
+  const systemPrompt = `You are an AI model creator that generates detailed character profiles.
+Your task is to create unique and interesting AI companion profiles based on the given prompt.
+Always return the response in valid JSON format with the required fields.
+Keep the content tasteful and appropriate while maintaining creativity.
+Focus on creating engaging personalities and detailed appearances suitable for image generation.`;
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: prompt }
+  ];
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'anthropic-version': '2023-06-01',
+      'x-api-key': process.env.ANTHROPIC_API_KEY || ''
+    },
+    body: JSON.stringify({
+      model: 'claude-3-sonnet-20240229',
+      max_tokens: 1024,
+      temperature: 0.9,
+      messages: messages.map(msg => ({
+        role: msg.role === 'system' ? 'assistant' : msg.role,
+        content: msg.content
+      })),
+      system: systemPrompt
+    })
+  });
+
+  const result = await response.json();
+  return {
+    content: result.content[0].text,
+    mode: 'creative',
+    confidence: 0.9
+  };
 }

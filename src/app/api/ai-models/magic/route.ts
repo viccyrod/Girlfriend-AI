@@ -3,7 +3,7 @@ import prisma from '@/lib/clients/prisma';
 import { getCurrentUser } from '@/lib/session';
 import { v2 as cloudinary } from 'cloudinary';
 import { RunPodClient } from '@/lib/clients/runpod';
-import { generateAIResponse } from '@/lib/ai-client';
+import { generateAIModelDetails } from '@/lib/ai-client';
 import { MAGIC_AI_PROMPT } from './prompts';
 
 // Configure Cloudinary
@@ -36,30 +36,7 @@ export async function POST(request: Request) {
 
     // Generate AI response with timeout handling
     const aiResponse = (await Promise.race([
-      generateAIResponse(
-        customPrompt || MAGIC_AI_PROMPT,      
-        {
-          id: 'magic-ai',
-          name: 'flirty and creative character generator',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          likes: '',
-          appearance: '',
-          personality: '',
-          backstory: '',
-          hobbies: '',
-          dislikes: '',
-          followerCount: 0,
-          userId: currentUser.id,
-          imageUrl: '',
-          isPrivate: false,
-          isHumanX: false,
-          voiceId: null
-        },
-        [],
-        [],
-        'creative'
-      ),
+      generateAIModelDetails(customPrompt || MAGIC_AI_PROMPT),
       new Promise((_, reject) => 
         setTimeout(() => reject(new Error(`AI response timed out after ${AI_TIMEOUT/1000} seconds`)), AI_TIMEOUT)
       )
