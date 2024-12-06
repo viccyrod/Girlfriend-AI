@@ -361,7 +361,7 @@ const ChatComponent = ({
     try {
       setIsMessageSending(true);
       console.log('Sending message to room:', room.id);
-      return await sendMessage(room.id, content);
+      return await sendMessage(room.id, content, { type: 'text' });
     } catch (error) {
       console.error('Error sending message:', error);
       toast({

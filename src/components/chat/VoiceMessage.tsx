@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Square, Send } from 'lucide-react';
+import { Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface VoiceMessageProps {
@@ -9,7 +9,7 @@ interface VoiceMessageProps {
 }
 
 export function VoiceMessage({ onVoiceMessage, isRecording, setIsRecording }: VoiceMessageProps) {
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const [_audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const timerRef = useRef<NodeJS.Timeout>();

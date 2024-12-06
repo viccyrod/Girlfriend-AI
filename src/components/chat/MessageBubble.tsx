@@ -4,6 +4,7 @@ import { Avatar, AvatarImage } from '@/components/ui/avatar';
 import { Play, Pause, Volume2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { slideIn } from '@/lib/utils/animations';
+import Image from 'next/image';
 
 interface Message {
   id: string;
@@ -22,6 +23,10 @@ interface Message {
     name: string | null;
     image: string | null;
   } | null;
+  aiModel?: {
+    imageUrl: string;
+    name: string;
+  };
 }
 
 interface MessageBubbleProps {
@@ -86,10 +91,12 @@ export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProp
 
     if (message.metadata?.type === 'image' && message.metadata.imageData) {
       return (
-        <img
+        <Image
           src={message.metadata.imageData}
           alt="Generated"
-          className="max-w-[300px] rounded-lg"
+          width={300}
+          height={300}
+          className="max-w-[300px] rounded-lg object-cover"
         />
       );
     }
@@ -111,10 +118,21 @@ export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProp
     >
       <div className={`flex ${isAIMessage ? 'flex-row' : 'flex-row-reverse'} items-end max-w-[85%] md:max-w-[75%]`}>
         <Avatar className={`hidden md:flex flex-shrink-0 ${isAIMessage ? 'mr-2' : 'ml-2'}`}>
-          <AvatarImage 
-            src={isAIMessage ? (modelImage || '/user-placeholder.png') : (message.user?.image || '/user-placeholder.png')} 
-            alt="Avatar" 
-          />
+          {message.aiModel?.imageUrl && (
+            <Image
+              src={message.aiModel.imageUrl}
+              alt={`${message.aiModel.name}'s avatar`}
+              width={40}
+              height={40}
+              className="rounded-full object-cover"
+            />
+          )}
+          {!message.aiModel?.imageUrl && (
+            <AvatarImage 
+              src={isAIMessage ? (modelImage || '/user-placeholder.png') : (message.user?.image || '/user-placeholder.png')} 
+              alt="Avatar" 
+            />
+          )}
         </Avatar>
         
         <div className={`flex flex-col ${isAIMessage ? 'items-start' : 'items-end'}`}>

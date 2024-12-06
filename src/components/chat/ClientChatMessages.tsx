@@ -1,23 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Avatar, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { AIModel, User } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Send } from 'lucide-react';
 import ImageGenerationMenu from './ImageGenerationMenu';
 import { VoiceMessage } from './VoiceMessage';
-import { 
-  sendMessage, 
-  generateImage, 
+import {
+  sendMessage,
+  getChatRoomMessages,
+  generateImage,
   subscribeToMessages,
-  getChatRoomMessages
 } from '@/lib/actions/chat';
 import { MessageBubble } from './MessageBubble';
 import { debounce } from 'lodash';
+import Image from 'next/image';
 
 // Message and ChatRoom Interfaces
 interface Message {
@@ -58,9 +57,11 @@ interface ClientChatMessagesProps {
 const TypingIndicator = ({ modelImage }: { modelImage: string | null }) => (
   <div className="flex items-start space-x-2 p-4">
     <div className="w-8 h-8 rounded-full overflow-hidden">
-      <img 
+      <Image 
         src={modelImage || '/default-avatar.png'} 
         alt="AI" 
+        width={40}
+        height={40}
         className="w-full h-full object-cover"
       />
     </div>
@@ -139,7 +140,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     [chatRoom.id, toast]
   );
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || isLoadingResponse) return;
 
@@ -157,7 +158,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     }
 
     await debouncedSendMessage(messageContent);
-  };
+  }, [newMessage, isLoadingResponse, isRateLimited, rateLimitTimer, debouncedSendMessage, toast]);
 
   // Add cleanup
   useEffect(() => {

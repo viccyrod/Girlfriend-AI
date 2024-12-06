@@ -32,44 +32,37 @@ class ConversationManager {
 
   private cleanExpiredContexts() {
     const now = Date.now();
-    for (const [chatRoomId, timestamp] of this.contextTimestamps.entries()) {
+    Array.from(this.contextTimestamps.entries()).forEach(([chatRoomId, timestamp]) => {
       if (now - timestamp > ConversationManager.CONTEXT_EXPIRY) {
         this.contexts.delete(chatRoomId);
         this.contextTimestamps.delete(chatRoomId);
       }
-    }
+    });
   }
 
-  private initializeContext(chatRoomId: string, aiPersonality?: string): ConversationContext {
-    const context = {
+  private initializeContext(chatRoomId: string, _aiPersonality?: string): ConversationContext {
+    const context: ConversationContext = {
       recentTopics: [],
       mood: 'neutral',
       lastResponses: [],
       personalityTraits: {
-        playfulness: Math.random() * 0.4 + 0.3,
-        empathy: Math.random() * 0.4 + 0.3,
-        assertiveness: Math.random() * 0.4 + 0.3
+        playfulness: 0.5,
+        empathy: 0.5,
+        assertiveness: 0.5
       },
       memoryHighlights: []
     };
-
+    this.contexts.set(chatRoomId, context);
     this.contextTimestamps.set(chatRoomId, Date.now());
     return context;
   }
 
-  public updateContext(chatRoomId: string, message: Message, aiPersonality?: string) {
-    let context = this.contexts.get(chatRoomId);
-    if (!context) {
-      context = this.initializeContext(chatRoomId, aiPersonality);
-      this.contexts.set(chatRoomId, context);
-    }
-
-    // Update timestamp
-    this.contextTimestamps.set(chatRoomId, Date.now());
-
-    // Update recent topics using NLP
+  public updateContext(chatRoomId: string, message: Message, _aiPersonality?: string) {
+    const context = this.getContext(chatRoomId) || this.initializeContext(chatRoomId);
     const topics = this.extractTopics(message.content);
-    context.recentTopics = [...new Set([...topics, ...context.recentTopics])]
+    
+    // Update recent topics, keeping only unique values
+    context.recentTopics = Array.from(new Set([...topics, ...context.recentTopics]))
       .slice(0, ConversationManager.MAX_RECENT_TOPICS);
 
     // Update mood based on message content and previous mood
@@ -183,20 +176,19 @@ class ConversationManager {
   }
 
   private calculateSimilarity(text1: string, text2: string): number {
-    // Simplified similarity check - implement proper string similarity in production
     const words1 = new Set(text1.toLowerCase().split(' '));
     const words2 = new Set(text2.toLowerCase().split(' '));
-    const intersection = new Set([...words1].filter(x => words2.has(x)));
+    const intersection = new Set(Array.from(words1).filter(x => words2.has(x)));
     return intersection.size / Math.max(words1.size, words2.size);
   }
 
-  private adjustTone(text: string, mood: string, personality: ConversationContext['personalityTraits']): string {
+  private adjustTone(text: string, _mood: string, _personality: ConversationContext['personalityTraits']): string {
     // Implement tone adjustment based on mood and personality
     // This is a simplified version - implement more sophisticated tone adjustment in production
     return text;
   }
 
-  private addContextualReference(text: string, context: ConversationContext): string {
+  private addContextualReference(text: string, _context: ConversationContext): string {
     // Add contextual references based on recent topics and memory
     // This is a placeholder - implement proper context integration in production
     return text;

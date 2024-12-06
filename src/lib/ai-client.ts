@@ -200,9 +200,8 @@ ${relevantMemories}`;
           await storeMemory(
             aiModel.id,
             aiModel.userId || '',
-            content,
-            aiResponse
-          );
+            content
+                    );
         } catch (error) {
           console.warn('Failed to store memory:', error);
         }
@@ -219,31 +218,44 @@ ${relevantMemories}`;
       console.error('Error generating AI response:', error);
       throw error;
     }
-  });
+  }) as unknown as Promise<AIResponse & { metadata?: { type: 'text' | 'image'; imageUrl?: string; prompt?: string } }>;
 }
 
-async function retryWithBackoff(fn: () => Promise<any>, maxRetries = 3): Promise<any> {
+async function retryWithBackoff(
+  fn: () => Promise<unknown>,
+  maxRetries = 3
+): Promise<unknown> {
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (i === maxRetries - 1) throw error;
       
       // Check if it's a retryable error
-      if (error.message?.includes('rate limit exceeded')) {
-        const waitTime = Math.pow(2, i) * 1000; // Exponential backoff: 1s, 2s, 4s
+      if (error instanceof Error && error.message?.includes('rate limit exceeded')) {
+        const waitTime = Math.pow(2, i) * 1000;
         console.log(`Rate limit hit, retrying in ${waitTime}ms...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
         continue;
       }
       
-      throw error; // Non-retryable error
+      throw error;
     }
   }
 }
 
 // Helper function to determine which AI model and configuration to use based on the mode and scores
-function getModelConfig(mode: AIMode, scores: { sentiment: number; complexity: number; expertise: number }) {
+export async function _getModelConfig(
+  mode: AIMode,
+  scores: { sentiment: number; complexity: number; expertise: number }
+): Promise<{
+  client: OpenAI | null;
+  model: string;
+  temperature: number;
+  maxTokens: number;
+  mode: AIMode;
+  systemPromptAddition?: string;
+}> {
   // Set flirtation level adjustment if mode is creative
   const flirtationLevel = mode === 'creative' ? 0.9 : 0.7;
 
@@ -286,7 +298,11 @@ function getModelConfig(mode: AIMode, scores: { sentiment: number; complexity: n
 }
 
 // Helper function to construct the base prompt for generating AI responses
-function constructBasePrompt(aiModel: AIModel, memories: string[], content: string): string {
+export async function _constructBasePrompt(
+  aiModel: AIModel,
+  memories: string[],
+  content: string
+): Promise<string> {
   const relevantMemoriesText = memories.length > 0 
     ? `\nRelevant memories from past conversations:\n${memories.join('\n')}\n`
     : '';
@@ -314,10 +330,10 @@ function constructBasePrompt(aiModel: AIModel, memories: string[], content: stri
 }
 
 // Helper function to calculate the confidence level of the response
-function calculateConfidence(
+export async function _calculateConfidence(
   scores: { sentiment: number; complexity: number; expertise: number },
   config: { model: string; temperature: number }
-): number {
+): Promise<number> {
   // Calculate confidence score based on the selected model and message characteristics
   const baseConfidence = config.model.includes('gpt-4') ? 0.9 : 0.8;
   const complexityFactor = Math.max(0, 1 - (scores.complexity / 10));
@@ -433,24 +449,35 @@ export async function generateImage(prompt: string): Promise<string> {
 }
 
 // Add this new function after the interfaces
-async function generatePipelineResponse(
+export async function _generatePipelineResponse(
   basePrompt: string,
   messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
-  modelConfig: ReturnType<typeof getModelConfig>
+  modelConfig: ReturnType<typeof _getModelConfig>
 ): Promise<{ content: string; metadata?: { type: 'text' | 'image'; imageUrl?: string; prompt?: string } }> {
-  if (!modelConfig.client) {
-    throw new Error(`AI client not available for model: ${modelConfig.model}`);
+  const config = await modelConfig;  // Await the model config
+  
+  if (!config.client) {
+    throw new Error(`AI client not available for model: ${config.model}`);
   }
 
-  const completion = await modelConfig.client.chat.completions.create({
-    model: modelConfig.model,
-    messages: messages,
-    temperature: modelConfig.temperature,
-    max_tokens: modelConfig.maxTokens
-  });
+  try {
+    const completion = await config.client.chat.completions.create({
+      model: config.model,
+      messages: messages,
+      temperature: config.temperature,
+      max_tokens: config.maxTokens
+    });
 
-  return {
-    content: completion.choices[0].message.content || '',
-    metadata: { type: 'text' }
-  };
+    return {
+      content: completion.choices[0].message.content || '',
+      metadata: { type: 'text' }
+    };
+  } catch (error: any) {
+    if (error?.message?.includes('rate limit')) {
+      // Wait for 2 seconds before retrying
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      throw new Error('Rate limit exceeded. Please try again in a moment.');
+    }
+    throw error;
+  }
 }

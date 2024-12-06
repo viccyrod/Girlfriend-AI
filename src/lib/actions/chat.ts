@@ -3,13 +3,17 @@ import { ExtendedChatRoom } from '@/types/chat';
 import { getOrCreateChatRoomServer } from './server/chat';
 
 // Send a message in a chat room
-export async function sendMessage(chatRoomId: string, content: string, p0: { type: string; audioData: string; }) {
+export async function sendMessage(
+  chatRoomId: string, 
+  content: string, 
+  options: { type?: string; audioData?: string; } = { type: 'text' }
+) {
   const response = await fetch(`/api/chat/${chatRoomId}/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, ...options }),
   });
 
   if (!response.ok) {

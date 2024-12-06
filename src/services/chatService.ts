@@ -7,12 +7,13 @@ import { logger } from '@/lib/utils/logger';
 import Anthropic from '@anthropic-ai/sdk';
 import { aiRateLimiter } from '@/lib/utils/rateLimiter';
 import { conversationManager } from '@/lib/chat/conversationManager';
+import OpenAI from 'openai';
 
-const anthropic = new Anthropic({
+const _anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '',
 });
 
-interface ChatContext {
+interface _ChatContext {
   lastResponses: string[];
   currentTopic?: string;
   mood?: string;
@@ -21,7 +22,7 @@ interface ChatContext {
 
 interface ConversationContext {
   lastResponses: string[];
-  mood: string;
+  mood: 'positive' | 'negative' | 'neutral';
   topics: Set<string>;
   lastInteractionTime: number;
 }
@@ -34,14 +35,28 @@ interface AIMode {
   type: string;
 }
 
+interface ErrorWithMessage {
+  message: string;
+  status?: number;
+}
+
+function isErrorWithMessage(error: unknown): error is ErrorWithMessage {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as Record<string, unknown>).message === 'string'
+  );
+}
+
 // ChatService class that provides methods for managing chat rooms and messages
 export class ChatService {
   private static instance: ChatService;
   private conversationContexts: Map<string, ConversationContext> = new Map();
-  private rateLimiter: any;
+  private rateLimiter: typeof aiRateLimiter;
 
   constructor() {
-    this.rateLimiter = new (require('@/lib/utils/rateLimiter'))();
+    this.rateLimiter = aiRateLimiter;
   }
 
   static getInstance(): ChatService {
@@ -69,9 +84,8 @@ export class ChatService {
       }
 
       // Check rate limit
-      const canProceed = await this.rateLimiter.checkLimit(userId);
-      if (!canProceed) {
-        return "I need a moment to process our conversation. Could you try again in a few seconds? 😊";
+      if (!this.rateLimiter.canMakeRequest(userId)) {
+        throw new Error('Rate limit exceeded');
       }
 
       // Get or create conversation context
@@ -353,48 +367,64 @@ function determineResponseMode(message: string, context: any): AIMode {
 function calculateNewMood(
   userMessage: string,
   aiResponse: string,
-  currentMood: string
-): string {
-  const moodMap = {
-    playful: ['haha', 'lol', '😊', '😘', '💕', 'fun', 'play'],
-    romantic: ['love', 'heart', 'miss', 'beautiful', 'sweet'],
-    serious: ['why', 'how', 'what', 'when', 'explain'],
-    neutral: []
+  currentMood: 'positive' | 'negative' | 'neutral'
+): 'positive' | 'negative' | 'neutral' {
+  const moodScores: Record<'positive' | 'negative' | 'neutral', number> = {
+    positive: 0,
+    negative: 0,
+    neutral: 0
   };
 
-  let moodScores = {
-    playful: 0,
-    romantic: 0,
-    serious: 0,
-    neutral: 1 // Base score for neutral
+  const moodMap: Record<string, string[]> = {
+    playful: ['haha', 'lol', '😊', '😘', '💕', 'fun', 'play'],
+    romantic: ['love', 'heart', 'miss', 'beautiful', 'sweet'],
+    sad: ['sad', 'miss', 'lonely', '😢', 'sorry'],
+    angry: ['angry', 'mad', 'upset', '😠', 'hate'],
+    neutral: []
   };
 
   // Analyze both messages for mood indicators
   const combinedText = (userMessage + ' ' + aiResponse).toLowerCase();
   
-  Object.entries(moodMap).forEach(([mood, indicators]) => {
-    indicators.forEach(indicator => {
+  // Count occurrences of mood-indicating words/emojis
+  for (const [mood, indicators] of Object.entries(moodMap)) {
+    for (const indicator of indicators) {
       if (combinedText.includes(indicator)) {
-        moodScores[mood] += 1;
+        if (mood === 'playful' || mood === 'romantic') {
+          moodScores.positive += 1;
+        } else if (mood === 'sad' || mood === 'angry') {
+          moodScores.negative += 1;
+        } else {
+          moodScores.neutral += 1;
+        }
       }
-    });
-  });
+    }
+  }
 
-  // Add weight to current mood for smoother transitions
+  // Add weight to current mood
   moodScores[currentMood] += 2;
 
-  // Return mood with highest score
-  return Object.entries(moodScores)
-    .reduce((a, b) => a[1] > b[1] ? a : b)[0];
+  // Determine the mood with the highest score
+  let newMood: 'positive' | 'negative' | 'neutral' = 'neutral';
+  let maxScore = -1;
+
+  for (const [mood, score] of Object.entries(moodScores)) {
+    if (score > maxScore) {
+      maxScore = score;
+      newMood = mood as 'positive' | 'negative' | 'neutral';
+    }
+  }
+
+  return newMood;
 }
 
 // Helper function to generate AI response
 async function generateAIResponse(
-  content: string,
-  aiModel: any,
-  topics: string[],
-  previousMessages: Message[],
-  responseMode: AIMode
+  _content: string,
+  _aiModel: any,
+  _topics: string[],
+  _previousMessages: Message[],
+  _responseMode?: AIMode
 ): Promise<{ content: string }> {
   // Implement AI response generation logic here
   // For demonstration purposes, return a dummy response
