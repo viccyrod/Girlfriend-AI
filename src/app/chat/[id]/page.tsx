@@ -50,6 +50,7 @@ const chatRoom = await getOrCreateChatRoom(params.id);
       })) || [],
       createdAt: new Date(chatRoom.createdAt || Date.now()),
       updatedAt: new Date(chatRoom.updatedAt || Date.now()),
+      voiceId: chatRoom.voiceId || null,
       createdBy: chatRoom.aiModel?.createdBy ? {
         id: chatRoom.aiModel.createdBy.id || '',
         name: chatRoom.aiModel.createdBy.name || '',
@@ -61,38 +62,22 @@ const chatRoom = await getOrCreateChatRoom(params.id);
         email: '',
         imageUrl: null
       },
-      aiModel: {
-        id: chatRoom.aiModel?.id || '',
-        name: chatRoom.aiModel?.name || '',
-        personality: chatRoom.aiModel?.personality || '',
-        appearance: chatRoom.aiModel?.appearance || '',
-        backstory: chatRoom.aiModel?.backstory || '',
-        hobbies: chatRoom.aiModel?.hobbies || '',
-        likes: chatRoom.aiModel?.likes || '',
-        dislikes: chatRoom.aiModel?.dislikes || '',
-        createdBy: chatRoom.aiModel?.createdBy ? {
+      aiModel: chatRoom.aiModel ? {
+        ...chatRoom.aiModel,
+        createdAt: new Date(chatRoom.aiModel.createdAt),
+        updatedAt: new Date(chatRoom.aiModel.updatedAt),
+        voiceId: chatRoom.aiModel.voiceId || null,
+        isFollowing: chatRoom.aiModel.isFollowing || false,
+        isAnime: chatRoom.aiModel.isAnime || false,
+        age: chatRoom.aiModel.age || null,
+        isHumanX: chatRoom.aiModel.isHumanX || false,
+        createdBy: chatRoom.aiModel.createdBy ? {
           id: chatRoom.aiModel.createdBy.id || '',
           name: chatRoom.aiModel.createdBy.name || '',
           email: chatRoom.aiModel.createdBy.email || '',
-          imageUrl: chatRoom.aiModel.createdBy.image || null 
-        } : {
-          id: '',
-          name: '',
-          email: '',
-          imageUrl: null
-        },
-        userId: chatRoom.aiModel?.userId || '',
-        followerCount: chatRoom.aiModel?.followerCount || 0,
-        isPrivate: chatRoom.aiModel?.isPrivate || false,
-        isAnime: chatRoom.aiModel?.isAnime || false,
-        isHuman: false,
-        isHumanX: false,
-        isFollowing: false,
-        age: chatRoom.aiModel?.age ? Number(chatRoom.aiModel.age) : null,
-        imageUrl: chatRoom.aiModel?.imageUrl || '',
-        createdAt: new Date(chatRoom.aiModel?.createdAt || Date.now()),
-        updatedAt: new Date(chatRoom.aiModel?.updatedAt || Date.now())
-      }
+          imageUrl: chatRoom.aiModel.createdBy.image || null
+        } : null
+      } : null,
     };
 
     return (
@@ -112,4 +97,3 @@ const chatRoom = await getOrCreateChatRoom(params.id);
     redirect('/chat');  // Redirect to chat list instead of community
   }
 }
-

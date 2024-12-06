@@ -53,7 +53,8 @@ export async function POST(request: Request) {
           userId: currentUser.id,
           imageUrl: '',
           isPrivate: false,
-          isHumanX: false
+          isHumanX: false,
+          voiceId: null
         },
         [],
         [],

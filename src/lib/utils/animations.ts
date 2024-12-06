@@ -20,24 +20,37 @@ export const fadeIn: Variants = {
   }
 };
 
-export const slideIn: Variants = {
-  hidden: { x: 20, opacity: 0 },
-  visible: { 
-    x: 0, 
-    opacity: 1,
-    transition: {
-      duration: 0.4,
-      ease: [0.4, 0, 0.2, 1]
+export const slideIn = (direction: 'up' | 'down' | 'left' | 'right', duration: number = 0.2): Variants => {
+  const directionOffset = {
+    up: { y: 20 },
+    down: { y: -20 },
+    left: { x: 20 },
+    right: { x: -20 }
+  };
+
+  return {
+    hidden: { 
+      opacity: 0,
+      ...directionOffset[direction]
+    },
+    visible: {
+      opacity: 1,
+      x: 0,
+      y: 0,
+      transition: {
+        duration,
+        ease: [0.4, 0, 0.2, 1]
+      }
+    },
+    exit: {
+      opacity: 0,
+      ...directionOffset[direction],
+      transition: {
+        duration: 0.3,
+        ease: [0.4, 0, 1, 1]
+      }
     }
-  },
-  exit: {
-    x: -20,
-    opacity: 0,
-    transition: {
-      duration: 0.3,
-      ease: [0.4, 0, 1, 1]
-    }
-  }
+  };
 };
 
 export const scaleIn: Variants = {

@@ -6,13 +6,13 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { debounce, DebouncedFunc } from "lodash";
 import { useRouter } from "next/navigation";
 
-
 import {
   ChatRoomList,
   ExtendedChatRoom,
 } from "@/components/chat/ChatRoomList";
 import ClientChatMessages from "@/components/chat/ClientChatMessages";
 import ModelProfile from "@/components/chat/ModelProfile";
+import { VoiceMessage } from '@/components/chat/VoiceMessage';
 import {
   ChatComponentProps,
   SendMessageFunction,
@@ -174,6 +174,7 @@ const ChatComponent = ({
   const [_roomError, setRoomError] = useState<string | null>(null); // Error state for room selection
   const [loadingRoomId, setLoadingRoomId] = useState<string | null>(null);
   const [_isDeletingRoom, setIsDeletingRoom] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
 
   /**
    * Cleanup effect to reset state when the component is unmounted.
@@ -225,39 +226,31 @@ const ChatComponent = ({
           aiModel: rawRoom.aiModel ? {
             ...rawRoom.aiModel,
             id: rawRoom.aiModel.id || '',
-            createdBy: {
-              id: rawRoom.aiModel.createdBy?.id || '',
-              name: rawRoom.aiModel.createdBy?.name || '',
-              email: rawRoom.aiModel.createdBy?.email || '',
-              imageUrl: rawRoom.aiModel.createdBy?.image || null
-            }
-          } : {
-            id: '',
-            name: '',
-            imageUrl: null,
-            personality: '',
-            userId: '',
-            followerCount: 0,
-            appearance: '',
-            backstory: '',
-            hobbies: '',
-            likes: '',
-            dislikes: '',
-            age: null,
-            isPrivate: false,
-            isAnime: false,
-            isHuman: false,
-            isHumanX: false,
-            isFollowing: false,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            createdBy: {
-              id: '',
-              name: '',
-              email: '',
-              imageUrl: null
-            }
-          },
+            name: rawRoom.aiModel.name || '',
+            personality: rawRoom.aiModel.personality || '',
+            appearance: rawRoom.aiModel.appearance || '',
+            backstory: rawRoom.aiModel.backstory || '',
+            hobbies: rawRoom.aiModel.hobbies || '',
+            likes: rawRoom.aiModel.likes || '',
+            dislikes: rawRoom.aiModel.dislikes || '',
+            createdAt: new Date(rawRoom.aiModel.createdAt),
+            updatedAt: new Date(rawRoom.aiModel.updatedAt),
+            imageUrl: rawRoom.aiModel.imageUrl || '',
+            userId: rawRoom.aiModel.userId || '',
+            followerCount: rawRoom.aiModel.followerCount || 0,
+            isPrivate: rawRoom.aiModel.isPrivate || false,
+            isAnime: rawRoom.aiModel.isAnime || false,
+            isFollowing: rawRoom.aiModel.isFollowing || false,
+            isHumanX: rawRoom.aiModel.isHumanX || false,
+            age: rawRoom.aiModel.age || null,
+            voiceId: rawRoom.aiModel.voiceId || null,
+            createdBy: rawRoom.aiModel.createdBy ? {
+              id: rawRoom.aiModel.createdBy.id || '',
+              name: rawRoom.aiModel.createdBy.name || '',
+              email: rawRoom.aiModel.createdBy.email || '',
+              imageUrl: rawRoom.aiModel.createdBy.image || null
+            } : null
+          } : null,
         };
       }
 
@@ -375,6 +368,42 @@ const ChatComponent = ({
     }
   };
 
+  const handleVoiceMessage = async (audioBlob: Blob) => {
+    if (!selectedRoom) return;
+
+    try {
+      setIsMessageSending(true);
+
+      // Convert blob to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          resolve(base64.split(',')[1]); // Remove data URL prefix
+        };
+      });
+      reader.readAsDataURL(audioBlob);
+      
+      const base64Audio = await base64Promise;
+
+      // Send voice message
+      return await sendMessage(selectedRoom.id, "", {
+        type: 'voice',
+        audioData: base64Audio
+      });
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send voice message",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setIsMessageSending(false);
+    }
+  };
+
   /**
    * Handler function for selecting a chat room.
    * Updates the selected room and navigates to the room's URL.
@@ -383,7 +412,30 @@ const ChatComponent = ({
     try {
       setLoadingRoomId(room.id);
       setRoomError(null);
-      setSelectedRoom(room);
+      setSelectedRoom({
+        ...room,
+        aiModel: room.aiModel ? {
+          ...room.aiModel,
+          id: room.aiModel.id,
+          userId: room.aiModel.userId,
+          name: room.aiModel.name,
+          personality: room.aiModel.personality,
+          appearance: room.aiModel.appearance,
+          backstory: room.aiModel.backstory,
+          hobbies: room.aiModel.hobbies,
+          likes: room.aiModel.likes,
+          dislikes: room.aiModel.dislikes,
+          imageUrl: room.aiModel.imageUrl,
+          isPrivate: room.aiModel.isPrivate,
+          followerCount: room.aiModel.followerCount,
+          isHumanX: room.aiModel.isHumanX,
+          isAnime: room.aiModel.isAnime,
+          age: room.aiModel.age || null,
+          voiceId: room.aiModel.voiceId || null,
+          createdAt: new Date(room.aiModel.createdAt),
+          updatedAt: new Date(room.aiModel.updatedAt)
+        } : null
+      });
       
       // If this is a new room, generate greeting
       if (room.messages.length === 0 && room.aiModel) {
@@ -391,6 +443,7 @@ const ChatComponent = ({
         const greeting = await generateGreeting(
           {
             id: room.aiModel.id,
+            userId: room.aiModel.userId,
             name: room.aiModel.name,
             personality: room.aiModel.personality || '',
             appearance: room.aiModel.appearance || '',
@@ -398,12 +451,15 @@ const ChatComponent = ({
             hobbies: room.aiModel.hobbies || '',
             likes: room.aiModel.likes || '',
             dislikes: room.aiModel.dislikes || '',
-            createdAt: new Date(),
-            updatedAt: new Date(),
             imageUrl: room.aiModel.imageUrl || '',
-            userId: room.aiModel.userId || '',
             isPrivate: room.aiModel.isPrivate || false,
-            isHumanX: room.aiModel.isHumanX || false
+            followerCount: room.aiModel.followerCount || 0,
+            isAnime: room.aiModel.isAnime || false,
+            isHumanX: room.aiModel.isHumanX || false,
+            age: room.aiModel.age || null,
+            voiceId: room.aiModel.voiceId || null,
+            createdAt: new Date(room.aiModel.createdAt),
+            updatedAt: new Date(room.aiModel.updatedAt)
           },
           [],
           true
@@ -489,12 +545,26 @@ const ChatComponent = ({
               chatRoom={{
                 id: selectedRoom.id,
                 users: selectedRoom.users,
-                aiModel: selectedRoom.aiModel
-                  ? {
-                      ...selectedRoom.aiModel,
-                      imageUrl: selectedRoom.aiModel.imageUrl || DEFAULT_MODEL_IMAGE,
-                    }
-                  : null,
+                aiModel: selectedRoom.aiModel ? {
+                  id: selectedRoom.aiModel.id,
+                  userId: selectedRoom.aiModel.userId,
+                  name: selectedRoom.aiModel.name,
+                  personality: selectedRoom.aiModel.personality,
+                  appearance: selectedRoom.aiModel.appearance,
+                  backstory: selectedRoom.aiModel.backstory,
+                  hobbies: selectedRoom.aiModel.hobbies,
+                  likes: selectedRoom.aiModel.likes,
+                  dislikes: selectedRoom.aiModel.dislikes,
+                  imageUrl: selectedRoom.aiModel.imageUrl,
+                  isPrivate: selectedRoom.aiModel.isPrivate,
+                  followerCount: selectedRoom.aiModel.followerCount,
+                  isHumanX: selectedRoom.aiModel.isHumanX,
+                  isAnime: selectedRoom.aiModel.isAnime,
+                  age: selectedRoom.aiModel.age || null,
+                  voiceId: selectedRoom.aiModel.voiceId || null,
+                  createdAt: new Date(selectedRoom.aiModel.createdAt),
+                  updatedAt: new Date(selectedRoom.aiModel.updatedAt)
+                } : null
               }}
               _onSendMessage={(content) => handleSendMessage(content, selectedRoom)}
               _isLoading={isMessageSending || isGeneratingResponse}
@@ -536,6 +606,17 @@ const ChatComponent = ({
           model={selectedRoom?.aiModel ? mapAIModelToProfileProps(selectedRoom.aiModel) : null}
           onClose={() => setIsProfileVisible(false)}
         />
+      </div>
+
+      {/* Voice message input */}
+      <div className="p-4 border-t">
+        <div className="flex items-center gap-2">
+          <VoiceMessage
+            onVoiceMessage={handleVoiceMessage}
+            isRecording={isRecording}
+            setIsRecording={setIsRecording}
+          />
+        </div>
       </div>
     </div>
   );

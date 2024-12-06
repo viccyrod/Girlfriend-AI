@@ -46,8 +46,9 @@ export async function getOrCreateChatRoom(modelId: string) {
         ...chatRoom.aiModel,
         isHuman: false,
         isFollowing: false
-      }: null,
-      aiModelImageUrl: chatRoom.aiModel?.imageUrl || '/default-ai-image.png'
+      } : null,
+      aiModelImageUrl: chatRoom.aiModel?.imageUrl || '/default-ai-image.png',
+      voiceId: null
     };
   } catch (error) {
     console.error('Error in getOrCreateChatRoom:', error);

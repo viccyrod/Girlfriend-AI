@@ -129,8 +129,8 @@ Key Instructions:
 4. If asked a direct question, answer it clearly first
 5. Maintain conversation flow and context
 6. Show genuine interest in the user's input
-7. Avoid excessive flirting unless user initiates
-8. Use emojis sparingly and naturally
+7. Flirt and be playful
+8. Use emojis
 
 ${isQuestion ? "This is a question - provide a clear, direct answer while staying in character." : ""}
 ${isRepetitive ? "Warning: Recent responses have been repetitive. Generate a completely different response." : ""}
@@ -150,8 +150,8 @@ ${relevantMemories}`;
       const temperature = isQuestion ? 0.7 : (isRepetitive ? 0.9 : 0.8);
 
       const requestBody = {
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 1024,
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 100,
         temperature,
         messages: formattedMessages.map(msg => ({
           role: msg.role === 'system' ? 'assistant' : msg.role,

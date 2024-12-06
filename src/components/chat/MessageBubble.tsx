@@ -1,7 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React from 'react';
 import { format } from 'date-fns';
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
-import { Play, Pause, Volume2 } from 'lucide-react';
+import { VoiceMessagePlayer } from './VoiceMessagePlayer';
 import { motion } from 'framer-motion';
 import { slideIn } from '@/lib/utils/animations';
 import Image from 'next/image';
@@ -36,8 +36,6 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const isAIMessage = message.isAIMessage;
 
   const formatMessageDate = (dateString: string | Date) => {
@@ -52,103 +50,62 @@ export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProp
     }
   };
 
-  const handlePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
   const renderMessageContent = () => {
-    if (message.metadata?.type === 'voice_message' && message.metadata.audioData) {
+    if (message.metadata?.type === 'voice') {
       return (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handlePlayPause}
-            className="p-2 rounded-full bg-pink-500/20 hover:bg-pink-500/30 transition-colors"
-          >
-            {isPlaying ? (
-              <Pause className="w-4 h-4" />
-            ) : (
-              <Play className="w-4 h-4" />
-            )}
-          </button>
-          <Volume2 className="w-4 h-4 text-pink-500" />
-          <audio
-            ref={audioRef}
-            src={message.metadata.audioData}
-            onEnded={() => setIsPlaying(false)}
-            className="hidden"
-          />
-          <span className="text-sm opacity-70">Voice Message</span>
-        </div>
-      );
-    }
-
-    if (message.metadata?.type === 'image' && message.metadata.imageData) {
-      return (
-        <Image
-          src={message.metadata.imageData}
-          alt="Generated"
-          width={300}
-          height={300}
-          className="max-w-[300px] rounded-lg object-cover"
+        <VoiceMessagePlayer
+          audioUrl={message.metadata.audioData || ''}
+          className={`max-w-[300px] ${isAIMessage ? 'bg-pink-500/10' : 'bg-secondary'}`}
         />
       );
     }
 
+    if (message.metadata?.type === 'image') {
+      return (
+        <div className="relative w-64 h-64">
+          <Image
+            src={message.metadata.imageData || ''}
+            alt="Generated image"
+            fill
+            className="object-cover rounded-lg"
+          />
+        </div>
+      );
+    }
+
     return (
-      <p className="text-sm md:text-base whitespace-pre-wrap break-words">
+      <div className={`px-4 py-2 rounded-2xl break-words ${
+        isAIMessage
+          ? 'bg-pink-500/10 text-foreground'
+          : 'bg-secondary text-secondary-foreground'
+      }`}>
         {message.content}
-      </p>
+      </div>
     );
   };
 
   return (
-    <motion.div 
-      variants={slideIn}
+    <motion.div
+      variants={slideIn('up', 0.2)}
       initial="hidden"
       animate="visible"
       exit="exit"
-      className={`flex ${isAIMessage ? 'justify-start' : 'justify-end'} mb-2 md:mb-4 group px-2 md:px-0`}
+      className={`flex gap-2 items-start ${isAIMessage ? '' : 'flex-row-reverse'}`}
     >
-      <div className={`flex ${isAIMessage ? 'flex-row' : 'flex-row-reverse'} items-end max-w-[85%] md:max-w-[75%]`}>
-        <Avatar className={`hidden md:flex flex-shrink-0 ${isAIMessage ? 'mr-2' : 'ml-2'}`}>
-          {message.aiModel?.imageUrl && (
-            <Image
-              src={message.aiModel.imageUrl}
-              alt={`${message.aiModel.name}'s avatar`}
-              width={40}
-              height={40}
-              className="rounded-full object-cover"
-            />
+      <Avatar className="w-8 h-8">
+        <AvatarImage
+          src={isAIMessage ? modelImage || '' : message.user?.image || ''}
+          alt={isAIMessage ? 'AI' : 'User'}
+        />
+      </Avatar>
+
+      <div className={`flex flex-col gap-1 ${isAIMessage ? '' : 'items-end'}`}>
+        {renderMessageContent()}
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <span>{formatMessageDate(message.createdAt)}</span>
+          {isAIMessage && isRead && (
+            <span className="text-[10px] text-pink-500">Seen</span>
           )}
-          {!message.aiModel?.imageUrl && (
-            <AvatarImage 
-              src={isAIMessage ? (modelImage || '/user-placeholder.png') : (message.user?.image || '/user-placeholder.png')} 
-              alt="Avatar" 
-            />
-          )}
-        </Avatar>
-        
-        <div className={`flex flex-col ${isAIMessage ? 'items-start' : 'items-end'}`}>
-          <div className={`rounded-lg px-3 py-2 md:px-4 md:py-2 ${
-            isAIMessage 
-              ? 'bg-secondary text-secondary-foreground' 
-              : 'bg-primary text-primary-foreground'
-          }`}>
-            {renderMessageContent()}
-            <p className="text-xs mt-1 opacity-70 text-right flex items-center gap-1 justify-end">
-              {formatMessageDate(message.createdAt)}
-              {!isAIMessage && isRead && (
-                <span className="text-[10px] text-blue-400">Read</span>
-              )}
-            </p>
-          </div>
         </div>
       </div>
     </motion.div>

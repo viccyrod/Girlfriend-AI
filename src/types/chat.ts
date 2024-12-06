@@ -25,38 +25,38 @@ export interface CreatedBy {
   imageUrl?: string | null;
 }
 
-export interface AiModel {
+export type AiModel = {
   id: string;
-  name: string;
-  imageUrl: string | null;
-  personality: string;
   userId: string;
-  followerCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+  name: string;
+  likes: string;
+  personality: string;
   appearance: string;
   backstory: string;
   hobbies: string;
-  likes: string;
   dislikes: string;
-  age: number | null;
+  imageUrl: string;
+  voiceId: string | null;
   isPrivate: boolean;
-  isAnime: boolean;
-  isHuman: boolean;
-  isHumanX: boolean;
+  followerCount: number;
   isFollowing: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: {
+  isHumanX: boolean;
+  isAnime: boolean;
+  age: number | null;
+  createdBy?: {
     id: string;
     name: string;
     email: string;
     imageUrl: string | null;
-  };
-}
+  } | null;
+};
 
 export interface ExtendedChatRoom {
   id: string;
   name: string;
-  aiModel: AiModel;
+  aiModel: AiModel | null;
   aiModelId: string;
   aiModelImageUrl: string | null;
   users: User[];
@@ -64,6 +64,7 @@ export interface ExtendedChatRoom {
   createdAt: Date;
   updatedAt: Date;
   createdBy: CreatedBy | null;
+  voiceId?: string | null;
 }
 
 // Component Props and Function Types

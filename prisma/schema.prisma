@@ -188,6 +188,7 @@ model AIModel {
   dislikes              String
   age                   Int?
   imageUrl              String
+  voiceId               String?                 // ElevenLabs voice ID
   images                Image[]
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt

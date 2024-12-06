@@ -12,7 +12,12 @@ export default function ChatMessages({ chatRoom }: ChatMessagesProps) {
   const { toast } = useToast();
   const safeAiModel = chatRoom.aiModel ? {
     ...chatRoom.aiModel,
-    imageUrl: chatRoom.aiModel.imageUrl ?? ''
+    voiceId: chatRoom.aiModel.voiceId || null,
+    isAnime: chatRoom.aiModel.isAnime || false,
+    isFollowing: chatRoom.aiModel.isFollowing || false,
+    age: chatRoom.aiModel.age || null,
+    createdAt: new Date(chatRoom.aiModel.createdAt),
+    updatedAt: new Date(chatRoom.aiModel.updatedAt),
   } : null;
 
   const handleSendMessage = async (content: string) => {
@@ -28,7 +33,7 @@ export default function ChatMessages({ chatRoom }: ChatMessagesProps) {
   };
 
   return <ClientChatMessages 
-    chatRoom={{ ...chatRoom, aiModel: safeAiModel }} 
+    chatRoom={{ ...chatRoom, aiModel: safeAiModel }}
     _onSendMessage={handleSendMessage}
     _isLoading={false} 
   />;

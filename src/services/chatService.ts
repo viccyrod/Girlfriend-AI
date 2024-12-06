@@ -8,6 +8,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { aiRateLimiter } from '@/lib/utils/rateLimiter';
 import { conversationManager } from '@/lib/chat/conversationManager';
 import OpenAI from 'openai';
+import { VoiceService } from '@/lib/services/voiceService';
 
 const _anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '',
@@ -54,9 +55,11 @@ export class ChatService {
   private static instance: ChatService;
   private conversationContexts: Map<string, ConversationContext> = new Map();
   private rateLimiter: typeof aiRateLimiter;
+  private voiceService: VoiceService;
 
   constructor() {
     this.rateLimiter = aiRateLimiter;
+    this.voiceService = VoiceService.getInstance();
   }
 
   static getInstance(): ChatService {
@@ -329,6 +332,30 @@ export class ChatService {
     }
 
     return response.json();
+  }
+
+  async generateVoiceMessage(text: string, aiModelId: string): Promise<ArrayBuffer> {
+    try {
+      // Get the voice ID associated with the AI model
+      const aiModel = await prisma.aIModel.findUnique({
+        where: { id: aiModelId },
+        select: {
+          id: true,
+          voiceId: true
+        }
+      });
+
+      if (!aiModel?.voiceId) {
+        throw new Error('No voice ID associated with this AI model');
+      }
+
+      // Generate voice message
+      const audioBuffer = await this.voiceService.textToSpeech(text, aiModel.voiceId);
+      return audioBuffer;
+    } catch (error) {
+      logger.error({ message: 'Error generating voice message' });
+      throw error;
+    }
   }
 }
 

@@ -69,7 +69,8 @@ export async function POST(
             hobbies: true,
             likes: true,
             dislikes: true,
-            isHumanX: true
+            isHumanX: true,
+            voiceId: true
           }
         },
         messages: {
