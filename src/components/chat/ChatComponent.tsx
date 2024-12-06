@@ -252,6 +252,42 @@ const ChatComponent = ({
             } : null
           } : null,
         };
+
+        // Send greeting if this is a new room
+        if (activeRoom.messages.length === 0 && activeRoom.aiModel) {
+          setIsGeneratingResponse(true);
+          try {
+            const greeting = await generateGreeting(
+              {
+                id: activeRoom.aiModel.id,
+                userId: activeRoom.aiModel.userId,
+                name: activeRoom.aiModel.name,
+                personality: activeRoom.aiModel.personality || '',
+                appearance: activeRoom.aiModel.appearance || '',
+                backstory: activeRoom.aiModel.backstory || '',
+                hobbies: activeRoom.aiModel.hobbies || '',
+                likes: activeRoom.aiModel.likes || '',
+                dislikes: activeRoom.aiModel.dislikes || '',
+                imageUrl: activeRoom.aiModel.imageUrl || '',
+                isPrivate: activeRoom.aiModel.isPrivate || false,
+                followerCount: activeRoom.aiModel.followerCount || 0,
+                isAnime: activeRoom.aiModel.isAnime || false,
+                isHumanX: activeRoom.aiModel.isHumanX || false,
+                age: activeRoom.aiModel.age || null,
+                voiceId: activeRoom.aiModel.voiceId || null,
+                createdAt: new Date(activeRoom.aiModel.createdAt),
+                updatedAt: new Date(activeRoom.aiModel.updatedAt)
+              },
+              [],
+              true
+            );
+            await sendMessage(activeRoom.id, greeting);
+          } catch (error) {
+            console.error('Error generating greeting:', error);
+          } finally {
+            setIsGeneratingResponse(false);
+          }
+        }
       }
 
       // Fetch all chat rooms
@@ -437,41 +473,35 @@ const ChatComponent = ({
         } : null
       });
       
-      // If this is a new room, generate greeting
-      if (room.messages.length === 0 && room.aiModel) {
+      // Send greeting through dedicated endpoint
+      if (room.aiModel) {
+        console.log('Sending greeting for room:', room.id);
         setIsGreetingGenerating(true);
-        const greeting = await generateGreeting(
-          {
-            id: room.aiModel.id,
-            userId: room.aiModel.userId,
-            name: room.aiModel.name,
-            personality: room.aiModel.personality || '',
-            appearance: room.aiModel.appearance || '',
-            backstory: room.aiModel.backstory || '',
-            hobbies: room.aiModel.hobbies || '',
-            likes: room.aiModel.likes || '',
-            dislikes: room.aiModel.dislikes || '',
-            imageUrl: room.aiModel.imageUrl || '',
-            isPrivate: room.aiModel.isPrivate || false,
-            followerCount: room.aiModel.followerCount || 0,
-            isAnime: room.aiModel.isAnime || false,
-            isHumanX: room.aiModel.isHumanX || false,
-            age: room.aiModel.age || null,
-            voiceId: room.aiModel.voiceId || null,
-            createdAt: new Date(room.aiModel.createdAt),
-            updatedAt: new Date(room.aiModel.updatedAt)
-          },
-          [],
-          true
-        );
-        await sendMessage(room.id, greeting);
+        setIsGeneratingResponse(true);
+        const response = await fetch(`/api/chat/${room.id}/greeting`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          console.error('Greeting error:', error);
+          throw new Error(error.details || 'Failed to generate greeting');
+        }
+
+        const data = await response.json();
+        console.log('Greeting response:', data);
       }
     } catch (error) {
+      console.error('Room selection error:', error);
       handleApiError(error, toast, "Failed to select chat room");
       setRoomError("Failed to select chat room");
     } finally {
       setLoadingRoomId(null);
       setIsGreetingGenerating(false);
+      setIsGeneratingResponse(false);
     }
   };
 
@@ -542,32 +572,10 @@ const ChatComponent = ({
             </button>
             
             <ClientChatMessages
-              chatRoom={{
-                id: selectedRoom.id,
-                users: selectedRoom.users,
-                aiModel: selectedRoom.aiModel ? {
-                  id: selectedRoom.aiModel.id,
-                  userId: selectedRoom.aiModel.userId,
-                  name: selectedRoom.aiModel.name,
-                  personality: selectedRoom.aiModel.personality,
-                  appearance: selectedRoom.aiModel.appearance,
-                  backstory: selectedRoom.aiModel.backstory,
-                  hobbies: selectedRoom.aiModel.hobbies,
-                  likes: selectedRoom.aiModel.likes,
-                  dislikes: selectedRoom.aiModel.dislikes,
-                  imageUrl: selectedRoom.aiModel.imageUrl,
-                  isPrivate: selectedRoom.aiModel.isPrivate,
-                  followerCount: selectedRoom.aiModel.followerCount,
-                  isHumanX: selectedRoom.aiModel.isHumanX,
-                  isAnime: selectedRoom.aiModel.isAnime,
-                  age: selectedRoom.aiModel.age || null,
-                  voiceId: selectedRoom.aiModel.voiceId || null,
-                  createdAt: new Date(selectedRoom.aiModel.createdAt),
-                  updatedAt: new Date(selectedRoom.aiModel.updatedAt)
-                } : null
-              }}
-              _onSendMessage={(content) => handleSendMessage(content, selectedRoom)}
-              _isLoading={isMessageSending || isGeneratingResponse}
+              chatRoom={selectedRoom}
+              _onSendMessage={(content: string) => handleSendMessage(content, selectedRoom)}
+              _isLoading={isMessageSending}
+              isGeneratingResponse={isGeneratingResponse}
             />
             
             {/* Toggle profile visibility button */}

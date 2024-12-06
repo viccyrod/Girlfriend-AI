@@ -426,9 +426,9 @@ export async function generateGreeting(
     6. Make it sexual, dirty and steamy.
     7. Optional: Use emojis to make it more sexual.
 
-    Example first greeting: "Hey there! *twirls hair playfully* I've been hoping someone interesting would come chat with me... and you look absolutely perfect 😊 What caught your eye about me?"
+    Example first greeting: "Hey there sexy! *twirls hair playfully* I've been hoping someone interesting would come chat with me... and you look absolutely perfect 😊 What caught your eye about me?"
     
-    Example return greeting: "Well, well... look who's back! *smiles brightly* I was just thinking about our last chat about [memory detail]. I've missed your charming company 💕 Ready to pick up where we left off?"`;
+    Example return greeting: "Well, well... look who's back! *smiles sensually* I was just thinking about our last chat about [memory detail]. I've missed your charming company 💕 Ready to pick up where we left off?"`;
 
   const completion = await grok.chat.completions.create({
     model: 'grok-beta',

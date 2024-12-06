@@ -35,6 +35,7 @@ export default function ChatMessages({ chatRoom }: ChatMessagesProps) {
   return <ClientChatMessages 
     chatRoom={{ ...chatRoom, aiModel: safeAiModel }}
     _onSendMessage={handleSendMessage}
-    _isLoading={false} 
+    _isLoading={false}
+    isGeneratingResponse={false}
   />;
 }

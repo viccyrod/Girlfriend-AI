@@ -51,6 +51,7 @@ interface ClientChatMessagesProps {
   };
   _onSendMessage: (content: string) => Promise<void>;
   _isLoading: boolean;
+  isGeneratingResponse: boolean;
 }
 
 // Typing Indicator Component
@@ -73,7 +74,7 @@ const TypingIndicator = ({ modelImage }: { modelImage: string | null }) => (
   </div>
 );
 
-export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoading }: ClientChatMessagesProps) {
+export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoading, isGeneratingResponse }: ClientChatMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoadingResponse, setIsLoadingResponse] = useState(false);
@@ -299,7 +300,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
             isRead={message.isAIMessage ? true : message.metadata?.isRead || false}
           />
         ))}
-        {isLoadingResponse && <TypingIndicator modelImage={chatRoom.aiModel?.imageUrl || null} />}
+        {(isLoadingResponse || isGeneratingResponse) && <TypingIndicator modelImage={chatRoom.aiModel?.imageUrl || null} />}
         <div ref={messagesEndRef} /> {/* Scroll anchor */}
       </div>
 
