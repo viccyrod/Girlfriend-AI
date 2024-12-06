@@ -1,10 +1,6 @@
 import { Message as PrismaMessage, Prisma } from '@prisma/client';
 
-export type JsonValue = string | number | boolean | null | JsonObject | JsonArray | undefined;
-export interface JsonObject {
-  [key: string]: JsonValue;
-}
-export interface JsonArray extends Array<JsonValue> { }
+export type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[] | undefined;
 
 export interface MessageMetadata {
   type: string;
