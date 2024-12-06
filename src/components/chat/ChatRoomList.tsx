@@ -1,12 +1,9 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
-// import { navigateToChatRoom } from '@/app/api/chat/clientActions';
+import { Trash2, Camera } from 'lucide-react';
 import { format } from 'date-fns';
 import { ExtendedMessage, ExtendedChatRoom } from '@/types/chat';
-// import { deleteChatRoom } from '@/lib/actions/chat';
-
 
 interface ChatRoomListProps {
   isLoading: boolean;
@@ -33,24 +30,44 @@ export function ChatRoomList({
 
   const getMessagePreview = (message?: ExtendedMessage) => {
     if (!message) return 'No messages yet';
+    
+    // Handle image messages
+    if (message.metadata?.type === 'image') {
+      return `📸 Photo`;
+    }
+    
+    // Handle voice messages
+    if (message.metadata?.type === 'voice_message') {
+      return `🎤 Voice Message`;
+    }
+
+    // Hide messages that look like IDs
+    if (message.content.startsWith('cm2') || /^[a-zA-Z0-9]{20,}$/.test(message.content)) {
+      return message.isAIMessage ? 'AI is typing...' : 'Message sent';
+    }
+    
     return message.isAIMessage 
-      ? `${message.aiModelId || 'AI'}: ${message.content}` 
+      ? message.content
       : `You: ${message.content}`;
   };
 
-  const handleRoomClick = (room: ExtendedChatRoom) => {
-    onSelectRoom(room);
-  };
+  const sortedChatRooms = [...chatRooms].sort((a, b) => {
+    const aLatest = a.messages?.[a.messages.length - 1]?.createdAt;
+    const bLatest = b.messages?.[b.messages.length - 1]?.createdAt;
+    if (!aLatest) return 1;
+    if (!bLatest) return -1;
+    return new Date(bLatest).getTime() - new Date(aLatest).getTime();
+  });
 
   return (
     <div className="border-r border-border h-full w-80 overflow-hidden">
       <div className="h-full overflow-y-auto">
         <ul className="divide-y divide-border">
-          {chatRooms.length === 0 ? (
+          {sortedChatRooms.length === 0 ? (
             <li className="p-4 text-muted-foreground">No chat rooms available</li>
           ) : (
-            chatRooms.map((room) => {
-              const latestMessage = room.messages?.[0];
+            sortedChatRooms.map((room) => {
+              const latestMessage = room.messages?.[room.messages.length - 1];
               
               return (
                 <li
@@ -60,7 +77,7 @@ export function ChatRoomList({
                   } relative group ${loadingRoomId === room.id ? 'opacity-50' : ''}`}
                   onMouseEnter={() => setHoveredRoomId(room.id)}
                   onMouseLeave={() => setHoveredRoomId(null)}
-                  onClick={() => handleRoomClick(room)}
+                  onClick={() => onSelectRoom(room)}
                 >
                   <div className="flex items-center space-x-4">
                     <div className="flex-shrink-0">

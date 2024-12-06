@@ -110,7 +110,13 @@ export type ExtendedMessage = {
   createdAt: Date | string;
   isAIMessage: boolean;
   aiModelId?: string;
-  // Add any other necessary fields
+  metadata?: {
+    type?: string;
+    imageUrl?: string;
+    prompt?: string;
+    audioData?: string;
+    isRead?: boolean;
+  };
 };
 
 // Add this type definition
