@@ -95,27 +95,32 @@ export async function deleteChatRoom(roomId: string): Promise<void> {
 
 // Generate an image in a chat room
 export async function generateImage(prompt: string, chatRoomId: string) {
-  if (!chatRoomId) {
-    throw new Error('Chat room ID is required');
+  try {
+    console.log('Generating image with prompt:', prompt);
+    const response = await fetch('/api/image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        chatRoomId,
+        style: 'realistic'
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to generate image');
+    }
+
+    const data = await response.json();
+    console.log('Generated image response:', data);
+    return data;
+  } catch (error) {
+    console.error('Error generating image:', error);
+    throw error;
   }
-
-  const response = await fetch('/api/image', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ 
-      prompt,
-      chatRoomId
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to generate image');
-  }
-
-  return response.json();
 }
 
 // Subscribe to chat room messages using SSE

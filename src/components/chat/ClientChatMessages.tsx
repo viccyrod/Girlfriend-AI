@@ -17,38 +17,11 @@ import {
 import { MessageBubble } from './MessageBubble';
 import { debounce } from 'lodash';
 import Image from 'next/image';
-
-// Message and ChatRoom Interfaces
-interface Message {
-  id: string;
-  content: string;
-  userId: string | null;
-  chatRoomId: string;
-  createdAt: string | Date;
-  updatedAt: string | Date;
-  aiModelId: string | null;
-  isAIMessage: boolean;
-  role: string;
-  metadata: {
-    type?: string;
-    imageData?: string;
-    prompt?: string;
-    isRead?: boolean;
-    [key: string]: unknown;
-  };
-  user?: {
-    id: string;
-    name: string | null;
-    image: string | null;
-  } | null;
-}
+import { Message, MessageMetadata } from '@/types/message';
+import { ExtendedChatRoom } from '@/types/chat';
 
 interface ClientChatMessagesProps {
-  chatRoom: {
-    id: string;
-    users: User[];
-    aiModel: AIModel | null;
-  };
+  chatRoom: ExtendedChatRoom;
   _onSendMessage: (content: string) => Promise<void>;
   _isLoading: boolean;
   isGeneratingResponse: boolean;
@@ -73,6 +46,18 @@ const TypingIndicator = ({ modelImage }: { modelImage: string | null }) => (
     </div>
   </div>
 );
+
+const transformPrismaMessage = (message: any): Message => {
+  return {
+    ...message,
+    metadata: message.metadata as MessageMetadata,
+    user: message.user || {
+      id: message.userId || '',
+      name: null,
+      image: null
+    }
+  };
+};
 
 export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoading, isGeneratingResponse }: ClientChatMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -141,25 +126,39 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     [chatRoom.id, toast]
   );
 
-  const handleSendMessage = useCallback(async (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || isLoadingResponse) return;
 
     const messageContent = newMessage.trim();
     setNewMessage('');
+    setIsLoadingResponse(true);
 
-    if (isRateLimited) {
-      messageQueue.current.push(messageContent);
-      toast({
-        title: 'Message queued',
-        description: `Your message will be sent in ${rateLimitTimer} seconds.`,
-        duration: 3000,
+    try {
+      const response = await sendMessage(chatRoom.id, messageContent);
+      
+      setMessages(prev => {
+        const newMessage = response.userMessage;
+        if (!newMessage) return prev;
+        
+        const typedMessage = transformPrismaMessage(newMessage);
+        return [...prev, typedMessage].sort((a, b) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
       });
-      return;
-    }
 
-    await debouncedSendMessage(messageContent);
-  }, [newMessage, isLoadingResponse, isRateLimited, rateLimitTimer, debouncedSendMessage, toast]);
+      scrollToBottom();
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send message',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingResponse(false);
+    }
+  };
 
   // Add cleanup
   useEffect(() => {
@@ -189,57 +188,28 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
   useEffect(() => {
     let isMounted = true;
     
-    const loadInitialMessages = async () => {
+    const fetchMessages = async () => {
       try {
-        // Load messages immediately
         const initialMessages = await getChatRoomMessages(chatRoom.id);
         if (isMounted) {
-          setMessages(initialMessages as Message[]);
+          setMessages(initialMessages.map(transformPrismaMessage));
           scrollToBottom();
         }
       } catch (error) {
-        console.error('Error loading messages:', error);
+        console.error('Error fetching messages:', error);
         toast({
-          title: "Error",
-          description: "Failed to load chat messages",
-          variant: "destructive",
+          title: 'Error',
+          description: 'Failed to load messages',
+          variant: 'destructive',
         });
       }
     };
 
-    // Load messages right away
-    loadInitialMessages();
-
-    // Set up SSE subscription in parallel
-    const unsubscribe = subscribeToMessages(chatRoom.id, (newMessage) => {
-      if (!isMounted) return;
-      
-      setMessages(prev => {
-        // Don't add duplicates
-        if (prev.some(msg => msg.id === newMessage.id)) {
-          return prev;
-        }
-        
-        const typedMessage: Message = {
-          ...newMessage,
-          metadata: newMessage.metadata as Message['metadata']
-        };
-        
-        return [...prev, typedMessage].sort((a, b) => 
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-      });
-      scrollToBottom('smooth');
-    });
-
+    fetchMessages();
     return () => {
       isMounted = false;
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-      }
-      unsubscribe();
     };
-  }, [chatRoom.id, scrollToBottom, toast]);
+  }, [chatRoom.id, toast]);
 
   const handleVoiceMessage = async (audioBlob: Blob) => {
     try {
@@ -311,8 +281,13 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
             onSelect={async (prompt: string) => {
               try {
                 setIsLoadingResponse(true);
+                // Send the message first to show the prompt in chat
+                await sendMessage(chatRoom.id, prompt, { type: 'text' });
+                // Then generate the image
                 const response = await generateImage(prompt, chatRoom.id);
-                setMessages(prev => [...prev, response.message]);
+                if (response.message) {
+                  setMessages(prev => [...prev, response.message]);
+                }
                 scrollToBottom('smooth');
               } catch (error) {
                 toast({

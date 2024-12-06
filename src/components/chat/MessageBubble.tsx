@@ -5,29 +5,8 @@ import { VoiceMessagePlayer } from './VoiceMessagePlayer';
 import { motion } from 'framer-motion';
 import { slideIn } from '@/lib/utils/animations';
 import Image from 'next/image';
-
-interface Message {
-  id: string;
-  content: string;
-  isAIMessage: boolean;
-  createdAt: string | Date;
-  metadata?: {
-    type?: string;
-    audioData?: string;
-    imageData?: string;
-    isRead?: boolean;
-    [key: string]: unknown;
-  };
-  user?: {
-    id: string;
-    name: string | null;
-    image: string | null;
-  } | null;
-  aiModel?: {
-    imageUrl: string;
-    name: string;
-  };
-}
+import { ChatImageMessage } from './ChatImageMessage';
+import { Message, MessageMetadata } from '@/types/message';
 
 interface MessageBubbleProps {
   message: Message;
@@ -38,12 +17,9 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProps) {
   const isAIMessage = message.isAIMessage;
 
-  const formatMessageDate = (dateString: string | Date) => {
+  const formatMessageDate = (dateString: Date) => {
     try {
-      const date = typeof dateString === 'string' 
-        ? new Date(dateString.replace('Z', ''))
-        : dateString;
-      return format(date, 'HH:mm');
+      return format(dateString, 'HH:mm');
     } catch (error) {
       console.error('Error formatting date:', dateString, error);
       return '--:--';
@@ -51,7 +27,7 @@ export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProp
   };
 
   const renderMessageContent = () => {
-    if (message.metadata?.type === 'voice') {
+    if (message.metadata?.type === 'voice_message' && 'audioData' in message.metadata) {
       return (
         <VoiceMessagePlayer
           audioUrl={message.metadata.audioData || ''}
@@ -61,16 +37,7 @@ export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProp
     }
 
     if (message.metadata?.type === 'image') {
-      return (
-        <div className="relative w-64 h-64">
-          <Image
-            src={message.metadata.imageData || ''}
-            alt="Generated image"
-            fill
-            className="object-cover rounded-lg"
-          />
-        </div>
-      );
+      return <ChatImageMessage message={message} />;
     }
 
     return (
