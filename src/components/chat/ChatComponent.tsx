@@ -607,8 +607,9 @@ const ChatComponent = ({
         transition-transform duration-300 ease-in-out z-40
         ${_isProfileVisible 
           ? "translate-x-0" 
-          : "translate-x-full md:translate-x-[400px]"
+          : "translate-x-full"
         }
+        ${_isProfileVisible && !selectedRoom ? "hidden md:block" : ""}
       `}>
         <ModelProfile
           model={selectedRoom?.aiModel ? mapAIModelToProfileProps(selectedRoom.aiModel) : null}
