@@ -1,7 +1,7 @@
 interface RunPodResponse {
   id: string;
   status: 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
-  output: {
+  output?: {
     image: string;
   };
 }
@@ -9,46 +9,8 @@ interface RunPodResponse {
 export class RunPodClient {
   private static readonly API_URL = 'https://api.runpod.ai/v2/a1gzps0inilt37';
   private static readonly API_KEY = process.env.RUNPOD_API_KEY;
-  private static readonly MAX_RETRIES = 30; // Maximum number of status check retries
-  private static readonly RETRY_INTERVAL = 2000; // 2 seconds between retries
-  private static readonly TIMEOUT = 60000; // 60 seconds timeout
 
-  private static async checkStatus(jobId: string): Promise<RunPodResponse> {
-    const response = await fetch(`${this.API_URL}/status/${jobId}`, {
-      headers: {
-        'Authorization': `Bearer ${this.API_KEY}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Status check failed: ${await response.text()}`);
-    }
-
-    return response.json();
-  }
-
-  private static async pollStatus(jobId: string): Promise<RunPodResponse> {
-    let retries = 0;
-    
-    while (retries < this.MAX_RETRIES) {
-      const status = await this.checkStatus(jobId);
-      
-      if (status.status === 'COMPLETED') {
-        return status;
-      }
-      
-      if (status.status === 'FAILED') {
-        throw new Error('Image generation failed');
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, this.RETRY_INTERVAL));
-      retries++;
-    }
-    
-    throw new Error('Image generation timed out');
-  }
-
-  static async generateImage(prompt: string, options = {
+  static async startImageGeneration(prompt: string, options = {
     negative_prompt: "blurry, bad quality, distorted, deformed, disfigured, bad anatomy, watermark",
     num_inference_steps: 40,
     guidance_scale: 7.5,
@@ -57,9 +19,8 @@ export class RunPodClient {
     scheduler: "DPMSolverMultistep",
     num_images: 1
   }): Promise<string> {
-    console.log('🎨 RunPod generating image with prompt:', prompt);
+    console.log('🎨 RunPod starting image generation with prompt:', prompt);
 
-    // Start the job
     const startResponse = await fetch(`${this.API_URL}/run`, {
       method: 'POST',
       headers: {
@@ -81,21 +42,26 @@ export class RunPodClient {
     }
 
     const { id: jobId } = await startResponse.json();
+    return jobId;
+  }
 
-    // Poll for completion with timeout
-    try {
-      const result = await Promise.race([
-        this.pollStatus(jobId),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Image generation timed out')), this.TIMEOUT)
-        )
-      ]) as RunPodResponse;
+  static async checkJobStatus(jobId: string): Promise<RunPodResponse> {
+    console.log('🔍 Checking RunPod job status:', jobId);
+    
+    const response = await fetch(`${this.API_URL}/status/${jobId}`, {
+      headers: {
+        'Authorization': `Bearer ${this.API_KEY}`
+      }
+    });
 
-      console.log('✅ RunPod response:', result);
-      return result.output.image;
-    } catch (error) {
-      console.error('❌ RunPod error:', error);
-      throw error;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ RunPod status check error:', errorText);
+      throw new Error(`Status check failed: ${errorText}`);
     }
+
+    const status = await response.json();
+    console.log('✅ RunPod status:', status.status);
+    return status;
   }
 }

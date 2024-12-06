@@ -58,24 +58,49 @@ export async function POST(request: Request) {
     try {
       const imagePrompt = `Stunning portrait of ${aiModelDetails.appearance}. Ultra realistic, photogenic, beautiful lighting, high fashion photography style, 8k resolution.`;
       
-      const base64Image = await Promise.race([
-        RunPodClient.generateImage(imagePrompt),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error(`Image generation timed out after ${AI_TIMEOUT/1000} seconds`)), AI_TIMEOUT)
-        )
-      ]);
+      // Start image generation
+      const jobId = await RunPodClient.startImageGeneration(imagePrompt);
+      
+      // Poll for completion
+      let retries = 0;
+      const maxRetries = 30;
+      let base64Image = '';
+      
+      while (retries < maxRetries) {
+        const status = await RunPodClient.checkJobStatus(jobId);
+        
+        if (status.status === 'COMPLETED' && status.output?.image) {
+          // Upload to Cloudinary via API
+          const uploadResponse = await fetch(new URL('/api/upload', request.url).toString(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              base64Image: status.output.image,
+              folder: 'ai-models',
+              publicId: `${aiModelDetails.name}-${Date.now()}`
+            })
+          });
 
-      const uploadResponse = await cloudinary.uploader.upload(
-        `data:image/png;base64,${base64Image}`,
-        {
-          folder: 'ai-models',
-          resource_type: 'image',
-          public_id: `${aiModelDetails.name}-${Date.now()}`,
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload image');
+          }
+
+          const { url } = await uploadResponse.json();
+          cloudinaryImageUrl = url;
+          break;
         }
-      );
-
-      cloudinaryImageUrl = uploadResponse.secure_url;
-      console.log('Cloudinary Image URL:', cloudinaryImageUrl);
+        
+        if (status.status === 'FAILED') {
+          throw new Error('Image generation failed');
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        retries++;
+      }
+      
+      if (!cloudinaryImageUrl) {
+        throw new Error('Image generation timed out');
+      }
     } catch (error) {
       console.error('Error generating or uploading image:', error);
     }

@@ -5,6 +5,7 @@ import { storeMemory } from '@/utils/memory';
 import { retrieveMemories } from '@/utils/memory';
 import { RunPodClient } from './clients/runpod';
 import { ChatCompletionMessageParam } from 'openai/resources/index.mjs';
+import { v2 as cloudinary } from 'cloudinary';
 
 // Extend the Prisma AIModel type to make certain fields optional
 type AIModel = Omit<PrismaAIModel, 'age' | 'followerCount' | 'isAnime'> & {
@@ -484,26 +485,64 @@ export async function testAIConnection(message: string = "Hello! This is a test 
 }
 
 // Add a new function to handle image generation
-export async function generateImage(prompt: string): Promise<string> {
+export async function generateImage(prompt: string, chatRoomId: string): Promise<{ imageUrl: string }> {
   try {
-    console.log('Generating image with prompt:', prompt);
-    
     // Use RunPod client to generate the image
-    const imageUrl = await RunPodClient.generateImage(prompt, {
+    const jobId = await RunPodClient.startImageGeneration(prompt, {
       negative_prompt: "blurry, bad quality, distorted, deformed, disfigured, bad anatomy, watermark",
       num_inference_steps: 40,
       guidance_scale: 7.5,
-      width: 512, // Reduced size for better performance
-      height: 512,
-      scheduler: "DPMSolverMultistep",
+      width: 1024,
+      height: 1024,
+      scheduler: "k_lms",
       num_images: 1
     });
 
-    console.log('Image generated successfully:', imageUrl);
-    return imageUrl;
+    // Poll for completion
+    let retries = 0;
+    const maxRetries = 30;
+    let imageUrl = '';
+
+    while (retries < maxRetries) {
+      const status = await RunPodClient.checkJobStatus(jobId);
+      
+      if (status.status === 'COMPLETED' && status.output?.image) {
+        // Upload to Cloudinary via API route
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            base64Image: status.output.image,
+            folder: 'chat-images',
+            publicId: `chat-${chatRoomId}-${Date.now()}`
+          })
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload image');
+        }
+
+        const { url } = await uploadResponse.json();
+        imageUrl = url;
+        break;
+      }
+      
+      if (status.status === 'FAILED') {
+        throw new Error('Image generation failed');
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      retries++;
+    }
+
+    if (!imageUrl) {
+      throw new Error('Image generation timed out');
+    }
+
+    return { imageUrl };
   } catch (error) {
     console.error('Error generating image:', error);
-    throw new Error('Failed to generate image');
+    throw error;
   }
 }
 

@@ -6,7 +6,7 @@ import { AIModel, User } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Send } from 'lucide-react';
-import ImageGenerationMenu from './ImageGenerationMenu';
+import { ImageGenerationMenu } from './ImageGenerationMenu';
 import { VoiceMessage } from './VoiceMessage';
 import {
   sendMessage,
@@ -278,40 +278,23 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
       <div className="p-2 md:p-4 border-t border-gray-800 bg-[#0a0a0a]">
         <form onSubmit={handleSendMessage} className="flex items-end gap-2">
           <ImageGenerationMenu 
-            onSelect={async (prompt: string) => {
-              try {
-                setIsLoadingResponse(true);
-                // Send the message first to show the prompt in chat
-                await sendMessage(chatRoom.id, prompt, { type: 'text' });
-                // Then generate the image
-                const response = await generateImage(prompt, chatRoom.id);
-                if (response.message) {
-                  setMessages(prev => [...prev, response.message]);
-                }
-                scrollToBottom('smooth');
-              } catch (error) {
-                toast({
-                  title: "Error",
-                  description: error instanceof Error ? error.message : "Failed to generate image. Please try again.",
-                  variant: "destructive",
-                });
-              } finally {
-                setIsLoadingResponse(false);
-              }
-            }} 
+            chatRoom={chatRoom}
+            onClose={() => setIsLoadingResponse(false)}
           />
           <VoiceMessage
             onVoiceMessage={handleVoiceMessage}
             isRecording={isRecording}
             setIsRecording={setIsRecording}
           />
-          <TextareaAutosize
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
-            className="flex-1 bg-[#2a2a2a] text-white rounded-full px-4 py-2 min-h-[40px] max-h-32 resize-none focus:outline-none focus:ring-2 focus:ring-[#ff4d8d] text-sm md:text-base"
-          />
+          <div className="flex-1 relative">
+            <TextareaAutosize
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a message..."
+              className="flex-1 bg-[#2a2a2a] text-white rounded-full px-4 py-2 min-h-[40px] max-h-32 resize-none focus:outline-none focus:ring-2 focus:ring-[#ff4d8d] text-sm md:text-base"
+            />
+          </div>
           <Button
             type="submit"
             className="bg-[#ff4d8d] hover:bg-[#ff3377] text-white rounded-full p-2 h-10 w-10 flex-shrink-0"
