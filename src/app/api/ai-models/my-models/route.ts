@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
-import prisma from '@/lib/clients/prisma';
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import prisma from '@/lib/prisma';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * This function handles the GET request to fetch all AI models created by the current user.
@@ -11,16 +14,20 @@ import prisma from '@/lib/clients/prisma';
  */
 export async function GET() {
   try {
-    // Get the current user to ensure they are authorized to fetch their AI models
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user?.id) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { 'content-type': 'application/json' } }
+      );
     }
 
     // Query the database to find all AI models created by the current user
     const myModels = await prisma.aIModel.findMany({
       where: {
-        userId: currentUser.id
+        userId: user.id
       },
       select: {
         id: true,
@@ -39,10 +46,16 @@ export async function GET() {
     });
 
     // Return the user's AI models in JSON format
-    return NextResponse.json(myModels);
+    return new NextResponse(
+      JSON.stringify(myModels),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    );
   } catch (error) {
     console.error('Error fetching user\'s AI models:', error);
     // Return a 500 response in case of an unexpected error
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return new NextResponse(
+      JSON.stringify({ error: 'Internal Server Error' }),
+      { status: 500, headers: { 'content-type': 'application/json' } }
+    );
   }
 }

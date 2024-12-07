@@ -1,10 +1,6 @@
 import { EventEmitter } from 'events';
 import { Message } from '@prisma/client';
 
-// interface MessageEvents {
-//   'chat:*': (message: Message) => void;
-// }
-
 class MessageEmitter extends EventEmitter {
   private static instance: MessageEmitter;
 

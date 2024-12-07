@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,15 @@ export function ImageGenerationMenu({ chatRoom, onClose, setIsLoadingResponse }:
   const [customPrompt, setCustomPrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState('realistic');
+  const pollIntervalRef = useRef<NodeJS.Timeout>();
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, []);
 
   const options = [
     { label: "Show me a photo of you...", value: "show" },
@@ -34,8 +43,6 @@ export function ImageGenerationMenu({ chatRoom, onClose, setIsLoadingResponse }:
   ];
 
   const handleImageGeneration = async (promptPrefix: string) => {
-    let pollInterval: NodeJS.Timeout | undefined;
-
     try {
       setIsGenerating(true);
       setIsLoadingResponse(true);
@@ -55,13 +62,20 @@ export function ImageGenerationMenu({ chatRoom, onClose, setIsLoadingResponse }:
       const data = await response.json();
       if (data.error) throw new Error(data.error);
 
-      pollInterval = setInterval(async () => {
+      // Clear any existing interval
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+
+      pollIntervalRef.current = setInterval(async () => {
         try {
           const statusResponse = await fetch(`/api/image?jobId=${data.jobId}&chatRoomId=${chatRoom.id}&messageId=${data.message.id}`);
           const statusData = await statusResponse.json();
 
           if (statusData.status === 'COMPLETED' || statusData.message?.metadata?.imageUrl) {
-            clearInterval(pollInterval);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+            }
             setIsGenerating(false);
             setIsLoadingResponse(false);
             setCustomPrompt('');
@@ -69,7 +83,9 @@ export function ImageGenerationMenu({ chatRoom, onClose, setIsLoadingResponse }:
             return;
           }
         } catch (error) {
-          clearInterval(pollInterval);
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+          }
           setIsGenerating(false);
           setIsLoadingResponse(false);
           setError('Failed to check image status');
@@ -77,16 +93,13 @@ export function ImageGenerationMenu({ chatRoom, onClose, setIsLoadingResponse }:
       }, 2000);
 
     } catch (error) {
-      if (pollInterval) clearInterval(pollInterval);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
       setIsGenerating(false);
       setIsLoadingResponse(false);
       setError(error instanceof Error ? error.message : 'Failed to generate image');
     }
-
-    // Cleanup function
-    return () => {
-      if (pollInterval) clearInterval(pollInterval);
-    };
   };
 
   return (

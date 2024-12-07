@@ -5,6 +5,8 @@ import { RunPodClient } from '@/lib/clients/runpod';
 import prisma from '@/lib/clients/prisma';
 import { messageEmitter } from '@/lib/messageEmitter';
 
+export const runtime = 'nodejs';
+
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,

@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { getCurrentUser } from '@/lib/session';
 import { messageEmitter } from '@/lib/messageEmitter';
 
+export const runtime = 'nodejs';
+
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }

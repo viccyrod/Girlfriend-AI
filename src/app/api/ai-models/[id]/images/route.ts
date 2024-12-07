@@ -10,6 +10,8 @@ const requestSchema = z.object({
   negative_prompt: z.string().optional(),
 })
 
+export const runtime = 'nodejs'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -17,7 +19,10 @@ export async function POST(
   try {
     const currentUser = await getCurrentUser()
     if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { 'content-type': 'application/json' } }
+      )
     }
 
     const body = await request.json()
@@ -28,23 +33,29 @@ export async function POST(
     })
 
     if (!aiModel) {
-      return NextResponse.json({ error: 'AI Model not found' }, { status: 404 })
+      return new NextResponse(
+        JSON.stringify({ error: 'AI Model not found' }),
+        { status: 404, headers: { 'content-type': 'application/json' } }
+      )
     }
 
     const result = await generateImage(validatedData.prompt, params.id)
 
-    return NextResponse.json(result)
+    return new NextResponse(
+      JSON.stringify(result),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    )
   } catch (error) {
     console.error('Error generating image:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate image' },
-      { status: 500 }
+    return new NextResponse(
+      JSON.stringify({ error: 'Failed to generate image' }),
+      { status: 500, headers: { 'content-type': 'application/json' } }
     )
   }
 }
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { modelId: string } }
 ) {
   try {
@@ -55,14 +66,17 @@ export async function GET(
       orderBy: {
         createdAt: 'desc'
       }
-    });
+    })
 
-    return NextResponse.json(images);
+    return new NextResponse(
+      JSON.stringify(images),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    )
   } catch (error) {
-    console.error('Error fetching images:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch images' },
-      { status: 500 }
-    );
+    console.error('Error fetching images:', error)
+    return new NextResponse(
+      JSON.stringify({ error: 'Failed to fetch images' }),
+      { status: 500, headers: { 'content-type': 'application/json' } }
+    )
   }
 } 

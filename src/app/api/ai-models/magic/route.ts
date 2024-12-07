@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/clients/prisma';
+import prisma from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/session';
 import { v2 as cloudinary } from 'cloudinary';
 import { RunPodClient } from '@/lib/clients/runpod';

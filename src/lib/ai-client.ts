@@ -1,11 +1,11 @@
 import OpenAI from 'openai';
 import type { Message as PrismaMessage } from '@prisma/client';
 import type { AIModel as PrismaAIModel } from '@prisma/client';
-import { storeMemory } from '@/utils/memory';
-import { retrieveMemories } from '@/utils/memory';
-import { RunPodClient } from './clients/runpod';
+import { storeMemory, retrieveMemories } from '@/utils/memory';
+import { RunPodClient } from '@/lib/clients/runpod';
 import { ChatCompletionMessageParam } from 'openai/resources/index.mjs';
 import { v2 as cloudinary } from 'cloudinary';
+import { Anthropic } from '@anthropic-ai/sdk';
 
 // Extend the Prisma AIModel type to make certain fields optional
 type AIModel = Omit<PrismaAIModel, 'age' | 'followerCount' | 'isAnime' | 'status'> & {
@@ -451,7 +451,7 @@ export async function testAIConnection(message: string = "Hello! This is a test 
   }
 
   try {
-    console.log('�� Testing Grok API connection...');
+    console.log(' Testing Grok API connection...');
     
     console.log('Environment check:', {
       hasApiKey: !!process.env.XAI_API_KEY,

@@ -32,7 +32,13 @@ export function ChatImageMessage({ message }: ChatImageMessageProps) {
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         
-        if (data.message?.metadata?.status === 'generating') {
+        // Check both the RunPod status and message metadata
+        const isGenerating = data.status === 'IN_PROGRESS' || 
+                           data.status === 'IN_QUEUE' || 
+                           data.status === 'STARTING' ||
+                           (data.message?.metadata?.status === 'generating');
+
+        if (isGenerating) {
           // Continue polling if still generating
           setTimeout(pollImageStatus, 2000);
         }

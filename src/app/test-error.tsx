@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 
 export default function TestError() {
   const handleTestError = () => {
-    throw new Error('This is a test error for Sentry');
+    throw new Error('Test error page');
   };
 
   const handleTestPromiseError = () => {
-    Promise.reject(new Error('This is a test promise rejection'));
+    Promise.reject(new Error('Test promise rejection'));
   };
 
   return (

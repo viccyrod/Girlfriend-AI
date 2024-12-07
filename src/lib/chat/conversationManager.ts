@@ -1,20 +1,4 @@
-import { Message } from '@prisma/client';
-
-interface ConversationContext {
-  recentTopics: string[];
-  mood: string;
-  lastResponses: string[];
-  personalityTraits: {
-    playfulness: number;
-    empathy: number;
-    assertiveness: number;
-  };
-  memoryHighlights: {
-    timestamp: Date;
-    topic: string;
-    importance: number;
-  }[];
-}
+import type { Message, ConversationContext } from '@/types/conversation';
 
 class ConversationManager {
   private static readonly MAX_RECENT_TOPICS = 5;

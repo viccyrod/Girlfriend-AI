@@ -12,6 +12,8 @@ import prisma from '@/lib/clients/prisma';
 import { checkRateLimit } from '@/lib/utils/rate-limiter';
 import type { Message } from '@/lib/ai-client';
 
+export const runtime = 'nodejs';
+
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -141,7 +143,8 @@ export async function POST(
       chatRoomId: msg.chatRoomId,
       userId: msg.userId,
       isAIMessage: msg.isAIMessage,
-      aiModelId: msg.aiModelId
+      aiModelId: msg.aiModelId,
+      user: msg.user
     }));
 
     // Generate AI response
