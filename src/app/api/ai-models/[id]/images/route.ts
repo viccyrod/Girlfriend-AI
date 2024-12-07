@@ -56,18 +56,20 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { modelId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
+    console.log('Fetching images for model:', params.id);
     const images = await prisma.image.findMany({
       where: {
-        aiModelId: params.modelId
+        aiModelId: params.id
       },
       orderBy: {
         createdAt: 'desc'
       }
     })
 
+    console.log('Found images:', images.length);
     return new NextResponse(
       JSON.stringify(images),
       { status: 200, headers: { 'content-type': 'application/json' } }

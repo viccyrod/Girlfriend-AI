@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/session';
+import prisma from '@/lib/prisma';
 import { v2 as cloudinary } from 'cloudinary';
 import { RunPodClient } from '@/lib/clients/runpod';
-import prisma from '@/lib/clients/prisma';
 import { messageEmitter } from '@/lib/messageEmitter';
-
-export const runtime = 'nodejs';
+import { addImageToAIModel } from '@/lib/utils/image';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -117,7 +116,14 @@ export async function GET(request: Request) {
 
     // First check if message already has an image URL
     const message = await prisma.message.findUnique({
-      where: { id: messageId }
+      where: { id: messageId },
+      include: {
+        chatRoom: {
+          include: {
+            aiModel: true
+          }
+        }
+      }
     });
 
     console.log('📝 Message metadata:', {
@@ -205,6 +211,17 @@ export async function GET(request: Request) {
             }
           }
         });
+
+        // Save the image to the Image table
+        if (message?.chatRoom?.aiModel?.id) {
+          await addImageToAIModel(
+            message.chatRoom.aiModel.id,
+            uploadResponse.secure_url,
+            status.output.image,
+            false
+          );
+          console.log('💾 Image saved to Image table');
+        }
 
         console.log('📝 Message updated with image URL');
         
