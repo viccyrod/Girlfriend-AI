@@ -28,9 +28,9 @@ const BaseLayout = ({ children, requireAuth = true }: BaseLayoutProps) => {
     if (!mounted || (isLoading && requireAuth)) return null;
 
     return (
-        <div className='flex h-screen w-full'>
+        <div className='flex h-screen w-full overflow-hidden'>
             <Sidebar />
-            <div className="flex-1 overflow-auto max-w-7xl mx-auto">
+            <div className="flex-1 flex flex-col overflow-hidden">
                 {children}
             </div>
         </div>

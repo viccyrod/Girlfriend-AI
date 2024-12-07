@@ -61,7 +61,7 @@ export function ChatRoomList({
 
   return (
     <div className="border-r border-border h-full w-80 overflow-hidden">
-      <div className="h-full overflow-y-auto">
+      <div className="h-full overflow-y-auto scrollbar-pretty">
         <ul className="divide-y divide-border">
           {sortedChatRooms.length === 0 ? (
             <li className="p-4 text-muted-foreground">No chat rooms available</li>

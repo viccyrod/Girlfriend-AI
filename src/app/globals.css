@@ -23,6 +23,31 @@ body {
       grid-template-columns: 320px minmax(0, 1fr) 400px;
     }
   }
+
+  .scrollbar-pretty {
+    scrollbar-width: thin;
+    scrollbar-color: #4a4a4a #1a1a1a;
+  }
+
+  .scrollbar-pretty::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-pretty::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 4px;
+  }
+
+  .scrollbar-pretty::-webkit-scrollbar-thumb {
+    background: #4a4a4a;
+    border-radius: 4px;
+    transition: background 0.2s ease-in-out;
+  }
+
+  .scrollbar-pretty::-webkit-scrollbar-thumb:hover {
+    background: #666666;
+  }
 }
 
 @layer base {

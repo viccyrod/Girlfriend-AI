@@ -30,7 +30,7 @@ import {
   getOrCreateChatRoom,
   sendMessage 
 } from '@/lib/actions/chat';
-import { ChevronRight, Loader2, ChevronLeft } from "lucide-react";
+import { ChevronRight, Loader2, ChevronLeft, UserCircle2 } from "lucide-react";
 import { generateGreeting } from '@/lib/ai-client';
 
 
@@ -471,11 +471,6 @@ const ChatComponent = ({
     }
   };
 
-  const handleImageGeneration = useCallback(async () => {
-    // Image generation logic here
-    console.log("Image generation clicked");
-  }, []);
-
   /**
    * Render the chat interface with improved error handling and loading states.
    */
@@ -504,7 +499,7 @@ const ChatComponent = ({
         ${_isProfileVisible ? 'md:mr-[400px]' : ''}
       `}>
         {selectedRoom ? (
-          <div className="relative flex flex-col h-full">
+          <div className="relative flex flex-col h-full w-full">
             {/* Mobile back button */}
             <button
               onClick={() => setSelectedRoom(null)}
@@ -519,18 +514,6 @@ const ChatComponent = ({
               isLoading={isMessageSending}
               isGeneratingResponse={isGeneratingResponse}
             />
-            
-            {/* Toggle profile visibility button */}
-            <button
-              onClick={debouncedToggleProfile}
-              className="absolute right-4 top-4 p-2 bg-[#1a1a1a] hover:bg-[#2a2a2a] rounded-full transition-all duration-200 z-10"
-            >
-              <ChevronRight
-                className={`w-4 h-4 text-white transform transition-transform duration-200 ${
-                  _isProfileVisible ? "rotate-180" : ""
-                }`}
-              />
-            </button>
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
@@ -545,30 +528,47 @@ const ChatComponent = ({
       <div className={`
         fixed md:absolute inset-y-0 right-0
         w-[85vw] md:w-[400px] border-l border-[#1a1a1a] 
-        flex-shrink-0 h-full overflow-y-auto bg-[#0a0a0a] 
+        flex-shrink-0 h-full bg-[#0a0a0a] 
         transition-transform duration-300 ease-in-out z-40
         ${_isProfileVisible 
-          ? "translate-x-0" 
+          ? "translate-x-0 shadow-2xl" 
           : "translate-x-full"
         }
         ${_isProfileVisible && !selectedRoom ? "hidden md:block" : ""}
       `}>
-        <ModelProfile
-          model={selectedRoom?.aiModel ? mapAIModelToProfileProps(selectedRoom.aiModel) : null}
-          onClose={() => setIsProfileVisible(false)}
-        />
+        {/* Profile toggle button - only show when expanded */}
+        {_isProfileVisible && (
+          <button
+            onClick={debouncedToggleProfile}
+            className="absolute left-0 top-6 -translate-x-full bg-[#1a1a1a] hover:bg-[#2a2a2a] p-2 pl-3 pr-4 rounded-l-md transition-all duration-200 flex items-center gap-2 text-sm text-white/80 hover:text-white"
+            aria-label="Hide profile"
+          >
+            <UserCircle2 className="w-4 h-4" />
+            <span className="hidden md:inline">Hide Profile</span>
+            <ChevronRight className="w-4 h-4 transform rotate-180" />
+          </button>
+        )}
+        
+        <div className="h-full overflow-y-auto scrollbar-pretty">
+          <ModelProfile
+            model={selectedRoom?.aiModel ? mapAIModelToProfileProps(selectedRoom.aiModel) : null}
+            onClose={() => setIsProfileVisible(false)}
+          />
+        </div>
       </div>
 
-      {/* Removed VoiceMessage component */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="hover:text-accent-foreground h-9 w-9 hover:bg-[#2a2a2a] rounded-full"
-        onClick={handleImageGeneration}
-        aria-label="Send image"
-      >
-        <LucideImage className="h-5 w-5 text-[#ff4d8d]" />
-      </Button>
+      {/* Collapsed profile toggle button */}
+      {!_isProfileVisible && selectedRoom && (
+        <button
+          onClick={debouncedToggleProfile}
+          className="fixed md:absolute right-0 top-6 bg-[#1a1a1a] hover:bg-[#2a2a2a] p-2 pl-3 pr-4 rounded-l-md transition-all duration-200 flex items-center gap-2 text-sm text-white/80 hover:text-white z-50"
+          aria-label="Show profile"
+        >
+          <UserCircle2 className="w-4 h-4" />
+          <span className="hidden md:inline">View Profile</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 };
