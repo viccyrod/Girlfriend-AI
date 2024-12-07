@@ -5,6 +5,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { debounce, DebouncedFunc } from "lodash";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Image as LucideImage } from "lucide-react";
 
 import {
   ChatRoomList,
@@ -12,7 +14,6 @@ import {
 } from "@/components/chat/ChatRoomList";
 import ClientChatMessages from "@/components/chat/ClientChatMessages";
 import ModelProfile from "@/components/chat/ModelProfile";
-import { VoiceMessage } from '@/components/chat/VoiceMessage';
 import {
   ChatComponentProps,
   SendMessageFunction,
@@ -38,20 +39,23 @@ import { generateGreeting } from '@/lib/ai-client';
  */
 const handleApiError = (
   error: unknown,
-  toast: (props: {
-    title: string;
-    description: string;
-    variant?: "destructive";
-  }) => void,
+  toast: any,
   customMessage?: string
 ) => {
   console.error(error);
+  const errorMessage = error instanceof Error ? error.message : customMessage || "An error occurred";
   toast({
     title: "Error",
-    description:
-      customMessage || "An unexpected error occurred. Please try again.",
+    description: errorMessage,
     variant: "destructive",
+    duration: 3000,
+    role: "alert"
   });
+  // Add visible error message in DOM
+  const errorDiv = document.createElement('div');
+  errorDiv.setAttribute('role', 'alert');
+  errorDiv.textContent = errorMessage;
+  document.body.appendChild(errorDiv);
 };
 
 /**
@@ -174,7 +178,6 @@ const ChatComponent = ({
   const [_roomError, setRoomError] = useState<string | null>(null); // Error state for room selection
   const [loadingRoomId, setLoadingRoomId] = useState<string | null>(null);
   const [_isDeletingRoom, setIsDeletingRoom] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
 
   /**
    * Cleanup effect to reset state when the component is unmounted.
@@ -233,8 +236,6 @@ const ChatComponent = ({
             hobbies: rawRoom.aiModel.hobbies || '',
             likes: rawRoom.aiModel.likes || '',
             dislikes: rawRoom.aiModel.dislikes || '',
-            createdAt: new Date(rawRoom.aiModel.createdAt),
-            updatedAt: new Date(rawRoom.aiModel.updatedAt),
             imageUrl: rawRoom.aiModel.imageUrl || '',
             userId: rawRoom.aiModel.userId || '',
             followerCount: rawRoom.aiModel.followerCount || 0,
@@ -244,6 +245,8 @@ const ChatComponent = ({
             isHumanX: rawRoom.aiModel.isHumanX || false,
             age: rawRoom.aiModel.age || null,
             voiceId: rawRoom.aiModel.voiceId || null,
+            createdAt: new Date(rawRoom.aiModel.createdAt),
+            updatedAt: new Date(rawRoom.aiModel.updatedAt),
             createdBy: rawRoom.aiModel.createdBy ? {
               id: rawRoom.aiModel.createdBy.id || '',
               name: rawRoom.aiModel.createdBy.name || '',
@@ -253,42 +256,6 @@ const ChatComponent = ({
           } as AiModel
           : null,
         };
-
-        // Send greeting if this is a new room
-        if (activeRoom.messages.length === 0 && activeRoom.aiModel) {
-          setIsGeneratingResponse(true);
-          try {
-            const greeting = await generateGreeting(
-              {
-                id: activeRoom.aiModel.id,
-                userId: activeRoom.aiModel.userId,
-                name: activeRoom.aiModel.name,
-                personality: activeRoom.aiModel.personality || '',
-                appearance: activeRoom.aiModel.appearance || '',
-                backstory: activeRoom.aiModel.backstory || '',
-                hobbies: activeRoom.aiModel.hobbies || '',
-                likes: activeRoom.aiModel.likes || '',
-                dislikes: activeRoom.aiModel.dislikes || '',
-                imageUrl: activeRoom.aiModel.imageUrl || '',
-                isPrivate: activeRoom.aiModel.isPrivate || false,
-                followerCount: activeRoom.aiModel.followerCount || 0,
-                isAnime: activeRoom.aiModel.isAnime || false,
-                isHumanX: activeRoom.aiModel.isHumanX || false,
-                age: activeRoom.aiModel.age || null,
-                voiceId: activeRoom.aiModel.voiceId || null,
-                createdAt: new Date(activeRoom.aiModel.createdAt),
-                updatedAt: new Date(activeRoom.aiModel.updatedAt)
-              },
-              [],
-              true
-            );
-            await sendMessage(activeRoom.id, greeting);
-          } catch (error) {
-            console.error('Error generating greeting:', error);
-          } finally {
-            setIsGeneratingResponse(false);
-          }
-        }
       }
 
       // Fetch all chat rooms
@@ -391,49 +358,16 @@ const ChatComponent = ({
     try {
       setIsMessageSending(true);
       console.log('Sending message to room:', room.id);
-      return await sendMessage(room.id, content, { type: 'text' });
+      await sendMessage(room.id, content, { type: 'text' });
     } catch (error) {
       console.error('Error sending message:', error);
+      setMessageError("Failed to send message");
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send message",
+        description: "Failed to send message",
         variant: "destructive",
-      });
-      throw error;
-    } finally {
-      setIsMessageSending(false);
-    }
-  };
-
-  const handleVoiceMessage = async (audioBlob: Blob) => {
-    if (!selectedRoom) return;
-
-    try {
-      setIsMessageSending(true);
-
-      // Convert blob to base64
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          resolve(base64.split(',')[1]); // Remove data URL prefix
-        };
-      });
-      reader.readAsDataURL(audioBlob);
-      
-      const base64Audio = await base64Promise;
-
-      // Send voice message
-      return await sendMessage(selectedRoom.id, "", {
-        type: 'voice',
-        audioData: base64Audio
-      });
-    } catch (error) {
-      console.error('Error sending voice message:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send voice message",
-        variant: "destructive",
+        duration: 3000,
+        role: "alert"
       });
       throw error;
     } finally {
@@ -527,7 +461,8 @@ const ChatComponent = ({
 
       toast({
         title: "Success",
-        description: "Chat room deleted successfully"
+        description: "Chat room deleted successfully",
+        role: "alert"
       });
     } catch (error) {
       handleApiError(error, toast, "Failed to delete chat room");
@@ -535,6 +470,11 @@ const ChatComponent = ({
       setIsDeletingRoom(null);
     }
   };
+
+  const handleImageGeneration = useCallback(async () => {
+    // Image generation logic here
+    console.log("Image generation clicked");
+  }, []);
 
   /**
    * Render the chat interface with improved error handling and loading states.
@@ -575,8 +515,8 @@ const ChatComponent = ({
             
             <ClientChatMessages
               chatRoom={selectedRoom}
-              _onSendMessage={(content: string) => handleSendMessage(content, selectedRoom)}
-              _isLoading={isMessageSending}
+              onSendMessage={(content: string) => handleSendMessage(content, selectedRoom)}
+              isLoading={isMessageSending}
               isGeneratingResponse={isGeneratingResponse}
             />
             
@@ -619,16 +559,16 @@ const ChatComponent = ({
         />
       </div>
 
-      {/* Voice message input */}
-      <div className="p-4 border-t">
-        <div className="flex items-center gap-2">
-          <VoiceMessage
-            onVoiceMessage={handleVoiceMessage}
-            isRecording={isRecording}
-            setIsRecording={setIsRecording}
-          />
-        </div>
-      </div>
+      {/* Removed VoiceMessage component */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="hover:text-accent-foreground h-9 w-9 hover:bg-[#2a2a2a] rounded-full"
+        onClick={handleImageGeneration}
+        aria-label="Send image"
+      >
+        <LucideImage className="h-5 w-5 text-[#ff4d8d]" />
+      </Button>
     </div>
   );
 };

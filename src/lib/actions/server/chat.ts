@@ -9,19 +9,18 @@ export async function getOrCreateChatRoomServer(modelId: string) {
   if (!currentUser) throw new Error('Unauthorized');
 
   try {
-    // First, verify the AI Model exists
+    // First find the AI model
     const aiModel = await prisma.aIModel.findUnique({
-      where: { id: modelId }
+      where: { id: modelId },
+      include: { createdBy: true }
     });
 
-    if (!aiModel) {
-      throw new Error(`AI Model with ID ${modelId} not found`);
-    }
+    if (!aiModel) throw new Error('AI Model not found');
 
-    // Use a transaction to handle the chat room creation atomically
+    // Create or find chat room in a transaction
     const chatRoom = await prisma.$transaction(async (tx) => {
-      // Check for existing chat room within the transaction
-      const existing = await tx.chatRoom.findFirst({
+      // Find existing chat room
+      const existingRoom = await tx.chatRoom.findFirst({
         where: {
           aiModelId: modelId,
           users: {
@@ -38,35 +37,38 @@ export async function getOrCreateChatRoomServer(modelId: string) {
           },
           users: true,
           messages: {
+            take: 50,
             orderBy: {
-              createdAt: 'asc'
+              createdAt: 'desc'
             },
             include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  image: true
-                }
-              }
+              user: true
             }
-          }
+          },
+          createdBy: true
         }
       });
 
-      if (existing) {
-        return existing;
-      }
+      if (existingRoom) return existingRoom;
 
       // Create new chat room if none exists
       return tx.chatRoom.create({
         data: {
           name: `Chat with ${aiModel.name}`,
           aiModel: {
-            connect: { id: modelId }
+            connect: {
+              id: modelId
+            }
           },
           users: {
-            connect: { id: currentUser.id }
+            connect: {
+              id: currentUser.id
+            }
+          },
+          createdBy: {
+            connect: {
+              id: currentUser.id
+            }
           }
         },
         include: {
@@ -76,117 +78,117 @@ export async function getOrCreateChatRoomServer(modelId: string) {
             }
           },
           users: true,
-          messages: {
-            orderBy: {
-              createdAt: 'asc'
-            },
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  image: true
-                }
-              }
-            }
-          }
+          messages: true,
+          createdBy: true
         }
       });
     });
 
     return chatRoom;
-
   } catch (error) {
-    console.error('Error in getOrCreateChatRoom:', error);
+    console.error('Error in getOrCreateChatRoomServer:', error);
     throw error;
   }
 }
 
 export async function createMessageServer(
-  chatRoomId: string, 
+  chatRoomId: string,
   kindeUserId: string,
   content: string,
   isAIMessage: boolean = false,
   userEmail?: string
 ) {
   try {
-    console.log('Creating message:', { chatRoomId, content, isAIMessage, userEmail });
+    console.log('Creating message:', { chatRoomId, content, isAIMessage });
     
+    // Find or create user
     const dbUser = await prisma.user.findUnique({
-      where: { email: userEmail }
+      where: { id: kindeUserId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        isAI: true
+      }
     });
 
     if (!dbUser) {
-      console.error('User not found:', userEmail);
       throw new Error('User not found');
     }
 
+    // Verify chat room exists and user has access
     const chatRoom = await prisma.chatRoom.findUnique({
       where: { id: chatRoomId },
-      include: { users: true, aiModel: true }
+      include: {
+        users: true
+      }
     });
 
     if (!chatRoom) {
-      console.error('Chat room not found:', chatRoomId);
       throw new Error('Chat room not found');
     }
 
-    if (!isAIMessage && !chatRoom.users.some(u => u.id === dbUser.id)) {
-      console.error('Access denied:', {
-        userId: dbUser.id,
-        chatRoomUsers: chatRoom.users.map(u => u.id)
-      });
-      throw new Error('Access denied');
+    const hasAccess = chatRoom.users.some(user => user.id === kindeUserId);
+    if (!hasAccess) {
+      throw new Error('User does not have access to this chat room');
     }
 
-    // Mark previous messages as read when AI responds
+    // If this is an AI message, mark previous messages as responded
     if (isAIMessage) {
       await prisma.message.updateMany({
         where: {
           chatRoomId,
-          isAIMessage: false,
-          metadata: {
-            path: ['isRead'],
-            equals: false
-          }
+          isAIMessage: false
         },
         data: {
-          metadata: {
-            isRead: true,
-            readAt: new Date().toISOString()
-          }
+          updatedAt: new Date()
         }
       });
     }
 
+    // Create the message
     const message = await prisma.message.create({
       data: {
         content,
-        chatRoomId,
-        userId: isAIMessage ? null : dbUser.id,
         isAIMessage,
-        aiModelId: isAIMessage ? chatRoom.aiModel?.id : null,
-        metadata: isAIMessage 
-          ? { type: 'ai_response', isRead: true } 
-          : { isRead: false },
-        role: isAIMessage ? 'assistant' : 'user'
+        metadata: {},
+        chatRoom: {
+          connect: {
+            id: chatRoomId
+          }
+        },
+        user: {
+          connect: {
+            id: kindeUserId
+          }
+        }
       },
       include: {
         user: {
           select: {
             id: true,
             name: true,
-            image: true
+            email: true,
+            image: true,
+            isAI: true
           }
         }
       }
     });
 
-    console.log('Message created:', message.id);
-    console.log('Emitting message event:', `chat:${chatRoomId}`);
-    messageEmitter.emit(`chat:${chatRoomId}`, message);
-    
-    return message;
+    // Transform message to ensure consistent format
+    const transformedMessage = {
+      ...message,
+      metadata: message.metadata || {},
+      role: isAIMessage ? 'assistant' : 'user',
+      user: message.user || null
+    };
+
+    // Emit the message event
+    messageEmitter.emit('newMessage', transformedMessage);
+
+    return transformedMessage;
   } catch (error) {
     console.error('Error in createMessageServer:', error);
     throw error;
@@ -203,8 +205,9 @@ export async function deleteChatRoomServer(chatRoomId: string, userId: string) {
     throw new Error('Chat room not found');
   }
 
-  if (!chatRoom.users.some(roomUser => roomUser.id === userId)) {
-    throw new Error('Unauthorized');
+  const hasAccess = chatRoom.users.some(user => user.id === userId);
+  if (!hasAccess) {
+    throw new Error('User does not have access to this chat room');
   }
 
   await prisma.chatRoom.delete({
@@ -214,28 +217,52 @@ export async function deleteChatRoomServer(chatRoomId: string, userId: string) {
 
 export async function getChatRoomMessagesServer(chatId: string) {
   try {
-    // Explicitly fetch ALL messages for the chat room
+    console.log('Fetching messages for chat room:', chatId);
+    
+    // Verify chat room exists
+    const chatRoom = await prisma.chatRoom.findUnique({
+      where: { id: chatId },
+      include: { users: true }
+    });
+
+    if (!chatRoom) {
+      throw new Error('Chat room not found');
+    }
+
+    // Fetch messages with user information
     const messages = await prisma.message.findMany({
       where: {
         chatRoomId: chatId
-      },
-      orderBy: {
-        createdAt: 'asc'  // Show oldest messages first
       },
       include: {
         user: {
           select: {
             id: true,
             name: true,
-            image: true
+            email: true,
+            image: true,
+            isAI: true
           }
         }
+      },
+      orderBy: {
+        createdAt: 'asc'
       }
     });
 
-    return messages;
+    console.log('Found messages:', messages.length);
+
+    // Transform messages to ensure consistent format
+    return messages.map(message => ({
+      ...message,
+      metadata: message.metadata || {},
+      role: message.isAIMessage ? 'assistant' : 'user',
+      user: message.user || null
+    }));
   } catch (error) {
     console.error('Error in getChatRoomMessagesServer:', error);
     throw error;
   }
 }
+
+

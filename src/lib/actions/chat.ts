@@ -26,14 +26,21 @@ export async function sendMessage(
 
 // Get messages for a specific chat room
 export async function getChatRoomMessages(chatRoomId: string): Promise<Message[]> {
-  const response = await fetch(`/api/chat/${chatRoomId}/messages`);
+  console.log('Fetching messages for chat room:', chatRoomId);
+  const response = await fetch(`/api/chat/${chatRoomId}/messages`, {
+    // Add cache: no-store to prevent caching
+    cache: 'no-store'
+  });
   
   if (!response.ok) {
     const errorData = await response.json();
+    console.error('Failed to fetch messages:', errorData);
     throw new Error(errorData.error || 'Failed to fetch messages');
   }
 
-  return response.json();
+  const messages = await response.json();
+  console.log('Fetched messages:', messages.length);
+  return messages;
 }
 
 // Create or get existing chat room for an AI model
@@ -125,6 +132,7 @@ export async function generateImage(prompt: string, chatRoomId: string) {
 
 // Subscribe to chat room messages using SSE
 export function subscribeToMessages(chatRoomId: string, onMessage: (message: Message) => void) {
+  console.log('Subscribing to messages for chat room:', chatRoomId);
   const eventSource = new EventSource(`/api/chat/${chatRoomId}/subscribe`);
   
   eventSource.onmessage = (event) => {
@@ -139,7 +147,17 @@ export function subscribeToMessages(chatRoomId: string, onMessage: (message: Mes
     }
   };
 
+  eventSource.onerror = (error) => {
+    console.error('SSE connection error:', error);
+    // Attempt to reconnect after a delay
+    setTimeout(() => {
+      eventSource.close();
+      subscribeToMessages(chatRoomId, onMessage);
+    }, 5000);
+  };
+
   return () => {
+    console.log('Closing SSE connection for chat room:', chatRoomId);
     eventSource.close();
   };
 }

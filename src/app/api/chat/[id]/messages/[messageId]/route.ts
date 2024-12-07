@@ -1,43 +1,44 @@
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/clients/prisma';
-import { getCurrentUser } from '@/lib/session';
+import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentUser } from '@/lib/session'
+import prisma from '@/lib/prisma'
 
-export async function GET(
-  request: Request,
+export async function DELETE(
+  request: NextRequest,
   { params }: { params: { id: string; messageId: string } }
 ) {
   try {
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser()
     if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const chatRoom = await prisma.chatRoom.findUnique({
+      where: { id: params.id },
+      include: { users: true },
+    })
+
+    if (!chatRoom || chatRoom.createdById !== currentUser.id) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
     const message = await prisma.message.findUnique({
-      where: {
-        id: params.messageId,
-        chatRoomId: params.id
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            image: true
-          }
-        }
-      }
-    });
+      where: { id: params.messageId },
+    })
 
-    if (!message) {
-      return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    if (!message || message.chatRoomId !== params.id) {
+      return NextResponse.json({ error: 'Message not found' }, { status: 404 })
     }
 
-    return NextResponse.json(message);
+    await prisma.message.delete({
+      where: { id: params.messageId },
+    })
+
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error fetching message:', error);
+    console.error('Error deleting message:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch message' },
+      { error: 'Failed to delete message' },
       { status: 500 }
-    );
+    )
   }
 } 

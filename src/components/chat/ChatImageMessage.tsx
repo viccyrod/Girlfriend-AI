@@ -10,14 +10,14 @@ interface ChatImageMessageProps {
 interface ImageMetadata {
   type: 'image';
   imageUrl?: string;
-  status: 'generating' | 'completed' | 'failed';
+  status: 'generating' | 'completed' | 'failed' | 'error';
   prompt?: string;
   jobId?: string;
 }
 
 export function ChatImageMessage({ message }: ChatImageMessageProps) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const metadata = message.metadata as unknown as ImageMetadata;
 
   useEffect(() => {
     const isImageMetadata = (metadata: any): metadata is ImageMetadata => {
@@ -26,15 +26,13 @@ export function ChatImageMessage({ message }: ChatImageMessageProps) {
 
     const pollImageStatus = async () => {
       try {
-        const response = await fetch(`/api/image?jobId=${message.metadata?.jobId}&chatRoomId=${message.chatRoomId}&messageId=${message.id}`);
+        const response = await fetch(`/api/image?jobId=${metadata?.jobId}&chatRoomId=${message.chatRoomId}&messageId=${message.id}`);
         if (!response.ok) throw new Error('Failed to check image status');
         
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         
-        if (data.message?.metadata?.imageUrl) {
-          setImageUrl(data.message.metadata.imageUrl);
-        } else if (data.message?.metadata?.status === 'generating') {
+        if (data.message?.metadata?.status === 'generating') {
           // Continue polling if still generating
           setTimeout(pollImageStatus, 2000);
         }
@@ -44,24 +42,22 @@ export function ChatImageMessage({ message }: ChatImageMessageProps) {
       }
     };
 
-    if (isImageMetadata(message.metadata)) {
-      if (message.metadata.status === 'generating' && message.metadata.jobId) {
+    if (isImageMetadata(metadata)) {
+      if (metadata.status === 'generating' && metadata.jobId) {
         pollImageStatus();
-      } else if (message.metadata.imageUrl) {
-        setImageUrl(message.metadata.imageUrl);
       }
     }
-  }, [message.metadata, message.id, message.chatRoomId]);
+  }, [message.metadata, message.id, message.chatRoomId, metadata?.jobId]);
 
-  if (error) {
+  if (error || metadata?.status === 'error' || metadata?.status === 'failed') {
     return (
       <div className="text-red-500 mt-2">
-        Error generating image: {error}
+        Failed to generate image
       </div>
     );
   }
 
-  if (!imageUrl) {
+  if (metadata?.status === 'generating') {
     return (
       <div className="flex items-center gap-2 text-gray-500 mt-2">
         <Loader2 className="w-4 h-4 animate-spin" />
@@ -70,15 +66,21 @@ export function ChatImageMessage({ message }: ChatImageMessageProps) {
     );
   }
 
+  if (!metadata?.imageUrl) {
+    return null;
+  }
+
   return (
     <div className="mt-2">
+      {metadata?.prompt && (
+        <p className="mb-2 text-sm text-gray-600">{metadata.prompt}</p>
+      )}
       <Image 
-        src={imageUrl}
-        alt={message.content}
+        src={metadata.imageUrl}
+        alt={metadata?.prompt || 'AI generated image'}
         width={300}
         height={300}
         className="rounded-lg"
-        unoptimized
       />
     </div>
   );

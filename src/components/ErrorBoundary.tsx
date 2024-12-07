@@ -22,15 +22,26 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
-    // Show toast notification when error occurs
+  public componentDidCatch(error: Error) {
+    console.error('Uncaught error:', error);
     toast({
       title: "Error",
       description: "Something went wrong. Please check the details below.",
       variant: "destructive",
     });
   }
+
+  public componentDidUpdate(prevProps: Props) {
+    // If we had an error but the child component has changed,
+    // attempt to re-render with the new props
+    if (this.state.hasError && prevProps.children !== this.props.children) {
+      this.setState({ hasError: false, error: null });
+    }
+  }
+
+  private handleReset = () => {
+    this.setState({ hasError: false, error: null });
+  };
 
   public render() {
     if (this.state.hasError) {
@@ -45,11 +56,8 @@ export class ErrorBoundary extends Component<Props, State> {
               </pre>
             </details>
             <button
+              onClick={this.handleReset}
               className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.reload(); // Added reload for more thorough reset
-              }}
             >
               Try again
             </button>
@@ -58,6 +66,11 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    try {
+      return this.props.children;
+    } catch (error) {
+      this.setState({ hasError: true, error: error instanceof Error ? error : new Error('Unknown error') });
+      return null;
+    }
   }
-} 
+}

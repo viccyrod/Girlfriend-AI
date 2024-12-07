@@ -1,58 +1,45 @@
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/clients/prisma';
-import { getCurrentUser } from '@/lib/session';
+import { NextRequest, NextResponse } from 'next/server'
+import { generateImage } from '@/lib/ai-client'
+import { getCurrentUser } from '@/lib/session'
+import prisma from '@/lib/prisma'
+import { z } from 'zod'
+
+const requestSchema = z.object({
+  prompt: z.string(),
+  style: z.string().optional(),
+  negative_prompt: z.string().optional(),
+})
 
 export async function POST(
-  request: Request,
-  { params }: { params: { modelId: string } }
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
   try {
-    const currentUser = await getCurrentUser();
+    const currentUser = await getCurrentUser()
     if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { imageUrl, imageData, isNSFW } = await request.json();
+    const body = await request.json()
+    const validatedData = requestSchema.parse(body)
 
-    // Verify the AI model exists and belongs to the user
-    const aiModel = await prisma.aIModel.findFirst({
-      where: {
-        id: params.modelId,
-        userId: currentUser.id,
-      },
-    });
+    const aiModel = await prisma.aIModel.findUnique({
+      where: { id: params.id },
+    })
 
     if (!aiModel) {
-      return NextResponse.json({ error: 'AI Model not found' }, { status: 404 });
+      return NextResponse.json({ error: 'AI Model not found' }, { status: 404 })
     }
 
-    // Update AI model with new image URL
-    const updatedModel = await prisma.aIModel.update({
-      where: {
-        id: params.modelId,
-      },
-      data: {
-        imageUrl: imageUrl
-      }
-    });
+    const result = await generateImage(validatedData.prompt, params.id)
 
-    // Create a separate image record
-    const image = await prisma.image.create({
-      data: {
-        imageUrl: imageUrl || null,
-        imageData: imageData || null,
-        isNSFW: isNSFW || false,
-        aiModelId: params.modelId
-      }
-    });
-
-    return NextResponse.json({ model: updatedModel, image });
+    return NextResponse.json(result)
   } catch (error) {
-    console.error('Error uploading image:', error);
+    console.error('Error generating image:', error)
     return NextResponse.json(
-      { error: 'Failed to upload image' },
+      { error: 'Failed to generate image' },
       { status: 500 }
-    );
+    )
   }
 }
 

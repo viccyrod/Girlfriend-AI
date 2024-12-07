@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -6,10 +6,18 @@ interface VoiceMessageProps {
   onVoiceMessage: (audioBlob: Blob) => Promise<void>;
   isRecording: boolean;
   setIsRecording: (isRecording: boolean) => void;
+  isLoading?: boolean;
+  'aria-label'?: string;
 }
 
-export function VoiceMessage({ onVoiceMessage, isRecording, setIsRecording }: VoiceMessageProps) {
-  const [_audioChunks, setAudioChunks] = useState<Blob[]>([]);
+export function VoiceMessage({ 
+  onVoiceMessage, 
+  isRecording, 
+  setIsRecording, 
+  isLoading, 
+  'aria-label': ariaLabel 
+}: VoiceMessageProps) {
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const timerRef = useRef<NodeJS.Timeout>();
@@ -27,10 +35,10 @@ export function VoiceMessage({ onVoiceMessage, isRecording, setIsRecording }: Vo
         }
       };
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(chunks, { type: 'audio/webm' });
         setAudioChunks([]);
-        onVoiceMessage(audioBlob);
+        await onVoiceMessage(audioBlob);
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -52,12 +60,25 @@ export function VoiceMessage({ onVoiceMessage, isRecording, setIsRecording }: Vo
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      
+      // Clear timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      setRecordingTime(0);
     }
   };
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, [isRecording]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -67,30 +88,24 @@ export function VoiceMessage({ onVoiceMessage, isRecording, setIsRecording }: Vo
 
   return (
     <div className="flex items-center gap-2">
-      {isRecording ? (
-        <>
-          <div className="flex items-center gap-2 bg-red-500/10 px-3 py-1 rounded-full">
-            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-sm text-red-500">{formatTime(recordingTime)}</span>
-          </div>
-          <Button
-            onClick={stopRecording}
-            size="icon"
-            variant="destructive"
-            className="rounded-full"
-          >
-            <Square className="h-4 w-4" />
-          </Button>
-        </>
-      ) : (
-        <Button
-          onClick={startRecording}
-          size="icon"
-          variant="ghost"
-          className="rounded-full hover:bg-pink-500/20"
-        >
-          <Mic className="h-4 w-4" />
-        </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={isRecording ? stopRecording : startRecording}
+        disabled={isLoading}
+        aria-label={ariaLabel || "Record voice message"}
+        className={`p-2 ${isRecording ? 'bg-red-500 hover:bg-red-600' : ''}`}
+      >
+        {isRecording ? (
+          <Square className="h-5 w-5" />
+        ) : (
+          <Mic className="h-5 w-5" />
+        )}
+      </Button>
+      {isRecording && (
+        <span className="text-sm text-muted-foreground">
+          {formatTime(recordingTime)}
+        </span>
       )}
     </div>
   );

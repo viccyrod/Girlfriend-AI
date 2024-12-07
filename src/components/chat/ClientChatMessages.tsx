@@ -22,14 +22,14 @@ import { ExtendedChatRoom } from '@/types/chat';
 
 interface ClientChatMessagesProps {
   chatRoom: ExtendedChatRoom;
-  _onSendMessage: (content: string) => Promise<void>;
-  _isLoading: boolean;
+  onSendMessage: (content: string) => Promise<void>;
+  isLoading: boolean;
   isGeneratingResponse: boolean;
 }
 
 // Typing Indicator Component
 const TypingIndicator = ({ modelImage }: { modelImage: string | null }) => (
-  <div className="flex items-start space-x-2 p-4">
+  <div className="flex items-start space-x-2 p-4" data-testid="typing-indicator">
     <div className="w-8 h-8 rounded-full overflow-hidden">
       <Image 
         src={modelImage || '/default-avatar.png'} 
@@ -49,57 +49,126 @@ const TypingIndicator = ({ modelImage }: { modelImage: string | null }) => (
 
 const transformPrismaMessage = (message: any): Message => {
   // Ensure we have a valid metadata object
-  const metadata: MessageMetadata = {
-    type: message.metadata?.type || 'text',
-    ...message.metadata
-  };
-
-  // Handle the user property which can be null
-  const user = message.user ? {
-    id: message.user.id,
-    name: message.user.name,
-    image: message.user.image
-  } : message.userId ? {
-    id: message.userId,
-    name: null,
-    image: null
-  } : null;
-
-  // Ensure dates are properly converted
-  const createdAt = message.createdAt instanceof Date 
-    ? message.createdAt 
-    : new Date(message.createdAt);
+  const metadata = message.metadata || {};
   
-  const updatedAt = message.updatedAt instanceof Date 
-    ? message.updatedAt 
-    : new Date(message.updatedAt);
+  // Handle image messages
+  if (metadata.type === 'image') {
+    metadata.status = metadata.status || 'completed';
+    metadata.imageUrl = metadata.imageUrl || null;
+    metadata.prompt = metadata.prompt || '';
+  }
 
   return {
     id: message.id,
     content: message.content,
-    userId: message.userId,
+    role: message.isAIMessage ? 'assistant' : 'user',
+    metadata: metadata,
+    createdAt: new Date(message.createdAt),
+    updatedAt: new Date(message.updatedAt),
     chatRoomId: message.chatRoomId,
-    createdAt,
-    updatedAt,
-    aiModelId: message.aiModelId,
     isAIMessage: message.isAIMessage,
-    metadata,
-    role: message.role || (message.isAIMessage ? 'assistant' : 'user'),
-    user
+    userId: message.userId || null,
+    user: message.user || null,
+    aiModelId: message.aiModelId || null
   };
 };
 
-export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoading, isGeneratingResponse }: ClientChatMessagesProps) {
+export default function ClientChatMessages({ 
+  chatRoom, 
+  onSendMessage, 
+  isLoading, 
+  isGeneratingResponse 
+}: ClientChatMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoadingResponse, setIsLoadingResponse] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [rateLimitTimer, setRateLimitTimer] = useState<number>(0);
+  const [messageError, setMessageError] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollTimeout = useRef<NodeJS.Timeout>();
   const messageQueue = useRef<string[]>([]);
   const { toast } = useToast();
+
+  // Scroll to bottom helper function
+  const scrollToBottom = useCallback((behavior: 'auto' | 'smooth' = 'auto') => {
+    if (scrollTimeout.current) {
+      clearTimeout(scrollTimeout.current);
+    }
+
+    scrollTimeout.current = setTimeout(() => {
+      const chatContainer = messagesEndRef.current?.parentElement;
+      if (chatContainer) {
+        chatContainer.scrollTo({
+          top: chatContainer.scrollHeight,
+          behavior: behavior
+        });
+      }
+    }, 100);
+  }, []);
+
+  // Load initial messages
+  useEffect(() => {
+    const loadMessages = async () => {
+      try {
+        const response = await fetch(`/api/chat/${chatRoom.id}/messages`, {
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('Failed to load messages');
+        const data = await response.json();
+        const transformedMessages = data.map(transformPrismaMessage).sort((a: Message, b: Message) => {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateA - dateB;
+        });
+        setMessages(transformedMessages);
+        // Ensure initial scroll to bottom after messages load
+        setTimeout(() => scrollToBottom('auto'), 100);
+      } catch (error) {
+        console.error('Error loading messages:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load messages",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    loadMessages();
+  }, [chatRoom.id, toast, scrollToBottom]);
+
+  // Subscribe to new messages
+  useEffect(() => {
+    const unsubscribe = subscribeToMessages(chatRoom.id, (newMessage) => {
+      setMessages((prevMessages) => {
+        // Transform the new message
+        const transformedNewMessage = transformPrismaMessage(newMessage);
+        
+        // Check if message already exists
+        const existingMessageIndex = prevMessages.findIndex(msg => msg.id === transformedNewMessage.id);
+        
+        if (existingMessageIndex !== -1) {
+          // Update existing message
+          const updatedMessages = [...prevMessages];
+          updatedMessages[existingMessageIndex] = transformedNewMessage;
+          return updatedMessages;
+        }
+        
+        // Add new message
+        return [...prevMessages, transformedNewMessage].sort((a, b) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+      });
+      
+      // Scroll to bottom with new message
+      setTimeout(() => scrollToBottom('smooth'), 100);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [chatRoom.id, scrollToBottom]);
 
   // Debounce message sending
   const debouncedSendMessage = useCallback(
@@ -146,9 +215,12 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
         console.error('Error sending message:', error);
         toast({
           title: 'Error',
-          description: 'Failed to send message. Please try again.',
+          description: 'Failed to send message',
           variant: 'destructive',
+          role: 'alert'
         });
+        // Add visible error message in DOM
+        setMessageError('Failed to send message');
       } finally {
         setIsLoadingResponse(false);
       }
@@ -165,14 +237,19 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
     setIsLoadingResponse(true);
 
     try {
-      await sendMessage(chatRoom.id, messageContent);
+      if (typeof onSendMessage !== 'function') {
+        throw new Error('onSendMessage is not a function');
+      }
+      await onSendMessage(messageContent);
       scrollToBottom();
     } catch (error) {
       console.error('Error sending message:', error);
+      setMessageError('Failed to send message');
       toast({
         title: 'Error',
         description: 'Failed to send message',
         variant: 'destructive',
+        role: 'alert'
       });
     } finally {
       setIsLoadingResponse(false);
@@ -185,50 +262,6 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
       debouncedSendMessage.cancel();
     };
   }, [debouncedSendMessage]);
-
-  // Scroll to bottom helper function
-  const scrollToBottom = useCallback((behavior: 'auto' | 'smooth' = 'auto') => {
-    if (scrollTimeout.current) {
-      clearTimeout(scrollTimeout.current);
-    }
-
-    scrollTimeout.current = setTimeout(() => {
-      const chatContainer = messagesEndRef.current?.parentElement;
-      if (chatContainer) {
-        chatContainer.scrollTo({
-          top: chatContainer.scrollHeight,
-          behavior: behavior
-        });
-      }
-    }, 100);
-  }, []);
-
-  // Add this effect to load initial messages
-  useEffect(() => {
-    let isMounted = true;
-    
-    const fetchMessages = async () => {
-      try {
-        const initialMessages = await getChatRoomMessages(chatRoom.id);
-        if (isMounted) {
-          setMessages(initialMessages.map(transformPrismaMessage));
-          scrollToBottom();
-        }
-      } catch (error) {
-        console.error('Error fetching messages:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load messages',
-          variant: 'destructive',
-        });
-      }
-    };
-
-    fetchMessages();
-    return () => {
-      isMounted = false;
-    };
-  }, [chatRoom.id, toast]);
 
   const handleVoiceMessage = async (audioBlob: Blob) => {
     try {
@@ -255,6 +288,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
         description: "Failed to send voice message. Please try again.",
         variant: "destructive",
       });
+      setMessageError('Failed to send voice message');
     } finally {
       setIsLoadingResponse(false);
     }
@@ -265,54 +299,6 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
       e.preventDefault();
       handleSendMessage(e);
     }
-  };
-
-  useEffect(() => {
-    // Scroll on new messages
-    scrollToBottom('smooth');
-  }, [messages, scrollToBottom]);
-
-  useEffect(() => {
-    // Scroll on initial load
-    scrollToBottom('auto');
-  }, [scrollToBottom]);
-
-  // Add this effect back for real-time message updates
-  useEffect(() => {
-    // Subscribe to new messages
-    const cleanup = subscribeToMessages(chatRoom.id, (newMessage) => {
-      handleNewMessage(transformPrismaMessage(newMessage));
-      scrollToBottom('smooth');
-    });
-
-    return () => cleanup();
-  }, [chatRoom.id]);
-
-  const handleNewMessage = (newMessage: Message) => {
-    console.log('📩 New message received:', newMessage);
-    
-    setMessages(prevMessages => {
-      // Find if we already have this message
-      const index = prevMessages.findIndex(msg => msg.id === newMessage.id);
-      
-      if (index !== -1) {
-        // Update existing message
-        const updatedMessages = [...prevMessages];
-        updatedMessages[index] = {
-          ...updatedMessages[index],
-          ...newMessage,
-          metadata: {
-            ...updatedMessages[index].metadata,
-            ...newMessage.metadata
-          }
-        };
-        console.log('🔄 Updated message:', updatedMessages[index]);
-        return updatedMessages;
-      } else {
-        // Add new message
-        return [...prevMessages, newMessage];
-      }
-    });
   };
 
   return (
@@ -328,6 +314,7 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
           />
         ))}
         {(isLoadingResponse || isGeneratingResponse) && <TypingIndicator modelImage={chatRoom.aiModel?.imageUrl || null} />}
+        {messageError && <div role="alert" className="text-red-500">{messageError}</div>}
         <div ref={messagesEndRef} /> {/* Scroll anchor */}
       </div>
 
@@ -356,7 +343,8 @@ export default function ClientChatMessages({ chatRoom, _onSendMessage, _isLoadin
           <Button
             type="submit"
             className="bg-[#ff4d8d] hover:bg-[#ff3377] text-white rounded-full p-2 h-10 w-10 flex-shrink-0"
-            disabled={isLoadingResponse || isRecording}
+            disabled={isLoading || isLoadingResponse || isRecording}
+            aria-label="Send message"
           >
             <Send className="h-5 w-5" />
           </Button>

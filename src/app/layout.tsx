@@ -6,19 +6,14 @@ import Footer from "@/components/footer";
 import TanStackProvider from "@/providers/TanStackProvider";
 import { getCurrentUser } from "@/lib/session";
 import { Analytics } from "@vercel/analytics/react"
-
-
+import React from 'react';
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
   variable: "--font-geist-sans",
   weight: "100 900",
 });
-// const geistMono = localFont({
-//   src: "./fonts/GeistMonoVF.woff",
-//   variable: "--font-geist-mono",
-//   weight: "100 900",
-// });
 
 export const metadata: Metadata = {
   title: {
@@ -87,6 +82,7 @@ export default async function RootLayout({
           </div>
         </ThemeProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

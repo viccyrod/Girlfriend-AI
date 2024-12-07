@@ -21,7 +21,7 @@ class MessageEmitter extends EventEmitter {
   }
 
   emit(event: string, message: Message): boolean {
-    console.log(`[MessageEmitter] Emitting event: ${event}`, { messageId: message.id });
+    console.log(`[MessageEmitter] Emitting event: ${event}`, { message });
     return super.emit(event, message);
   }
 
