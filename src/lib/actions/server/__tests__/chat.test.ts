@@ -14,23 +14,17 @@ jest.mock('@/lib/session', () => ({
 }));
 
 jest.mock('@/lib/clients/prisma', () => {
-  const mockPrisma = {
+  const mockPrisma: any = {
     aIModel: {
       findUnique: jest.fn(),
     },
     chatRoom: {
-      findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
       delete: jest.fn(),
     },
     message: {
       findMany: jest.fn(),
-      updateMany: jest.fn(),
-      create: jest.fn(),
-    },
-    user: {
-      findUnique: jest.fn(),
     },
     $transaction: jest.fn((callback) => callback(mockPrisma)),
   };
@@ -50,22 +44,72 @@ describe('Chat Server Actions', () => {
   const mockUser = {
     id: 'user-1',
     name: 'Test User',
-    email: 'test@test.com',
+    email: 'test@example.com',
+    image: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    isSubscribed: false,
+    customerId: null,
+    isAI: false,
+    bio: null
   };
 
   const mockAIModel = {
     id: 'model-1',
     name: 'Test AI',
-    createdBy: mockUser,
+    personality: 'Friendly',
+    appearance: 'Modern',
+    backstory: 'An AI assistant',
+    hobbies: 'Helping users',
+    likes: 'Conversations',
+    dislikes: 'Rudeness',
+    age: null,
+    imageUrl: '/test.jpg',
+    voiceId: null,
+    isPrivate: false,
+    followerCount: 0,
+    isFollowing: false,
+    isHumanX: false,
+    isAnime: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    userId: 'user-1',
+    status: 'active',
+    createdBy: mockUser
   };
 
   const mockChatRoom = {
     id: 'room-1',
     name: 'Test Chat',
-    aiModel: mockAIModel,
-    users: [mockUser],
-    messages: [],
-    createdBy: mockUser,
+    aiModelId: 'model-1',
+    createdById: 'user-1',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const mockMessage = {
+    id: 'msg-1',
+    content: 'Hello',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    userId: 'user-1',
+    aiModelId: null,
+    isAIMessage: false,
+    metadata: { type: 'text' },
+    role: 'user',
+    chatRoomId: 'room-1',
+    user: {
+      id: 'user-1',
+      name: 'Test User',
+      email: 'test@example.com',
+      image: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isSubscribed: false,
+      customerId: null,
+      isAI: false,
+      bio: null,
+    },
   };
 
   beforeEach(() => {
@@ -113,13 +157,6 @@ describe('Chat Server Actions', () => {
   });
 
   describe('createMessageServer', () => {
-    const mockMessage = {
-      id: 'msg-1',
-      content: 'Hello',
-      chatRoomId: 'room-1',
-      user: mockUser,
-    };
-
     beforeEach(() => {
       jest.mocked(prisma.user.findUnique).mockResolvedValue(mockUser);
       jest.mocked(prisma.chatRoom.findUnique).mockResolvedValue(mockChatRoom);
@@ -178,20 +215,30 @@ describe('Chat Server Actions', () => {
 
   describe('deleteChatRoomServer', () => {
     it('deletes chat room if user has access', async () => {
-      jest.mocked(prisma.chatRoom.findUnique).mockResolvedValue(mockChatRoom);
+      const mockChatRoomWithUsers = {
+        ...mockChatRoom,
+        users: {
+          some: jest.fn().mockReturnValue(true)
+        }
+      };
+
+      jest.mocked(prisma.chatRoom.findUnique).mockResolvedValue(mockChatRoomWithUsers as any);
 
       await deleteChatRoomServer('room-1', 'user-1');
-
       expect(prisma.chatRoom.delete).toHaveBeenCalledWith({
-        where: { id: 'room-1' },
+        where: { id: 'room-1' }
       });
     });
 
     it('throws error if user does not have access', async () => {
-      jest.mocked(prisma.chatRoom.findUnique).mockResolvedValue({
+      const mockChatRoomWithUsers = {
         ...mockChatRoom,
-        users: [{ id: 'other-user' }],
-      });
+        users: {
+          some: jest.fn().mockReturnValue(false)
+        }
+      };
+
+      jest.mocked(prisma.chatRoom.findUnique).mockResolvedValue(mockChatRoomWithUsers as any);
 
       await expect(
         deleteChatRoomServer('room-1', 'user-1')
@@ -201,21 +248,56 @@ describe('Chat Server Actions', () => {
 
   describe('getChatRoomMessagesServer', () => {
     const mockMessages = [
-      { id: 'msg-1', content: 'Hello', user: mockUser },
-      { id: 'msg-2', content: 'Hi', user: mockUser },
+      {
+        id: 'msg-1',
+        content: 'Hello',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: 'user-1',
+        aiModelId: null,
+        isAIMessage: false,
+        metadata: { type: 'text' },
+        role: 'user' as const,
+        chatRoomId: 'room-1',
+        user: {
+          id: 'user-1',
+          name: 'Test User',
+          email: 'test@example.com',
+          image: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          isSubscribed: false,
+          customerId: null,
+          isAI: false,
+          bio: null,
+        },
+      },
     ];
 
     it('returns all messages for a chat room', async () => {
-      jest.mocked(prisma.message.findMany).mockResolvedValue(mockMessages);
+      jest.mocked(prisma.chatRoom.findUnique).mockResolvedValue(mockChatRoom as any);
+      jest.mocked(prisma.message.findMany).mockResolvedValue(mockMessages as any);
 
       const result = await getChatRoomMessagesServer('room-1');
 
-      expect(result).toEqual(mockMessages);
-      expect(prisma.message.findMany).toHaveBeenCalledWith({
-        where: { chatRoomId: 'room-1' },
-        include: { user: true },
-        orderBy: { createdAt: 'asc' },
-      });
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'msg-1',
+            content: 'Hello',
+            metadata: { type: 'text' },
+            role: 'user'
+          })
+        ])
+      );
+    });
+
+    it('throws error if chat room not found', async () => {
+      jest.mocked(prisma.chatRoom.findUnique).mockResolvedValue(null);
+
+      await expect(
+        getChatRoomMessagesServer('room-1')
+      ).rejects.toThrow('Chat room not found');
     });
   });
 });

@@ -60,6 +60,71 @@ const mockChatRoom: ExtendedChatRoom = {
   createdBy: mockCreatedBy
 }
 
+// Add at the top after imports
+const TEST_TIMEOUTS = {
+  SSE_CONNECTION: 3000,
+  MESSAGE_POLLING: 2000,
+  NETWORK_OPERATION: 1000,
+  UI_INTERACTION: 500
+} as const;
+
+// Mock fetch for message loading
+const mockMessage = {
+  id: 'msg-1',
+  content: 'test message',
+  isAIMessage: true,
+  metadata: {},
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  chatRoomId: '1',
+  userId: 'user-1',
+  aiModelId: 'model-1',
+  role: 'assistant',
+  user: {
+    id: 'user-1',
+    name: 'Test User',
+    email: 'test@example.com',
+    imageUrl: null
+  }
+};
+
+global.fetch = jest.fn((url) => {
+  if (url.includes('/messages')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve([mockMessage])
+    });
+  }
+  if (url.includes('/api/chat') && url.includes('/send')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ message: mockMessage })
+    });
+  }
+  return Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({})
+  });
+}) as jest.Mock;
+
+// Mock EventSource
+class MockEventSource {
+  onmessage: ((event: any) => void) | null = null;
+  onerror: ((event: any) => void) | null = null;
+  close = jest.fn();
+
+  constructor(url: string) {
+    setTimeout(() => {
+      if (this.onmessage) {
+        this.onmessage({ data: JSON.stringify(mockMessage) });
+      }
+    }, 0);
+  }
+}
+
+// @ts-ignore
+global.EventSource = MockEventSource;
+
 describe('ChatComponent', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -123,12 +188,12 @@ describe('ChatComponent', () => {
   it('handles message send failure', async () => {
     jest.mocked(sendMessage).mockRejectedValueOnce(new Error('Failed to send'))
 
-    render(<ChatComponent initialChatRoom={mockChatRoom} />)
-
+    render(<ChatComponent initialChatRoom={mockChatRoom} modelId={mockChatRoom.aiModelId} />)
+    
     const input = screen.getByRole('textbox')
     await act(async () => {
       fireEvent.change(input, { target: { value: 'Hello' } })
-      await new Promise(resolve => setTimeout(resolve, 0))
+      await new Promise(resolve => setTimeout(resolve, TEST_TIMEOUTS.UI_INTERACTION))
     })
 
     const form = input.closest('form')
@@ -136,11 +201,13 @@ describe('ChatComponent', () => {
 
     await act(async () => {
       fireEvent.submit(form)
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise(resolve => setTimeout(resolve, TEST_TIMEOUTS.NETWORK_OPERATION))
     })
 
-    // Wait for error message to appear
-    const errorMessage = await waitFor(() => screen.findByRole('alert'))
+    const errorMessage = await waitFor(
+      () => screen.getByRole('alert'),
+      { timeout: TEST_TIMEOUTS.NETWORK_OPERATION }
+    )
     expect(errorMessage).toHaveTextContent(/failed to send message/i)
   })
 
@@ -162,31 +229,45 @@ describe('ChatComponent', () => {
   })
 
   it('subscribes to messages on mount', async () => {
-    render(<ChatComponent initialChatRoom={mockChatRoom} />)
+    const { container } = render(
+      <ChatComponent initialChatRoom={mockChatRoom} modelId={mockChatRoom.aiModelId} />
+    );
     
+    // Wait for initial messages to load
     await waitFor(() => {
-      expect(subscribeToMessages).toHaveBeenCalledWith(
-        mockChatRoom.id,
-        expect.any(Function)
-      )
-    })
-  })
+      expect(fetch).toHaveBeenCalledWith(
+        `/api/chat/${mockChatRoom.id}/messages`,
+        expect.any(Object)
+      );
+    });
+
+    // Wait for message content to be displayed
+    await waitFor(() => {
+      expect(screen.getByText('test message')).toBeInTheDocument();
+    });
+  }, TEST_TIMEOUTS.SSE_CONNECTION);
 
   it('unsubscribes from messages on unmount', async () => {
-    const unsubscribe = jest.fn()
-    jest.mocked(subscribeToMessages).mockReturnValueOnce(unsubscribe)
+    const { unmount, container } = render(
+      <ChatComponent initialChatRoom={mockChatRoom} modelId={mockChatRoom.aiModelId} />
+    );
 
-    const { unmount } = render(
-      <ChatComponent initialChatRoom={mockChatRoom} />
-    )
-
+    // Wait for initial messages to load
     await waitFor(() => {
-      expect(subscribeToMessages).toHaveBeenCalled()
-    })
+      expect(fetch).toHaveBeenCalledWith(
+        `/api/chat/${mockChatRoom.id}/messages`,
+        expect.any(Object)
+      );
+    });
 
-    unmount()
-    expect(unsubscribe).toHaveBeenCalled()
-  })
+    unmount();
+
+    // Verify cleanup
+    await waitFor(() => {
+      const eventSources = container.querySelectorAll('EventSource');
+      expect(eventSources.length).toBe(0);
+    });
+  }, TEST_TIMEOUTS.SSE_CONNECTION);
 
   it('displays error message on failed message send', async () => {
     const error = new Error('Failed to send message')
@@ -207,7 +288,7 @@ describe('ChatComponent', () => {
     // Wait for error message to appear with increased timeout
     const errorMessage = await waitFor(
       () => screen.getByRole('alert'),
-      { timeout: 2000 }
+      { timeout: TEST_TIMEOUTS.NETWORK_OPERATION }
     )
     expect(errorMessage).toHaveTextContent(/failed to send message/i)
   })

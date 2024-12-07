@@ -51,6 +51,51 @@ const mockChatRoom = {
   }
 }
 
+// Mock fetch for message loading
+const mockMessage = {
+  id: 'msg-1',
+  content: 'test message',
+  isAIMessage: true,
+  metadata: {},
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  chatRoomId: '1',
+  userId: 'user-1',
+  aiModelId: 'model-1',
+  role: 'assistant'
+};
+
+global.fetch = jest.fn((url) => {
+  if (url.includes('/messages')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve([mockMessage])
+    });
+  }
+  return Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({})
+  });
+}) as jest.Mock;
+
+// Mock EventSource
+class MockEventSource {
+  onmessage: ((event: any) => void) | null = null;
+  onerror: ((event: any) => void) | null = null;
+  close = jest.fn();
+
+  constructor(url: string) {
+    setTimeout(() => {
+      if (this.onmessage) {
+        this.onmessage({ data: JSON.stringify(mockMessage) });
+      }
+    }, 0);
+  }
+}
+
+// @ts-ignore
+global.EventSource = MockEventSource;
+
 describe('ClientChatMessages', () => {
   const defaultProps = {
     chatRoom: mockChatRoom,
@@ -210,4 +255,19 @@ describe('ClientChatMessages', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Failed to send message')
     })
   })
+
+  it('loads and displays messages', async () => {
+    render(<ClientChatMessages {...defaultProps} />);
+    
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        `/api/chat/${mockChatRoom.id}/messages`,
+        expect.any(Object)
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('test message')).toBeInTheDocument();
+    });
+  });
 })

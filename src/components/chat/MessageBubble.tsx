@@ -57,6 +57,7 @@ export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProp
       initial="hidden"
       animate="visible"
       exit="exit"
+      data-testid="message-bubble"
       className={`flex gap-2 items-start ${isAIMessage ? '' : 'flex-row-reverse'}`}
     >
       <Avatar className="w-8 h-8">

@@ -1,6 +1,30 @@
 require('@testing-library/jest-dom')
 require('openai/shims/node')
 
+// Mock EventSource
+class MockEventSource {
+  constructor(url) {
+    this.url = url;
+    this.onmessage = null;
+    this.onerror = null;
+    this.onopen = null;
+    this.readyState = 0;
+  }
+
+  close() {
+    this.readyState = 2;
+  }
+
+  // Helper method for tests to simulate receiving messages
+  simulateMessage(data) {
+    if (this.onmessage) {
+      this.onmessage({ data: JSON.stringify(data) });
+    }
+  }
+}
+
+global.EventSource = MockEventSource;
+
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter() {

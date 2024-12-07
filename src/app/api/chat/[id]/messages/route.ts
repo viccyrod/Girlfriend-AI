@@ -25,9 +25,17 @@ export async function GET(
     
     // Transform messages to ensure consistent format
     const transformedMessages = messages.map(message => ({
-      ...message,
+      id: message.id,
+      content: message.content,
+      role: message.isAIMessage ? 'assistant' : 'user',
       metadata: message.metadata || {},
-      role: message.isAIMessage ? 'assistant' : 'user'
+      createdAt: message.createdAt,
+      updatedAt: message.updatedAt,
+      chatRoomId: message.chatRoomId,
+      userId: message.userId,
+      user: message.user,
+      aiModelId: message.aiModelId,
+      isAIMessage: message.isAIMessage
     }));
     
     return NextResponse.json(transformedMessages);

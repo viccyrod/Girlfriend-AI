@@ -56,6 +56,15 @@ const TypingIndicator = ({ modelImage }: { modelImage: string | null }) => (
 );
 
 const transformPrismaMessage = (message: any): Message => {
+  if (!message || typeof message !== 'object') {
+    throw new Error('Invalid message data received');
+  }
+
+  // Required fields
+  if (!message.id || !message.chatRoomId) {
+    throw new Error('Message missing required fields');
+  }
+
   // Ensure we have a valid metadata object
   const metadata = message.metadata || {};
   
@@ -66,15 +75,19 @@ const transformPrismaMessage = (message: any): Message => {
     metadata.prompt = metadata.prompt || '';
   }
 
+  // Handle dates
+  const createdAt = message.createdAt ? new Date(message.createdAt) : new Date();
+  const updatedAt = message.updatedAt ? new Date(message.updatedAt) : new Date();
+
   return {
     id: message.id,
-    content: message.content,
+    content: message.content || '',
     role: message.isAIMessage ? 'assistant' : 'user',
     metadata: metadata,
-    createdAt: new Date(message.createdAt),
-    updatedAt: new Date(message.updatedAt),
+    createdAt,
+    updatedAt,
     chatRoomId: message.chatRoomId,
-    isAIMessage: message.isAIMessage,
+    isAIMessage: Boolean(message.isAIMessage),
     userId: message.userId || null,
     user: message.user || null,
     aiModelId: message.aiModelId || null
@@ -90,7 +103,6 @@ export default function ClientChatMessages({
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollTimeout = useRef<NodeJS.Timeout>();
-  const messageQueue = useRef<string[]>([]);
 
   // All state hooks
   const [mounted, setMounted] = useState(false);
@@ -101,6 +113,8 @@ export default function ClientChatMessages({
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [rateLimitTimer, setRateLimitTimer] = useState<number>(0);
   const [messageError, setMessageError] = useState<string>('');
+  const [messageQueue, setMessageQueue] = useState<Message[]>([]);
+  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
 
   // All callbacks
   const scrollToBottom = useCallback((behavior: 'auto' | 'smooth' = 'auto') => {
@@ -197,12 +211,20 @@ export default function ClientChatMessages({
         });
         if (!response.ok) throw new Error('Failed to load messages');
         const data = await response.json();
+        
+        // Validate data is an array
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid message data received');
+        }
+
         const transformedMessages = data.map(transformPrismaMessage).sort((a: Message, b: Message) => {
           const dateA = new Date(a.createdAt).getTime();
           const dateB = new Date(b.createdAt).getTime();
           return dateA - dateB;
         });
+        
         setMessages(transformedMessages);
+        setIsInitialLoadComplete(true);
         setTimeout(() => scrollToBottom('auto'), 100);
       } catch (error) {
         console.error('Error loading messages:', error);
@@ -216,63 +238,78 @@ export default function ClientChatMessages({
     
     loadMessages();
 
-    // Set up SSE subscription
-    const eventSource = new EventSource(`/api/chat/${chatRoom.id}/subscribe`);
+    // Only set up SSE after initial load
+    let eventSource: EventSource | null = null;
     
-    eventSource.onmessage = (event) => {
-      try {
-        const newMessage = JSON.parse(event.data);
-        if (!newMessage.id) return;
+    const setupSSE = () => {
+      if (!isInitialLoadComplete) return;
+      
+      eventSource = new EventSource(`/api/chat/${chatRoom.id}/subscribe`);
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const newMessage = JSON.parse(event.data);
+          if (!newMessage.id) return;
 
-        setMessages((prevMessages) => {
-          const transformedNewMessage = transformPrismaMessage(newMessage);
-          const existingIndex = prevMessages.findIndex(msg => msg.id === transformedNewMessage.id);
-          
-          // Check if this is a new image generation message or an update
-          const isImageMessage = transformedNewMessage.metadata?.type === 'image';
-          const isNewMessage = existingIndex === -1;
-          const shouldScroll = isNewMessage || 
-                             (isImageMessage && transformedNewMessage.metadata?.status === 'completed');
-          
-          let updatedMessages;
-          if (existingIndex !== -1) {
-            updatedMessages = [...prevMessages];
-            updatedMessages[existingIndex] = {
-              ...transformedNewMessage,
-              metadata: {
-                ...prevMessages[existingIndex].metadata,
-                ...transformedNewMessage.metadata
-              }
-            };
-          } else {
-            updatedMessages = [...prevMessages, transformedNewMessage].sort((a, b) => 
-              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-            );
-          }
-          
-          if (shouldScroll) {
-            setTimeout(() => scrollToBottom('smooth'), 100);
-          }
-          
-          return updatedMessages;
-        });
-      } catch (error) {
-        console.error('Error handling message:', error);
-      }
+          setMessages((prevMessages) => {
+            const transformedNewMessage = transformPrismaMessage(newMessage);
+            const existingIndex = prevMessages.findIndex(msg => msg.id === transformedNewMessage.id);
+            
+            // Check if this is a new image generation message or an update
+            const isImageMessage = transformedNewMessage.metadata?.type === 'image';
+            const isNewMessage = existingIndex === -1;
+            const shouldScroll = isNewMessage || 
+                               (isImageMessage && transformedNewMessage.metadata?.status === 'completed');
+            
+            let updatedMessages;
+            if (existingIndex !== -1) {
+              updatedMessages = [...prevMessages];
+              updatedMessages[existingIndex] = {
+                ...transformedNewMessage,
+                metadata: {
+                  ...prevMessages[existingIndex].metadata,
+                  ...transformedNewMessage.metadata
+                }
+              };
+            } else {
+              updatedMessages = [...prevMessages, transformedNewMessage].sort((a, b) => 
+                new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+              );
+            }
+            
+            if (shouldScroll) {
+              setTimeout(() => scrollToBottom('smooth'), 100);
+            }
+            
+            return updatedMessages;
+          });
+        } catch (error) {
+          console.error('Error handling message:', error);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE error:', error);
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        setTimeout(setupSSE, 3000);
+      };
     };
 
-    eventSource.onerror = (error) => {
-      console.error('SSE error:', error);
-      eventSource.close();
-      setTimeout(() => {
-        loadMessages();
-      }, 3000);
-    };
+    // Watch for initial load completion
+    if (isInitialLoadComplete && !eventSource) {
+      setupSSE();
+    }
 
     return () => {
-      eventSource.close();
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
     };
-  }, [chatRoom.id, mounted, scrollToBottom, toast]);
+  }, [chatRoom.id, mounted, scrollToBottom, toast, isInitialLoadComplete]);
 
   if (!mounted) {
     return null;

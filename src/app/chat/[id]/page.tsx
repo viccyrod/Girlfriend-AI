@@ -56,28 +56,23 @@ const chatRoom = await getOrCreateChatRoom(params.id);
         name: chatRoom.aiModel.createdBy.name || '',
         email: chatRoom.aiModel.createdBy.email || '',
         imageUrl: chatRoom.aiModel.createdBy.image || null
-      } : {
-        id: '',
-        name: '',
-        email: '',
-        imageUrl: null
-      },
+      } : null,
       aiModel: chatRoom.aiModel ? {
         ...chatRoom.aiModel,
         createdAt: new Date(chatRoom.aiModel.createdAt),
         updatedAt: new Date(chatRoom.aiModel.updatedAt),
         voiceId: chatRoom.aiModel.voiceId || null,
-        isFollowing: chatRoom.aiModel.isFollowing || false,
-        isAnime: chatRoom.aiModel.isAnime || false,
-        age: chatRoom.aiModel.age || null,
-        isHumanX: chatRoom.aiModel.isHumanX || false,
+        isFollowing: false,
+        isAnime: false,
+        age: null,
+        isHumanX: false,
         createdBy: chatRoom.aiModel.createdBy ? {
           id: chatRoom.aiModel.createdBy.id || '',
           name: chatRoom.aiModel.createdBy.name || '',
           email: chatRoom.aiModel.createdBy.email || '',
           imageUrl: chatRoom.aiModel.createdBy.image || null
         } : null
-      } : null,
+      } : null
     };
 
     return (
