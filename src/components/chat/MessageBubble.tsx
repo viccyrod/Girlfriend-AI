@@ -7,6 +7,7 @@ import { slideIn } from '@/lib/utils/animations';
 import Image from 'next/image';
 import { ChatImageMessage } from './ChatImageMessage';
 import { Message, MessageMetadata } from '@/types/message';
+import { Loader2 } from 'lucide-react';
 
 interface MessageBubbleProps {
   message: Message;
@@ -27,6 +28,32 @@ export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProp
   };
 
   const renderMessageContent = () => {
+    // Handle image generation messages
+    if (message.metadata?.type === 'image') {
+      const metadata = message.metadata as { status?: string; prompt?: string };
+      
+      // Show loading state while generating
+      if (metadata.status === 'generating') {
+        return (
+          <div className="flex flex-col gap-2">
+            {metadata.prompt && (
+              <p className="text-sm text-muted-foreground italic">
+                Generating: {metadata.prompt}
+              </p>
+            )}
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Generating your image...</span>
+            </div>
+          </div>
+        );
+      }
+      
+      // Show the image message component for other states
+      return <ChatImageMessage message={message} />;
+    }
+
+    // Handle voice messages
     if (message.metadata?.type === 'voice_message' && 'audioData' in message.metadata) {
       return (
         <VoiceMessagePlayer
@@ -36,10 +63,7 @@ export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProp
       );
     }
 
-    if (message.metadata?.type === 'image') {
-      return <ChatImageMessage message={message} />;
-    }
-
+    // Regular text message
     return (
       <div className={`px-4 py-2 rounded-2xl break-words ${
         isAIMessage
@@ -71,7 +95,7 @@ export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProp
         {renderMessageContent()}
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <span>{formatMessageDate(message.createdAt)}</span>
-          {isAIMessage && isRead && (
+          {!isAIMessage && isRead && (
             <span className="text-[10px] text-pink-500">Seen</span>
           )}
         </div>

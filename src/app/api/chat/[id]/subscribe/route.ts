@@ -28,11 +28,11 @@ export async function GET(
         controller.enqueue(initialMessage);
 
         // Subscribe to message events for this chat room
-        const onMessage = (message: any) => {
+        const onMessage = (data: any) => {
           try {
             // Ensure message is properly stringified and encoded
-            const data = encoder.encode(`data: ${JSON.stringify(message)}\n\n`);
-            controller.enqueue(data);
+            const messageData = encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
+            controller.enqueue(messageData);
           } catch (error) {
             console.error('Error sending message:', error);
           }

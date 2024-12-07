@@ -58,16 +58,24 @@ export function ChatImageMessage({ message }: ChatImageMessageProps) {
   if (error || metadata?.status === 'error' || metadata?.status === 'failed') {
     return (
       <div className="text-red-500 mt-2">
-        Failed to generate image
+        Failed to generate image: {error || 'Unknown error'}
       </div>
     );
   }
 
   if (metadata?.status === 'generating') {
     return (
-      <div className="flex items-center gap-2 text-gray-500 mt-2">
-        <Loader2 className="w-4 h-4 animate-spin" />
-        Generating image...
+      <div className="flex flex-col gap-2 mt-2">
+        {metadata?.prompt && (
+          <p className="text-sm text-muted-foreground italic">
+            Generating: {metadata.prompt}
+          </p>
+        )}
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Creating your masterpiece...</span>
+        </div>
+        <div className="w-[300px] h-[300px] bg-secondary/50 rounded-lg animate-pulse" />
       </div>
     );
   }
@@ -79,14 +87,14 @@ export function ChatImageMessage({ message }: ChatImageMessageProps) {
   return (
     <div className="mt-2">
       {metadata?.prompt && (
-        <p className="mb-2 text-sm text-gray-600">{metadata.prompt}</p>
+        <p className="text-sm text-muted-foreground mb-2">{metadata.prompt}</p>
       )}
-      <div className="relative w-[300px] h-[300px]">
+      <div className="relative w-[300px] h-[300px] rounded-lg overflow-hidden">
         <Image 
           src={metadata.imageUrl}
           alt={metadata?.prompt || 'AI generated image'}
           fill
-          className="rounded-lg object-cover"
+          className="object-cover"
           sizes="300px"
           priority
         />

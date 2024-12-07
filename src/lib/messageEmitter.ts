@@ -18,15 +18,15 @@ class MessageEmitter extends EventEmitter {
 
   emit(event: string, message: Message): boolean {
     console.log(`[MessageEmitter] Emitting event: ${event}`, { message });
-    return super.emit(event, message);
+    return super.emit(event, { message });
   }
 
-  on(event: string, listener: (message: Message) => void): this {
+  on(event: string, listener: (data: { message: Message }) => void): this {
     console.log(`[MessageEmitter] Adding listener for: ${event}`);
     return super.on(event, listener);
   }
 
-  off(event: string, listener: (message: Message) => void): this {
+  off(event: string, listener: (data: { message: Message }) => void): this {
     console.log(`[MessageEmitter] Removing listener for: ${event}`);
     return super.off(event, listener);
   }

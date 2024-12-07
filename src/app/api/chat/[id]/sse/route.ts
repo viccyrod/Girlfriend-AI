@@ -35,45 +35,29 @@ export async function GET(
 
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
-      async start(controller) {
-        console.log(`SSE: Starting connection for chat ${params.id}`)
-        
-        const sendMessage = (message: Message) => {
+      start(controller) {
+        // Send initial connection message
+        const initialMessage = encoder.encode('data: {"connected":true}\n\n')
+        controller.enqueue(initialMessage)
+
+        // Message handler with correct type signature
+        const sendMessage = (data: { message: Message }) => {
           try {
-            console.log(`SSE: Sending message for chat ${params.id}`, message.id)
-            const data = JSON.stringify(message)
-            controller.enqueue(encoder.encode(`data: ${data}\n\n`))
+            const messageData = encoder.encode(`data: ${JSON.stringify(data)}\n\n`)
+            controller.enqueue(messageData)
           } catch (error) {
             console.error('Error sending message:', error)
           }
         }
-
-        // Send initial connection message
-        controller.enqueue(
-          encoder.encode(`data: {"type":"connected","timestamp":${Date.now()}}\n\n`)
-        )
-
-        // Set up ping interval
-        const pingInterval = setInterval(() => {
-          try {
-            controller.enqueue(
-              encoder.encode(`data: {"type":"ping","timestamp":${Date.now()}}\n\n`)
-            )
-          } catch (error) {
-            console.error('Error sending ping:', error)
-            clearInterval(pingInterval)
-          }
-        }, 5000)
 
         // Subscribe to messages
         messageEmitter.on(`chat:${params.id}`, sendMessage)
 
         // Clean up on connection close
         request.signal.addEventListener('abort', () => {
-          console.log(`SSE: Cleaning up connection for chat ${params.id}`)
-          clearInterval(pingInterval)
           messageEmitter.off(`chat:${params.id}`, sendMessage)
           controller.close()
+          console.log(`[SSE] Unsubscribed from chat:${params.id}`)
         })
       }
     })
@@ -83,11 +67,12 @@ export async function GET(
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no'
+        'X-Accel-Buffering': 'no',
+        'Content-Encoding': 'none'
       }
     })
   } catch (error) {
-    console.error('SSE Error:', error)
-    return new Response('Internal Server Error', { status: 500 })
+    console.error('Error in SSE setup:', error)
+    return new Response('Failed to setup SSE connection', { status: 500 })
   }
 } 

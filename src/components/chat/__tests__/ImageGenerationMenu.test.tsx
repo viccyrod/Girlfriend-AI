@@ -180,22 +180,22 @@ describe('ImageGenerationMenu', () => {
 
     render(<ImageGenerationMenu {...defaultProps} />);
     
-    // Open menu
-    const button = screen.getByRole('button');
-    await userEvent.click(button);
-    
-    // Wait for menu to open
-    await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
-    });
-    
-    // Find and click the first menu item
-    const menuItems = screen.getAllByRole('menuitem');
-    await userEvent.click(menuItems[0]);
-    
-    // Advance time by polling interval
     await act(async () => {
-      jest.advanceTimersByTime(2000);
+      // Open menu
+      const button = screen.getByRole('button');
+      await userEvent.click(button);
+      
+      // Wait for menu to open
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+      });
+      
+      // Find and click the first menu item
+      const menuItems = screen.getAllByRole('menuitem');
+      await userEvent.click(menuItems[0]);
+      
+      // Run all timers
+      jest.runAllTimers();
     });
     
     // Verify polling occurred
@@ -205,7 +205,7 @@ describe('ImageGenerationMenu', () => {
     expect(pollCalls.length).toBeGreaterThan(0);
     
     jest.useRealTimers();
-  }, 15000);
+  });
 
   it('cleans up polling interval on unmount', async () => {
     jest.useFakeTimers();
@@ -219,29 +219,27 @@ describe('ImageGenerationMenu', () => {
     
     const { unmount } = render(<ImageGenerationMenu {...defaultProps} />);
     
-    // Open menu
-    const button = screen.getByRole('button');
-    await userEvent.click(button);
-    
-    // Wait for menu to open
-    await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
-    });
-    
-    // Find and click the first menu item
-    const menuItems = screen.getAllByRole('menuitem');
-    await userEvent.click(menuItems[0]);
-    
-    // Advance time by polling interval
     await act(async () => {
-      jest.advanceTimersByTime(2000);
-    });
-    
-    unmount();
-    
-    // Advance more time
-    await act(async () => {
-      jest.advanceTimersByTime(4000);
+      // Open menu
+      const button = screen.getByRole('button');
+      await userEvent.click(button);
+      
+      // Wait for menu to open
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+      });
+      
+      // Find and click the first menu item
+      const menuItems = screen.getAllByRole('menuitem');
+      await userEvent.click(menuItems[0]);
+      
+      // Run all timers
+      jest.runAllTimers();
+      
+      unmount();
+      
+      // Run more timers
+      jest.runAllTimers();
     });
     
     const pollCalls = (fetch as jest.Mock).mock.calls.filter(call => 
@@ -250,7 +248,7 @@ describe('ImageGenerationMenu', () => {
     expect(pollCalls.length).toBeLessThanOrEqual(1);
     
     jest.useRealTimers();
-  }, 15000);
+  });
 
   it('closes menu after successful generation', async () => {
     jest.useFakeTimers();
@@ -277,27 +275,27 @@ describe('ImageGenerationMenu', () => {
 
     render(<ImageGenerationMenu {...defaultProps} />);
     
-    // Open menu
-    const button = screen.getByRole('button');
-    await userEvent.click(button);
-    
-    // Wait for menu to open
-    await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
-    });
-    
-    // Find and click the first menu item
-    const menuItems = screen.getAllByRole('menuitem');
-    await userEvent.click(menuItems[0]);
-    
-    // Advance time by polling interval
     await act(async () => {
-      jest.advanceTimersByTime(2000);
+      // Open menu
+      const button = screen.getByRole('button');
+      await userEvent.click(button);
+      
+      // Wait for menu to open
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+      });
+      
+      // Find and click the first menu item
+      const menuItems = screen.getAllByRole('menuitem');
+      await userEvent.click(menuItems[0]);
+      
+      // Run all timers
+      jest.runAllTimers();
     });
     
     // Verify menu closes
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     
     jest.useRealTimers();
-  }, 15000);
+  });
 }); 
