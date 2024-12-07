@@ -13,20 +13,21 @@ const nextConfig = {
   distDir: '.next',
   output: 'standalone',
   
-  webpack: (config, { isServer }) => {
-    // Handle OpenTelemetry in middleware
-    if (config.target === 'middleware' || isServer) {
-      config.module = {
-        ...config.module,
-        rules: [
-          ...config.module.rules,
-          {
-            test: /node_modules\/@opentelemetry/,
-            use: 'null-loader'
-          }
-        ]
+  webpack: (config, { isServer, dev }) => {
+    // Handle OpenTelemetry modules
+    if (!dev) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@opentelemetry/api': require.resolve('./src/lib/noop.js'),
+        '@opentelemetry/core': require.resolve('./src/lib/noop.js'),
+        '@opentelemetry/sdk-trace-base': require.resolve('./src/lib/noop.js'),
+        '@opentelemetry/sdk-trace-node': require.resolve('./src/lib/noop.js'),
+        '@opentelemetry/resources': require.resolve('./src/lib/noop.js'),
+        '@opentelemetry/semantic-conventions': require.resolve('./src/lib/noop.js'),
+        '@opentelemetry/instrumentation': require.resolve('./src/lib/noop.js'),
       }
     }
+    
     return config
   },
   
