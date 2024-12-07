@@ -11,6 +11,7 @@ import { messageEmitter } from '@/lib/messageEmitter';
 import prisma from '@/lib/clients/prisma';
 import { checkRateLimit } from '@/lib/utils/rate-limiter';
 import type { Message } from '@/lib/ai-client';
+import { AiModel } from '@/types/chat';
 
 export async function POST(
   request: Request,
@@ -87,7 +88,11 @@ export async function POST(
     // Generate AI response
     const aiResponse = await generateAIResponse(
       content,
-      chatRoom.aiModel,
+      {
+        ...chatRoom.aiModel,
+        createdAt: new Date(chatRoom.aiModel.createdAt),
+        updatedAt: new Date(chatRoom.aiModel.updatedAt)
+      },
       chatRoom.messages.map(message => message.content).reverse(),
       chatRoom.messages as Message[],
       'creative'

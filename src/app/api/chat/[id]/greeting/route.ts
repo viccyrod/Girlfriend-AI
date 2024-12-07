@@ -3,6 +3,7 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { generateGreeting } from '@/lib/ai-client';
 import prisma from '@/lib/clients/prisma';
 import { messageEmitter } from '@/lib/messageEmitter';
+import { AiModel } from '@/types/chat';
 
 export async function POST(
   request: Request,
@@ -39,7 +40,8 @@ export async function POST(
             likes: true,
             dislikes: true,
             isHumanX: true,
-            voiceId: true
+            voiceId: true,
+            followerCount: true
           }
         }
       }
@@ -57,22 +59,22 @@ export async function POST(
         id: chatRoom.aiModel.id,
         userId: chatRoom.aiModel.userId,
         name: chatRoom.aiModel.name,
-        personality: chatRoom.aiModel.personality || '',
-        appearance: chatRoom.aiModel.appearance || '',
-        backstory: chatRoom.aiModel.backstory || '',
-        hobbies: chatRoom.aiModel.hobbies || '',
-        likes: chatRoom.aiModel.likes || '',
-        dislikes: chatRoom.aiModel.dislikes || '',
-        imageUrl: chatRoom.aiModel.imageUrl || '',
-        isPrivate: chatRoom.aiModel.isPrivate || false,
-        followerCount: 0,
+        personality: chatRoom.aiModel.personality,
+        appearance: chatRoom.aiModel.appearance,
+        backstory: chatRoom.aiModel.backstory,
+        hobbies: chatRoom.aiModel.hobbies,
+        likes: chatRoom.aiModel.likes,
+        dislikes: chatRoom.aiModel.dislikes,
+        imageUrl: chatRoom.aiModel.imageUrl,
+        isPrivate: chatRoom.aiModel.isPrivate,
+        followerCount: chatRoom.aiModel.followerCount || 0,
+        isHumanX: chatRoom.aiModel.isHumanX,
         isAnime: false,
-        isHumanX: chatRoom.aiModel.isHumanX || false,
         age: null,
-        voiceId: chatRoom.aiModel.voiceId || null,
+        voiceId: chatRoom.aiModel.voiceId,
         createdAt: new Date(chatRoom.aiModel.createdAt),
         updatedAt: new Date(chatRoom.aiModel.updatedAt)
-      },
+      } as AiModel,
       [],
       false
     );

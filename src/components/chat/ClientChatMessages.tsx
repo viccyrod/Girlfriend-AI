@@ -55,19 +55,32 @@ const transformPrismaMessage = (message: any): Message => {
   };
 
   // Handle the user property which can be null
-  const user = message.user || (message.userId ? {
+  const user = message.user ? {
+    id: message.user.id,
+    name: message.user.name,
+    image: message.user.image
+  } : message.userId ? {
     id: message.userId,
     name: null,
     image: null
-  } : null);
+  } : null;
+
+  // Ensure dates are properly converted
+  const createdAt = message.createdAt instanceof Date 
+    ? message.createdAt 
+    : new Date(message.createdAt);
+  
+  const updatedAt = message.updatedAt instanceof Date 
+    ? message.updatedAt 
+    : new Date(message.updatedAt);
 
   return {
     id: message.id,
     content: message.content,
     userId: message.userId,
     chatRoomId: message.chatRoomId,
-    createdAt: new Date(message.createdAt),
-    updatedAt: new Date(message.updatedAt),
+    createdAt,
+    updatedAt,
     aiModelId: message.aiModelId,
     isAIMessage: message.isAIMessage,
     metadata,

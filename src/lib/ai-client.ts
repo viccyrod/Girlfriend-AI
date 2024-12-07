@@ -8,10 +8,11 @@ import { ChatCompletionMessageParam } from 'openai/resources/index.mjs';
 import { v2 as cloudinary } from 'cloudinary';
 
 // Extend the Prisma AIModel type to make certain fields optional
-type AIModel = Omit<PrismaAIModel, 'age' | 'followerCount' | 'isAnime'> & {
+type AIModel = Omit<PrismaAIModel, 'age' | 'followerCount' | 'isAnime' | 'status'> & {
   age?: number | null;
   followerCount?: number;
   isAnime?: boolean;
+  status?: string;
   isPrivate?: boolean;
   imageUrl?: string;
   userId?: string;

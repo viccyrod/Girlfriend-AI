@@ -46,19 +46,57 @@ export function MagicAIModelCreationForm() {
         throw new Error(errorData.error || 'Failed to create AI model');
       }
 
-      const newAIModel = await response.json();
-      console.log('Created AI model:', newAIModel);
+      const { id, message } = await response.json();
+      console.log('Started AI model creation:', { id, message });
       
-      if (newAIModel.imageUrl) {
-        setGeneratedImage(newAIModel.imageUrl);
-      }
+      // Start polling for completion
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(`/api/ai-models/${id}`);
+          const model = await statusResponse.json();
+          
+          if (model.status === 'COMPLETED') {
+            clearInterval(pollInterval);
+            setIsLoading(false);
+            setStatus('');
+            toast({
+              title: 'Success',
+              description: `AI Model "${model.name}" created successfully!`,
+            });
+            router.push(`/community/AIModelProfile/${id}`);
+          } else if (model.status === 'FAILED') {
+            clearInterval(pollInterval);
+            setIsLoading(false);
+            setStatus('');
+            toast({
+              title: 'Error',
+              description: 'Failed to create AI model. Please try again.',
+              variant: 'destructive',
+            });
+          } else {
+            // Still pending
+            setStatus('Creating your AI model... This may take a few moments.');
+          }
+        } catch (error) {
+          console.error('Error polling model status:', error);
+          clearInterval(pollInterval);
+          setIsLoading(false);
+          setStatus('');
+          toast({
+            title: 'Error',
+            description: 'Failed to check AI model status. Please refresh the page.',
+            variant: 'destructive',
+          });
+        }
+      }, 2000); // Poll every 2 seconds
       
-      toast({
-        title: 'Success',
-        description: `AI Model "${newAIModel.name}" created successfully!`,
-      });
+      // Clean up interval after 2 minutes to prevent infinite polling
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        setIsLoading(false);
+        setStatus('');
+      }, 120000);
       
-      router.push(`/community/AIModelProfile/${newAIModel.id}`);
     } catch (error) {
       console.error('Error in magic AI creation:', error);
       toast({
@@ -67,8 +105,7 @@ export function MagicAIModelCreationForm() {
         variant: 'destructive',
       });
     } finally {
-      setIsLoading(false);
-      setStatus('');
+      // Don't set loading to false here, as we want to keep showing loading state while polling
     }
   };
 

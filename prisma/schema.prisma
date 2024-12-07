@@ -197,6 +197,7 @@ model AIModel {
   isPrivate             Boolean                 @default(false)
   isAnime               Boolean                 @default(false)
   isHumanX              Boolean                 @default(false)
+  status                String                  @default("COMPLETE")
   createdBy             User?                   @relation(fields: [userId], references: [id])
   customizations        AIModelCustomization[]
   chatRooms             ChatRoom[]

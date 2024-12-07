@@ -249,8 +249,9 @@ const ChatComponent = ({
               name: rawRoom.aiModel.createdBy.name || '',
               email: rawRoom.aiModel.createdBy.email || '',
               imageUrl: rawRoom.aiModel.createdBy.image || null
-            } : null
-          } : null,
+            } : null,
+          } as AiModel
+          : null,
         };
 
         // Send greeting if this is a new room
@@ -469,8 +470,9 @@ const ChatComponent = ({
           age: room.aiModel.age || null,
           voiceId: room.aiModel.voiceId || null,
           createdAt: new Date(room.aiModel.createdAt),
-          updatedAt: new Date(room.aiModel.updatedAt)
-        } : null
+          updatedAt: new Date(room.aiModel.updatedAt),
+        } as AiModel
+        : null
       });
       
       // Send greeting through dedicated endpoint
