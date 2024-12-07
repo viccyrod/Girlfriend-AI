@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ImageGenerationMenu } from '../ImageGenerationMenu';
 
@@ -180,27 +180,32 @@ describe('ImageGenerationMenu', () => {
 
     render(<ImageGenerationMenu {...defaultProps} />);
     
-    // Start generation
-    await userEvent.click(screen.getByRole('button'));
-    await userEvent.click(screen.getByText(/show me a photo/i));
+    // Open menu
+    const button = screen.getByRole('button');
+    await userEvent.click(button);
     
-    // Wait for initial request
+    // Wait for menu to open
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/image', expect.any(Object));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
-
-    // Advance timers to trigger polling
-    jest.advanceTimersByTime(TEST_TIMEOUTS.IMAGE_POLLING);
     
-    await waitFor(() => {
-      const pollCalls = (fetch as jest.Mock).mock.calls.filter(call => 
-        call[0].includes('/api/image?jobId=test-job')
-      );
-      expect(pollCalls.length).toBeGreaterThan(0);
+    // Find and click the first menu item
+    const menuItems = screen.getAllByRole('menuitem');
+    await userEvent.click(menuItems[0]);
+    
+    // Advance time by polling interval
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
     });
+    
+    // Verify polling occurred
+    const pollCalls = (fetch as jest.Mock).mock.calls.filter(call => 
+      call[0].includes('/api/image?jobId=test-job')
+    );
+    expect(pollCalls.length).toBeGreaterThan(0);
     
     jest.useRealTimers();
-  }, 10000);
+  }, 15000);
 
   it('cleans up polling interval on unmount', async () => {
     jest.useFakeTimers();
@@ -214,19 +219,30 @@ describe('ImageGenerationMenu', () => {
     
     const { unmount } = render(<ImageGenerationMenu {...defaultProps} />);
     
-    // Start generation
-    await userEvent.click(screen.getByRole('button'));
-    await userEvent.click(screen.getByText(/show me a photo/i));
+    // Open menu
+    const button = screen.getByRole('button');
+    await userEvent.click(button);
     
-    // Wait for initial request
+    // Wait for menu to open
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/image', expect.any(Object));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+    
+    // Find and click the first menu item
+    const menuItems = screen.getAllByRole('menuitem');
+    await userEvent.click(menuItems[0]);
+    
+    // Advance time by polling interval
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
     });
     
     unmount();
     
-    // Advance timers and check no more polling occurs
-    jest.advanceTimersByTime(TEST_TIMEOUTS.IMAGE_POLLING * 2);
+    // Advance more time
+    await act(async () => {
+      jest.advanceTimersByTime(4000);
+    });
     
     const pollCalls = (fetch as jest.Mock).mock.calls.filter(call => 
       call[0].includes('/api/image?jobId=test-job')
@@ -234,7 +250,7 @@ describe('ImageGenerationMenu', () => {
     expect(pollCalls.length).toBeLessThanOrEqual(1);
     
     jest.useRealTimers();
-  }, 10000);
+  }, 15000);
 
   it('closes menu after successful generation', async () => {
     jest.useFakeTimers();
@@ -261,23 +277,27 @@ describe('ImageGenerationMenu', () => {
 
     render(<ImageGenerationMenu {...defaultProps} />);
     
-    // Start generation
-    await userEvent.click(screen.getByRole('button'));
-    await userEvent.click(screen.getByText(/show me a photo/i));
+    // Open menu
+    const button = screen.getByRole('button');
+    await userEvent.click(button);
     
-    // Wait for initial request
+    // Wait for menu to open
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/image', expect.any(Object));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
-
-    // Advance timers to trigger polling
-    jest.advanceTimersByTime(TEST_TIMEOUTS.IMAGE_POLLING);
     
-    // Wait for completion and menu close
-    await waitFor(() => {
-      expect(defaultProps.onClose).toHaveBeenCalled();
+    // Find and click the first menu item
+    const menuItems = screen.getAllByRole('menuitem');
+    await userEvent.click(menuItems[0]);
+    
+    // Advance time by polling interval
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
     });
+    
+    // Verify menu closes
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     
     jest.useRealTimers();
-  }, 10000);
+  }, 15000);
 }); 

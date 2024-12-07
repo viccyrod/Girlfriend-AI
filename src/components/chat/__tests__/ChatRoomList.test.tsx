@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ChatRoomList } from '../ChatRoomList';
 import { format } from 'date-fns';
 import type { Message } from '@/types/chat';

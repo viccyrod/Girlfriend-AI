@@ -108,22 +108,20 @@ global.fetch = jest.fn((url) => {
 }) as jest.Mock;
 
 // Mock EventSource
-class MockEventSource {
-  onmessage: ((event: any) => void) | null = null;
-  onerror: ((event: any) => void) | null = null;
-  close = jest.fn();
-
-  constructor(url: string) {
-    setTimeout(() => {
-      if (this.onmessage) {
-        this.onmessage({ data: JSON.stringify(mockMessage) });
-      }
-    }, 0);
-  }
+interface MockEventSource {
+  onmessage: ((event: MessageEvent) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  close: () => void;
 }
 
-// @ts-ignore
-global.EventSource = MockEventSource;
+/** @ts-expect-error EventSource mock */
+global.EventSource = jest.fn().mockImplementation((url: string) => {
+  return {
+    onmessage: null,
+    onerror: null,
+    close: jest.fn(),
+  } as MockEventSource;
+});
 
 describe('ChatComponent', () => {
   beforeEach(() => {
