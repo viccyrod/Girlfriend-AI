@@ -159,8 +159,7 @@ const ChatComponent = ({
   const router = useRouter();
   const { toast } = useToast();
 
-  // All state hooks
-  const [mounted, setMounted] = useState(false);
+  // State variables
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(!initialChatRoom && !!modelId);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
@@ -170,42 +169,32 @@ const ChatComponent = ({
   const [selectedRoom, setSelectedRoom] = useState<ExtendedChatRoom | null>(
     initialChatRoom || null
   );
-  const [isProfileVisible, setIsProfileVisible] = useState(true);
-  const [initError, setInitError] = useState<string | null>(null);
-  const [isRoomLoading, setIsRoomLoading] = useState<string | null>(null);
-  const [isMessageSending, setIsMessageSending] = useState(false);
-  const [isGreetingGenerating, setIsGreetingGenerating] = useState(false);
-  const [messageError, setMessageError] = useState<string | null>(null);
-  const [roomError, setRoomError] = useState<string | null>(null);
+  const [_isProfileVisible, setIsProfileVisible] = useState(true);
+  const [_initError, setInitError] = useState<string | null>(null);
+  const [_isRoomLoading, _setIsRoomLoading] = useState<string | null>(null); // Loading state for room selection
+  const [isMessageSending, setIsMessageSending] = useState(false); // Loading state for message sending
+  const [_isGreetingGenerating, setIsGreetingGenerating] = useState(false); // Loading state for greeting generation
+  const [_messageError, setMessageError] = useState<string | null>(null); // Error state for message sending
+  const [_roomError, setRoomError] = useState<string | null>(null); // Error state for room selection
   const [loadingRoomId, setLoadingRoomId] = useState<string | null>(null);
-  const [isDeletingRoom, setIsDeletingRoom] = useState<string | null>(null);
+  const [_isDeletingRoom, setIsDeletingRoom] = useState<string | null>(null);
 
-  // All memoized functions
-  const debouncedSendMessage = useMemo(
-    () =>
-      debounce(async (content: string, room: ExtendedChatRoom) => {
-        try {
-          setIsMessageSending(true);
-          setMessageError(null);
-          await sendMessage(room.id, content);
-        } catch (error) {
-          handleApiError(error, toast, "Failed to send message");
-          setMessageError("Failed to send message");
-        } finally {
-          setIsMessageSending(false);
-        }
-      }, 500),
-    [toast]
-  );
+  /**
+   * Cleanup effect to reset state when the component is unmounted.
+   */
+  useEffect(() => {
+    return () => {
+      setIsInitialized(false);
+      setIsGeneratingResponse(false);
+      setMessageError(null);
+      setRoomError(null);
+    };
+  }, []);
 
-  const debouncedToggleProfile = useMemo(
-    () =>
-      debounce(() => {
-        setIsProfileVisible((prev) => !prev);
-      }, 200),
-    []
-  );
-
+  /**
+   * Function to initialize the chat.
+   * Fetches chat rooms, selects the active room, and generates a greeting if necessary.
+   */
   const initializeChat = useCallback(async (retry = false) => {
     if (isInitialized && !retry) return;
 
@@ -215,16 +204,20 @@ const ChatComponent = ({
 
       let activeRoom = initialChatRoom;
       
+      // If modelId is provided but no initialChatRoom, create/get the room
       if (modelId && !initialChatRoom) {
+        console.log('Fetching/creating room for model:', modelId);
         const rawRoom = await getOrCreateChatRoom(modelId);
+        console.log('Raw Room Data:', rawRoom);
+        
         activeRoom = {
           ...rawRoom,
           users: rawRoom.users || [],
-          createdBy: {
-            id: rawRoom.aiModel?.createdBy?.id || '',
-            name: rawRoom.aiModel?.createdBy?.name || '',
-            email: rawRoom.aiModel?.createdBy?.email || '',
-            imageUrl: rawRoom.aiModel?.createdBy?.image || null
+          createdBy: rawRoom.aiModel?.createdBy || {
+            id: '',
+            name: '',
+            email: '',
+            imageUrl: null
           },
           aiModelId: rawRoom.aiModelId || '',
           aiModelImageUrl: rawRoom.aiModel?.imageUrl || null,
@@ -235,23 +228,52 @@ const ChatComponent = ({
           })) || [],
           aiModel: rawRoom.aiModel ? {
             ...rawRoom.aiModel,
-            createdBy: {
-              id: rawRoom.aiModel.createdBy?.id || '',
-              name: rawRoom.aiModel.createdBy?.name || '',
-              email: rawRoom.aiModel.createdBy?.email || '',
-              imageUrl: rawRoom.aiModel.createdBy?.image || null
-            }
-          } : null
+            id: rawRoom.aiModel.id || '',
+            name: rawRoom.aiModel.name || '',
+            personality: rawRoom.aiModel.personality || '',
+            appearance: rawRoom.aiModel.appearance || '',
+            backstory: rawRoom.aiModel.backstory || '',
+            hobbies: rawRoom.aiModel.hobbies || '',
+            likes: rawRoom.aiModel.likes || '',
+            dislikes: rawRoom.aiModel.dislikes || '',
+            imageUrl: rawRoom.aiModel.imageUrl || '',
+            userId: rawRoom.aiModel.userId || '',
+            followerCount: rawRoom.aiModel.followerCount || 0,
+            isPrivate: rawRoom.aiModel.isPrivate || false,
+            isAnime: rawRoom.aiModel.isAnime || false,
+            isFollowing: rawRoom.aiModel.isFollowing || false,
+            isHumanX: rawRoom.aiModel.isHumanX || false,
+            age: rawRoom.aiModel.age || null,
+            voiceId: rawRoom.aiModel.voiceId || null,
+            createdAt: new Date(rawRoom.aiModel.createdAt),
+            updatedAt: new Date(rawRoom.aiModel.updatedAt),
+            createdBy: rawRoom.aiModel.createdBy ? {
+              id: rawRoom.aiModel.createdBy.id || '',
+              name: rawRoom.aiModel.createdBy.name || '',
+              email: rawRoom.aiModel.createdBy.email || '',
+              imageUrl: rawRoom.aiModel.createdBy.image || null
+            } : null,
+          } as AiModel
+          : null,
         };
       }
 
-      const allRooms = await getChatRooms();
+      // Fetch all chat rooms
+      const allRooms = await getChatRooms().catch((error) => {
+        console.error('Failed to fetch chat rooms:', error);
+        return [];
+      });
+
+      // Combine rooms, ensuring no duplicates
       const uniqueRooms = [...allRooms];
       if (activeRoom && !uniqueRooms.some(room => room.id === activeRoom?.id)) {
         uniqueRooms.unshift(activeRoom);
       }
+
+      console.log('Final rooms:', uniqueRooms);
       
       setChatRooms(uniqueRooms);
+      
       if (activeRoom) {
         setSelectedRoom(activeRoom);
       }
@@ -267,31 +289,66 @@ const ChatComponent = ({
     }
   }, [initialChatRoom, modelId, isInitialized, onError]);
 
-  // All effects
+  /**
+   * useEffect to initialize the chat when the component mounts or dependencies change.
+   */
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    initializeChat();
+  }, [initializeChat]);
 
-  useEffect(() => {
-    if (mounted) {
-      initializeChat();
-    }
-  }, [mounted, initializeChat]);
+  /**
+   * Debounced function to send a message.
+   * Uses useMemo to ensure the debounced function is stable across renders.
+   */
+  const debouncedSendMessage: DebouncedFunc<SendMessageFunction> = useMemo(
+    () =>
+      debounce(async (content, room) => {
+        try {
+          setIsMessageSending(true);
+          setMessageError(null);
 
-  useEffect(() => {
+          const message: ChatMessage = {
+            content,
+            aiModelId: room.aiModel?.id,
+            isAIMessage: false,
+          };
+
+          await fetchWithRetry(`/api/chat/${room.id}/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(message),
+          });
+        } catch (error) {
+          handleApiError(error, toast, "Failed to send message");
+          setMessageError("Failed to send message. Please try again.");
+        } finally {
+          setIsMessageSending(false);
+        }
+      }, 500),
+    [toast]
+  );
+
+  /**
+   * Debounced function to toggle the profile visibility.
+   * Uses useMemo to ensure the debounced function is stable across renders.
+   */
+  const debouncedToggleProfile: DebouncedFunc<ToggleProfileFunction> = useMemo(
+    () =>
+      debounce(() => {
+        setIsProfileVisible((prev) => !prev);
+      }, 200),
+    []
+  );
+
+  /**
+   * Cleanup effect to cancel debounced functions when the component unmounts.
+   */
+  useEffect((): CleanupFunction => {
     return () => {
       debouncedToggleProfile.cancel();
       debouncedSendMessage.cancel();
-      setIsInitialized(false);
-      setIsGeneratingResponse(false);
-      setMessageError(null);
-      setRoomError(null);
     };
   }, [debouncedToggleProfile, debouncedSendMessage]);
-
-  if (!mounted) {
-    return null;
-  }
 
   /**
    * Handler function to send a message.
@@ -414,23 +471,28 @@ const ChatComponent = ({
     }
   };
 
+  const handleImageGeneration = useCallback(async () => {
+    // Image generation logic here
+    console.log("Image generation clicked");
+  }, []);
+
   /**
    * Render the chat interface with improved error handling and loading states.
    */
   return (
-    <div className="flex h-full relative">
+    <div className="flex h-full overflow-hidden relative">
       {/* Chat rooms list */}
       <div className={`
-        flex-shrink-0 w-full md:w-80 border-r border-[#1a1a1a] bg-[#0a0a0a]
-        ${selectedRoom ? 'hidden md:block' : ''}
+        ${selectedRoom ? 'hidden md:flex' : 'flex'} 
+        flex-col w-full md:w-80 border-r border-[#1a1a1a]
       `}>
         <ChatRoomList
           chatRooms={chatRooms}
           selectedRoom={selectedRoom}
           onSelectRoom={handleRoomSelection}
           onDeleteRoom={handleDeleteRoom}
-          loadingRoomId={loadingRoomId}
           isLoading={isLoading}
+          loadingRoomId={loadingRoomId}
         />
       </div>
 
@@ -439,7 +501,7 @@ const ChatComponent = ({
         flex-1 flex flex-col h-full relative
         transition-all duration-300 ease-in-out
         ${selectedRoom ? 'flex' : 'hidden md:flex'}
-        ${isProfileVisible ? 'md:mr-[400px]' : ''}
+        ${_isProfileVisible ? 'md:mr-[400px]' : ''}
       `}>
         {selectedRoom ? (
           <div className="relative flex flex-col h-full w-full">
@@ -473,24 +535,28 @@ const ChatComponent = ({
         w-[85vw] md:w-[400px] border-l border-[#1a1a1a] 
         flex-shrink-0 h-full bg-[#0a0a0a] 
         transition-transform duration-300 ease-in-out z-40
-        ${isProfileVisible 
+        ${_isProfileVisible 
           ? "translate-x-0 shadow-2xl" 
           : "translate-x-full"
         }
-        ${isProfileVisible && !selectedRoom ? "hidden md:block" : ""}
+        ${_isProfileVisible && !selectedRoom ? "hidden md:block" : ""}
       `}>
-        {/* Profile toggle button - only show when expanded */}
-        {isProfileVisible && (
-          <button
-            onClick={debouncedToggleProfile}
-            className="absolute left-0 top-6 -translate-x-full bg-[#1a1a1a] hover:bg-[#2a2a2a] p-2 pl-3 pr-4 rounded-l-md transition-all duration-200 flex items-center gap-2 text-sm text-white/80 hover:text-white"
-            aria-label="Hide profile"
-          >
-            <UserCircle2 className="w-4 h-4" />
-            <span className="hidden md:inline">Hide Profile</span>
-            <ChevronRight className="w-4 h-4 transform rotate-180" />
-          </button>
-        )}
+        {/* Profile toggle button */}
+        <button
+          onClick={debouncedToggleProfile}
+          className="absolute left-0 top-6 -translate-x-full bg-[#1a1a1a] hover:bg-[#2a2a2a] p-2 pl-3 pr-4 rounded-l-md transition-all duration-200 flex items-center gap-2 text-sm text-white/80 hover:text-white"
+          aria-label={_isProfileVisible ? "Hide profile" : "Show profile"}
+        >
+          <UserCircle2 className="w-4 h-4" />
+          <span className="hidden md:inline">
+            {_isProfileVisible ? "Hide Profile" : "View Profile"}
+          </span>
+          <ChevronRight
+            className={`w-4 h-4 transform transition-transform duration-200 ${
+              _isProfileVisible ? "rotate-180" : ""
+            }`}
+          />
+        </button>
         
         <div className="h-full overflow-y-auto scrollbar-pretty">
           <ModelProfile
@@ -499,6 +565,17 @@ const ChatComponent = ({
           />
         </div>
       </div>
+
+      {/* Removed VoiceMessage component */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="hover:text-accent-foreground h-9 w-9 hover:bg-[#2a2a2a] rounded-full"
+        onClick={handleImageGeneration}
+        aria-label="Send image"
+      >
+        <LucideImage className="h-5 w-5 text-[#ff4d8d]" />
+      </Button>
     </div>
   );
 };

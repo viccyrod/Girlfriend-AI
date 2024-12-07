@@ -188,6 +188,8 @@ export default function ClientChatMessages({
   }, []);
 
   useEffect(() => {
+    if (!mounted) return;
+
     const loadMessages = async () => {
       try {
         const response = await fetch(`/api/chat/${chatRoom.id}/messages`, {
@@ -212,49 +214,65 @@ export default function ClientChatMessages({
       }
     };
     
-    if (mounted) {
-      loadMessages();
-    }
-  }, [chatRoom.id, toast, scrollToBottom, mounted]);
+    loadMessages();
 
-  useEffect(() => {
-    if (!mounted) return;
+    // Set up SSE subscription
+    const eventSource = new EventSource(`/api/chat/${chatRoom.id}/subscribe`);
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const newMessage = JSON.parse(event.data);
+        if (!newMessage.id) return;
 
-    const unsubscribe = subscribeToMessages(chatRoom.id, (newMessage) => {
-      setMessages((prevMessages) => {
-        const transformedNewMessage = transformPrismaMessage(newMessage);
-        const existingMessageIndex = prevMessages.findIndex(msg => msg.id === transformedNewMessage.id);
-        
-        if (existingMessageIndex !== -1) {
-          const updatedMessages = [...prevMessages];
-          const existingMetadata = prevMessages[existingMessageIndex].metadata;
-          updatedMessages[existingMessageIndex] = {
-            ...transformedNewMessage,
-            metadata: transformedNewMessage.metadata || existingMetadata
-          };
+        setMessages((prevMessages) => {
+          const transformedNewMessage = transformPrismaMessage(newMessage);
+          const existingIndex = prevMessages.findIndex(msg => msg.id === transformedNewMessage.id);
+          
+          // Check if this is a new image generation message or an update
+          const isImageMessage = transformedNewMessage.metadata?.type === 'image';
+          const isNewMessage = existingIndex === -1;
+          const shouldScroll = isNewMessage || 
+                             (isImageMessage && transformedNewMessage.metadata?.status === 'completed');
+          
+          let updatedMessages;
+          if (existingIndex !== -1) {
+            updatedMessages = [...prevMessages];
+            updatedMessages[existingIndex] = {
+              ...transformedNewMessage,
+              metadata: {
+                ...prevMessages[existingIndex].metadata,
+                ...transformedNewMessage.metadata
+              }
+            };
+          } else {
+            updatedMessages = [...prevMessages, transformedNewMessage].sort((a, b) => 
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+            );
+          }
+          
+          if (shouldScroll) {
+            setTimeout(() => scrollToBottom('smooth'), 100);
+          }
+          
           return updatedMessages;
-        }
-        
-        return [...prevMessages, transformedNewMessage].sort((a, b) => 
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-      });
-      
-      const isNewMessage = !messages.find(msg => msg.id === newMessage.id);
-      const metadata = newMessage.metadata as unknown as ImageMetadata;
-      const isImageComplete = metadata?.type === 'image' && 
-                            metadata?.status === 'completed' &&
-                            metadata?.imageUrl;
-      
-      if (isNewMessage || isImageComplete) {
-        setTimeout(() => scrollToBottom('smooth'), 100);
+        });
+      } catch (error) {
+        console.error('Error handling message:', error);
       }
-    });
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('SSE error:', error);
+      eventSource.close();
+      setTimeout(() => {
+        loadMessages();
+      }, 3000);
+    };
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      eventSource.close();
     };
-  }, [chatRoom.id, scrollToBottom, mounted, messages]);
+  }, [chatRoom.id, mounted, scrollToBottom, toast]);
 
   if (!mounted) {
     return null;

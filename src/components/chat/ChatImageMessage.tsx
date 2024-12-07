@@ -81,13 +81,16 @@ export function ChatImageMessage({ message }: ChatImageMessageProps) {
       {metadata?.prompt && (
         <p className="mb-2 text-sm text-gray-600">{metadata.prompt}</p>
       )}
-      <Image 
-        src={metadata.imageUrl}
-        alt={metadata?.prompt || 'AI generated image'}
-        width={300}
-        height={300}
-        className="rounded-lg"
-      />
+      <div className="relative w-[300px] h-[300px]">
+        <Image 
+          src={metadata.imageUrl}
+          alt={metadata?.prompt || 'AI generated image'}
+          fill
+          className="rounded-lg object-cover"
+          sizes="300px"
+          priority
+        />
+      </div>
     </div>
   );
 }
