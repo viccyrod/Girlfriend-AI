@@ -4,7 +4,7 @@ import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
 import { useRouter } from 'next/navigation';
 import React, { ReactNode, useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
-import Footer from './Footer';
+import Footer from './footer';
 
 interface BaseLayoutProps {
     children: ReactNode;
