@@ -1,6 +1,6 @@
 import { Message as PrismaMessage, Prisma } from '@prisma/client';
 
-export type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[] | undefined;
+export type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
 
 export interface MessageMetadata {
   type: string;
@@ -8,25 +8,30 @@ export interface MessageMetadata {
   prompt?: string | null;
   audioData?: string | null;
   isRead?: boolean | null;
-  [key: string]: JsonValue;
+  [key: string]: JsonValue | undefined;
 }
 
 export interface Message {
   id: string;
   content: string;
-  isAIMessage: boolean;
   userId: string | null;
-  user: {
+  chatRoomId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  aiModelId: string | null;
+  isAIMessage: boolean;
+  metadata: MessageMetadata;
+  role: string;
+  user?: {
     id: string;
     name: string | null;
     image: string | null;
   } | null;
-  createdAt: Date;
-  updatedAt: Date;
-  chatRoomId: string;
-  aiModelId: string | null;
-  metadata: MessageMetadata;
-  role: string;
+  aiModel?: {
+    id: string;
+    name: string;
+    imageUrl: string;
+  } | null;
 }
 
 interface ImageMetadata {

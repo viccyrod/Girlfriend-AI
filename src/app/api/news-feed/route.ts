@@ -1,16 +1,20 @@
 // Importing necessary modules and functions from external libraries
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/clients/prisma';
-import { getCurrentUser } from '@/lib/session';
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import prisma from '@/lib/prisma';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // Handles GET requests to fetch the news feed for the current user
 export async function GET() {
   try {
     // Fetch the current user to ensure they are authenticated
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      // If the user is not authenticated, return a 401 Unauthorized response
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Fetch posts authored by users whose AI models are followed by the current user
@@ -19,7 +23,7 @@ export async function GET() {
         author: {
           followedAIModels: {
             some: {
-              userId: currentUser.id
+              userId: user.id
             }
           }
         }
@@ -44,7 +48,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching news feed:', error);
     // If an error occurs while fetching posts, return a 500 Internal Server Error response
-    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch news feed' }, { status: 500 });
   }
 }
 

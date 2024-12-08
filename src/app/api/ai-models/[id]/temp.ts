@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { getCurrentUser } from '@/lib/session';
+import prisma from "@/lib/clients/prisma";
+import { getDbUser } from '@/lib/actions/server/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,7 +44,7 @@ export async function GET(
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const currentUser = await getCurrentUser();
+    const currentUser = await getDbUser();
     if (!currentUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -75,7 +75,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    const currentUser = await getCurrentUser();
+    const currentUser = await getDbUser();
     if (!currentUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

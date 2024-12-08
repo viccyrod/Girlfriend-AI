@@ -1,86 +1,87 @@
-// Importing necessary modules and functions from external libraries
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import prisma from '@/lib/clients/prisma';
 import { getOpenAIClient } from '@/lib/clients/openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 // Handles POST requests to generate and stream an AI response for a chat message
 export async function POST(request: Request) {
-  // Extract the chat room ID and user message from the request body
-  const { chatRoomId, message } = await request.json();
-
-  // Fetch the current user to ensure they are authenticated
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    // If the user is not authenticated, return a 401 Unauthorized response
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
-    // Fetch the chat room details, including the users and the associated AI model
-    const chatRoom = await prisma.chatRoom.findUnique({
-      where: { id: chatRoomId },
-      include: { users: true, aiModel: true },
-    });
+    const { chatRoomId, message } = await request.json();
 
-    // If the chat room is not found, return a 404 Not Found response
-    if (!chatRoom) {
-      return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Ensure the AI model for the chat room is available
-    const aiModel = chatRoom.aiModel;
-    if (!aiModel) {
-      return NextResponse.json({ error: 'AI model not found for this chat room' }, { status: 404 });
-    }
-
-    // Get recent messages for context
-    const recentMessages = await prisma.message.findMany({
+    // Get chat room with AI model
+    const chatRoom = await prisma.chatRoom.findFirst({
       where: {
-        chatRoomId: chatRoomId
+        id: chatRoomId,
+        users: {
+          some: {
+            id: user.id
+          }
+        }
       },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: 10,
-      select: {
-        content: true,
-        isAIMessage: true,
-        createdAt: true
+      include: {
+        aiModel: true
       }
     });
 
-    // Format messages for context
-    const messageHistory: ChatCompletionMessageParam[] = recentMessages.reverse().map(msg => ({
-      role: msg.isAIMessage ? "assistant" as const : "user" as const,
+    if (!chatRoom || !chatRoom.aiModel) {
+      return NextResponse.json({ error: 'Chat room not found or AI model missing' }, { status: 404 });
+    }
+
+    // Create prompt for AI model
+    const systemMessage: ChatCompletionMessageParam = {
+      role: "system",
+      content: `You are ${chatRoom.aiModel.name}, an AI character with the following traits:
+      Personality: ${chatRoom.aiModel.personality}
+      Appearance: ${chatRoom.aiModel.appearance}
+      Backstory: ${chatRoom.aiModel.backstory}
+      Hobbies: ${chatRoom.aiModel.hobbies}
+      Likes: ${chatRoom.aiModel.likes}
+      Dislikes: ${chatRoom.aiModel.dislikes}
+      
+      Please respond in character, maintaining these traits consistently.`
+    };
+
+    // Get message history
+    const messageHistory = await prisma.message.findMany({
+      where: {
+        chatRoomId,
+        createdAt: {
+          gte: new Date(Date.now() - 1000 * 60 * 60) // Last hour
+        }
+      },
+      orderBy: {
+        createdAt: 'asc'
+      },
+      take: 10
+    });
+
+    // Transform messages for OpenAI format
+    const formattedHistory: ChatCompletionMessageParam[] = messageHistory.map(msg => ({
+      role: msg.isAIMessage ? "assistant" : "user",
       content: msg.content
     }));
 
-    // Create the system message with AI characteristics
-    const systemMessage: ChatCompletionMessageParam = {
-      role: "system",
-      content: `You are ${aiModel.name}, an AI with the following characteristics:
-        Personality: ${aiModel.personality}
-        Appearance: ${aiModel.appearance}
-        Backstory: ${aiModel.backstory}
-        Hobbies: ${aiModel.hobbies}
-        Likes: ${aiModel.likes}
-        Dislikes: ${aiModel.dislikes}`
-    };
-
-    // Create stream with full context
+    // Get OpenAI client
     const openAIClient = getOpenAIClient();
-    if (!openAIClient) {
-      return NextResponse.json({ error: 'OpenAI client not initialized' }, { status: 500 });
-    }
 
-    const stream = await openAIClient.chat.completions.create({
+    // Create stream
+    const stream = await openAIClient?.chat.completions.create({
       model: "gpt-4",
       messages: [
         systemMessage,
-        ...messageHistory,
-        { role: "user" as const, content: message }
+        ...formattedHistory,
+        { role: "user", content: message }
       ],
       stream: true,
       temperature: 0.9,
@@ -109,7 +110,6 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('Error in streaming AI response:', error);
-    // If an error occurs during message processing, return a 500 Internal Server Error response
     return NextResponse.json({ error: 'Failed to generate AI response' }, { status: 500 });
   }
 }

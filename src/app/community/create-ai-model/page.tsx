@@ -1,37 +1,37 @@
-'use client';
-
-import { useState } from 'react';
-import { AIModelCreationForm } from '@/components/AIModelCreationForm';
-import { MagicAIModelCreationForm } from '@/components/MagicAIModelCreationForm';
+import { redirect } from 'next/navigation';
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import { default as dynamicImport } from 'next/dynamic';
 import BaseLayout from '@/components/BaseLayout';
-import { Button } from '@/components/ui/button';
-import { Wand2 } from 'lucide-react';
 
-export default function CreateAIModelPage() {
-  const [creationMode, setCreationMode] = useState<'manual' | 'magic'>('magic');
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+// Dynamically import the client components
+const CreateAIModelClient = dynamicImport(
+  () => import('@/components/create-ai-model/CreateAIModelClient'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-screen">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded-full bg-[#ff4d8d] animate-bounce" />
+          <div className="w-4 h-4 rounded-full bg-[#ff4d8d] animate-bounce [animation-delay:0.2s]" />
+          <div className="w-4 h-4 rounded-full bg-[#ff4d8d] animate-bounce [animation-delay:0.4s]" />
+        </div>
+      </div>
+    ),
+  }
+);
+
+export default async function CreateAIModelPage() {
+  const { getUser } = getKindeServerSession();
+  const user = await getUser();
+  
+  if (!user?.id) redirect('/auth/login');
 
   return (
     <BaseLayout>
-      <div className="container mx-auto py-8">
-        <h1 className="text-3xl font-bold mb-6 text-center">Create Your Own AI Model</h1>
-        <div className="flex justify-center space-x-4 mb-8">
-          <Button 
-            onClick={() => setCreationMode('magic')}
-            variant={creationMode === 'magic' ? 'default' : 'outline'}
-            className="flex items-center"
-          >
-            <Wand2 className="w-4 h-4 mr-2" />
-            Magic Creation
-          </Button>
-          <Button 
-            onClick={() => setCreationMode('manual')}
-            variant={creationMode === 'manual' ? 'default' : 'outline'}
-          >
-            Manual Creation
-          </Button>
-        </div>
-        {creationMode === 'magic' ? <MagicAIModelCreationForm /> : <AIModelCreationForm />}
-      </div>
+      <CreateAIModelClient user={user as any} />
     </BaseLayout>
   );
 }

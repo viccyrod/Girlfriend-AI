@@ -1,188 +1,141 @@
 'use strict';
 
 import { NextResponse } from 'next/server';
-import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
-import { generateAIResponse } from '@/lib/ai-client';
-import { 
-  getChatRoomMessagesServer, 
-  createMessageServer
-} from '@/lib/actions/server/chat';
-import { messageEmitter } from '@/lib/messageEmitter';
+import { getDbUser } from '@/lib/actions/server/auth';
 import prisma from '@/lib/clients/prisma';
-import { checkRateLimit } from '@/lib/utils/rate-limiter';
-import type { Message } from '@/lib/ai-client';
-
-export const runtime = 'nodejs';
-
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    console.log('Fetching messages for chat room:', params.id);
-    const messages = await getChatRoomMessagesServer(params.id);
-    console.log('Found messages:', messages.length);
-    
-    // Transform messages to ensure consistent format
-    const transformedMessages = messages.map(message => ({
-      id: message.id,
-      content: message.content,
-      role: message.isAIMessage ? 'assistant' : 'user',
-      metadata: message.metadata || {},
-      createdAt: message.createdAt,
-      updatedAt: message.updatedAt,
-      chatRoomId: message.chatRoomId,
-      userId: message.userId,
-      user: message.user,
-      aiModelId: message.aiModelId,
-      isAIMessage: message.isAIMessage
-    }));
-    
-    return NextResponse.json(transformedMessages);
-  } catch (error) {
-    console.error('Error in GET /api/chat/[id]/messages:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch messages' },
-      { status: 500 }
-    );
-  }
-}
+import { OpenAIStream } from '@/lib/openai-stream';
+import { streamText } from 'ai';
 
 export async function POST(
-  request: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { getUser } = getKindeServerSession();
-    const kindeUser = await getUser();
-    
-    if (!kindeUser?.id) {
+    const user = await getDbUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { content, type = 'text', audioData } = body;
+    const { content } = await req.json();
 
-    if (!content) {
-      return NextResponse.json({ error: 'Content is required' }, { status: 400 });
-    }
-
-    console.log('Creating message for chat room:', params.id);
-    
-    // Find or create user
-    let dbUser = await prisma.user.findUnique({
-      where: { id: kindeUser.id }
-    });
-
-    if (!dbUser && kindeUser.email) {
-      dbUser = await prisma.user.findUnique({
-        where: { email: kindeUser.email }
-      });
-
-      if (dbUser && dbUser.id !== kindeUser.id) {
-        dbUser = await prisma.user.update({
-          where: { email: kindeUser.email },
-          data: { id: kindeUser.id }
-        });
-      }
-    }
-
-    if (!dbUser && kindeUser.email) {
-      dbUser = await prisma.user.create({
-        data: {
-          id: kindeUser.id,
-          email: kindeUser.email,
-          name: kindeUser.given_name || kindeUser.family_name || 'Anonymous',
-          image: kindeUser.picture || null
+    // Get chat room and verify access
+    const chatRoom = await prisma.chatRoom.findFirst({
+      where: {
+        id: params.id,
+        users: {
+          some: {
+            id: user.id
+          }
         }
-      });
-    }
-
-    if (!dbUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    // Check rate limit
-    const rateLimit = await checkRateLimit(dbUser.id);
-    if (!rateLimit.success) {
-      const resetTime = Math.ceil((rateLimit.reset - Date.now()) / 1000);
-      return NextResponse.json(
-        { error: `Rate limit exceeded. Try again in ${resetTime} seconds.` },
-        { status: 429 }
-      );
-    }
-
-    // Create user message
-    const message = await createMessageServer(params.id, dbUser.id, content);
-    console.log('Created user message:', message.id);
-    
-    // Emit user message with full message object
-    messageEmitter.emit(`chat:${params.id}`, message);
-
-    // Get chat room for context
-    const chatRoom = await prisma.chatRoom.findUnique({
-      where: { id: params.id },
+      },
       include: {
         aiModel: true,
         messages: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-          include: { user: true }
+          orderBy: {
+            createdAt: 'asc'
+          },
+          take: 50 // Get last 50 messages for context
         }
       }
     });
 
     if (!chatRoom?.aiModel) {
-      throw new Error('Chat room or AI model not found');
+      return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
     }
 
-    // Transform messages for AI response
-    const transformedMessages = chatRoom.messages.map(msg => ({
-      id: msg.id,
-      content: msg.content,
-      role: msg.isAIMessage ? 'assistant' : 'user',
-      metadata: {
-        type: (msg.metadata as any)?.type || 'text',
-        imageUrl: (msg.metadata as any)?.imageUrl,
-        prompt: (msg.metadata as any)?.prompt
-      },
-      createdAt: msg.createdAt,
-      updatedAt: msg.updatedAt,
-      chatRoomId: msg.chatRoomId,
-      userId: msg.userId,
-      isAIMessage: msg.isAIMessage,
-      aiModelId: msg.aiModelId,
-      user: msg.user
-    }));
+    // Save user message
+    const userMessage = await prisma.message.create({
+      data: {
+        content,
+        chatRoomId: params.id,
+        userId: user.id,
+        isAIMessage: false,
+        role: 'user'
+      }
+    });
 
-    // Generate AI response
-    console.log('Generating AI response');
-    const aiResponse = await generateAIResponse(
-      content,
-      chatRoom.aiModel,
-      transformedMessages.map(msg => msg.content).reverse(),
-      transformedMessages,
-      'creative'
-    );
+    // Create system message with AI model's personality
+    const systemMessage = {
+      role: 'system',
+      content: `You are ${chatRoom.aiModel.name}, an AI character with the following traits:
+      Personality: ${chatRoom.aiModel.personality}
+      Appearance: ${chatRoom.aiModel.appearance}
+      Backstory: ${chatRoom.aiModel.backstory}
+      Hobbies: ${chatRoom.aiModel.hobbies}
+      Likes: ${chatRoom.aiModel.likes}
+      Dislikes: ${chatRoom.aiModel.dislikes}
+      
+      Please respond in character, maintaining these traits consistently.`
+    };
 
-    if (aiResponse?.content) {
-      console.log('Creating AI message');
-      const aiMessage = await createMessageServer(
-        params.id,
-        dbUser.id,
-        aiResponse.content,
-        true
-      );
-      console.log('Created AI message:', aiMessage.id);
-      // Emit AI message with full message object
-      messageEmitter.emit(`chat:${params.id}`, aiMessage);
-    }
+    // Format messages for OpenAI
+    const messages = [
+      systemMessage,
+      ...chatRoom.messages.map(msg => ({
+        role: msg.isAIMessage ? 'assistant' : 'user',
+        content: msg.content
+      })),
+      { role: 'user', content }
+    ];
 
-    return NextResponse.json(message);
+    // Create stream
+    const stream = await OpenAIStream({
+      model: 'gpt-4',
+      messages,
+      temperature: 0.9,
+      max_tokens: 500,
+    });
+
+    return new Response(stream);
   } catch (error) {
-    console.error('Error in POST /api/chat/[id]/messages:', error);
+    console.error('Error in chat messages:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to send message' },
+      { error: 'Failed to process message' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await getDbUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const messages = await prisma.message.findMany({
+      where: {
+        chatRoomId: params.id,
+        chatRoom: {
+          users: {
+            some: {
+              id: user.id
+            }
+          }
+        }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'asc'
+      }
+    });
+
+    return NextResponse.json(messages);
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch messages' },
       { status: 500 }
     );
   }

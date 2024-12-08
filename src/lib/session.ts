@@ -1,4 +1,5 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import prisma from './clients/prisma';
 
 export async function getCurrentUser() {
@@ -46,3 +47,18 @@ export async function getCurrentUser() {
     return null;
   }
 }
+
+// Client-side hook for getting current user
+export function useCurrentUser() {
+  const { user, isLoading, isAuthenticated } = useKindeBrowserClient();
+  
+  return {
+    user,
+    isLoading,
+    isAuthenticated
+  };
+}
+
+// Mark this function as server-side only
+export const getServerUser = getCurrentUser;
+getCurrentUser.displayName = 'getServerUser';

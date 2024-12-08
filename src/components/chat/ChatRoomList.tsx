@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { ExtendedChatRoom } from '@/types/chat';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ExtendedMessage } from '@/types/chat';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatRoomListProps {
   chatRooms: ExtendedChatRoom[];
@@ -109,7 +110,7 @@ const ChatRoomItem = React.memo(({
 ChatRoomItem.displayName = 'ChatRoomItem';
 
 export function ChatRoomList({
-  chatRooms,
+  chatRooms: initialChatRooms,
   selectedRoom,
   onSelectRoom,
   onDeleteRoom,
@@ -117,18 +118,87 @@ export function ChatRoomList({
   loadingRoomId,
   className
 }: ChatRoomListProps) {
+  const { toast } = useToast();
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
+  const [localChatRooms, setLocalChatRooms] = useState<ExtendedChatRoom[]>(initialChatRooms);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Memoize sorted rooms to prevent unnecessary re-sorting
   const sortedRooms = useMemo(() => {
-    return [...chatRooms].sort((a, b) => {
+    return [...localChatRooms].sort((a, b) => {
       const aLatest = a.messages?.[a.messages.length - 1]?.createdAt;
       const bLatest = b.messages?.[b.messages.length - 1]?.createdAt;
       if (!aLatest) return 1;
       if (!bLatest) return -1;
       return new Date(bLatest).getTime() - new Date(aLatest).getTime();
     });
-  }, [chatRooms]);
+  }, [localChatRooms]);
+
+  // Set up SSE connection for real-time updates
+  useEffect(() => {
+    if (isInitialized) return;
+    setIsInitialized(true);
+
+    const eventSource = new EventSource('/api/chat/rooms/subscribe');
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.connected) {
+          console.log('Connected to chat rooms SSE');
+          return;
+        }
+
+        if (data.room) {
+          setLocalChatRooms(prevRooms => {
+            // Find if room already exists
+            const roomIndex = prevRooms.findIndex(r => r.id === data.room.id);
+            
+            if (roomIndex !== -1) {
+              // Update existing room
+              const updatedRooms = [...prevRooms];
+              updatedRooms[roomIndex] = {
+                ...updatedRooms[roomIndex],
+                ...data.room,
+                messages: data.room.messages || updatedRooms[roomIndex].messages
+              };
+              return updatedRooms;
+            } else {
+              // Add new room
+              return [...prevRooms, data.room];
+            }
+          });
+        }
+
+        if (data.deletedRoomId) {
+          setLocalChatRooms(prevRooms => 
+            prevRooms.filter(room => room.id !== data.deletedRoomId)
+          );
+        }
+      } catch (error) {
+        console.error('Error handling room update:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('Chat rooms SSE error:', error);
+      toast({
+        title: "Connection Error",
+        description: "Failed to connect to chat room updates. Retrying...",
+        variant: "destructive",
+      });
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [isInitialized, toast]);
+
+  // Update local rooms when initial rooms change
+  useEffect(() => {
+    setLocalChatRooms(initialChatRooms);
+  }, [initialChatRooms]);
 
   if (isLoading) {
     return <div className="p-4 text-muted-foreground">Loading chat rooms...</div>;

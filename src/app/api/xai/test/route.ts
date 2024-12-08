@@ -1,4 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 import { testAIConnection } from '@/lib/ai-client';
 
 // Handle GET requests

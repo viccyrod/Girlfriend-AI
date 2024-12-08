@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { ThemeProvider } from "@/providers/ThemeProvider"
 import Footer from "@/components/footer";
-import TanStackProvider from "@/providers/TanStackProvider";
-import { getCurrentUser } from "@/lib/session";
+import { getDbUser } from "@/lib/actions/server/auth";
 import { Analytics } from "@vercel/analytics/react"
 import React from 'react';
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import ClientProviders from "@/components/providers/ClientProviders";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -33,7 +32,7 @@ export const metadata: Metadata = {
     description: 'Connect with AI companions for meaningful conversations and relationships.',
     siteName: 'Girlfriend - Your AI Companion',
     images: [{
-      url: '/og-image.jpg', // Your OpenGraph image
+      url: '/og-image.jpg',
       width: 1200,
       height: 630,
       alt: 'Girlfriend.cx Preview'
@@ -43,44 +42,39 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Girlfriend - Your AI Companion',
     description: 'Connect with AI companions for meaningful conversations and relationships.',
-    images: ['/twitter-image.jpg'], // Your Twitter card image
+    images: ['/twitter-image.jpg'],
     creator: '@yourtwitter'
   },
   icons: {
     icon: '/gf-favicon.svg',
-    shortcut: '/favicon-16x16.png',
-    apple: '/apple-touch-icon.png',
+    shortcut: '/gf-favicon.svg',
+    apple: '/gf-favicon.svg',
     other: {
       rel: 'apple-touch-icon-precomposed',
-      url: '/apple-touch-icon-precomposed.png'
+      url: '/gf-favicon.svg'
     }
   },
   manifest: '/site.webmanifest'
 }
+
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getCurrentUser();
+  const user = await getDbUser();
 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={geistSans.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange>
+        <ClientProviders>
           <div className='h-screen flex flex-col'>
             <div className='flex-1'>
-              <TanStackProvider>
-                {children}
-              </TanStackProvider>
+              {children}
             </div>
             {!user && <Footer />}
           </div>
-        </ThemeProvider>
+        </ClientProviders>
         <Analytics />
         <SpeedInsights />
       </body>

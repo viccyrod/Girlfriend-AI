@@ -2,12 +2,10 @@
 
 // Importing necessary modules and services
 import prisma from '@/lib/clients/prisma';
-import { getCurrentUser } from '@/lib/session';
+import { getDbUser } from '@/lib/actions/server/auth';
 import { logger } from '@/lib/utils/logger';
 import Anthropic from '@anthropic-ai/sdk';
 import { aiRateLimiter } from '@/lib/utils/rateLimiter';
-import { conversationManager } from '@/lib/chat/conversationManager';
-import OpenAI from 'openai';
 import { VoiceService } from '@/lib/services/voiceService';
 
 const _anthropic = new Anthropic({
@@ -67,6 +65,21 @@ export class ChatService {
       ChatService.instance = new ChatService();
     }
     return ChatService.instance;
+  }
+
+  async deleteChatRoom(roomId: string): Promise<void> {
+    try {
+      await prisma.message.deleteMany({
+        where: { chatRoomId: roomId }
+      });
+      
+      await prisma.chatRoom.delete({
+        where: { id: roomId }
+      });
+    } catch (error) {
+      console.error('Error deleting chat room:', error);
+      throw new Error('Failed to delete chat room');
+    }
   }
 
   async generateUniqueResponse(
@@ -152,7 +165,7 @@ export class ChatService {
 
   // Method to send a message to a specific chat room
   static async sendMessage(content: string, chatRoomId: string, aiModelId: string | null) {
-    const currentUser = await getCurrentUser();
+    const currentUser = await getDbUser();
     if (!currentUser) throw new Error('Unauthorized');
 
     try {
@@ -217,7 +230,7 @@ export class ChatService {
 
   // Method to create a new chat room
   static async createChatRoom(name: string, aiModelId: string) {
-    const currentUser = await getCurrentUser();
+    const currentUser = await getDbUser();
     if (!currentUser) {
       throw new Error('Unauthorized: Please sign in to create a chat room');
     }
@@ -262,7 +275,7 @@ export class ChatService {
   // Method to delete a chat room
   static async deleteChatRoom(chatRoomId: string) {
     // Get the current user from the session
-    const currentUser = await getCurrentUser();
+    const currentUser = await getDbUser();
     if (!currentUser) throw new Error('Unauthorized');
 
     // Find the chat room by ID and include its users
@@ -292,7 +305,7 @@ export class ChatService {
   // Method to get all chat rooms for the current user
   static async getChatRooms() {
     // Get the current user from the session
-    const currentUser = await getCurrentUser();
+    const currentUser = await getDbUser();
     if (!currentUser) throw new Error('Unauthorized');
 
     // Find all chat rooms that include the current user
@@ -314,7 +327,7 @@ export class ChatService {
   }
 
   static async generateImage(prompt: string, chatRoomId: string) {
-    const currentUser = await getCurrentUser();
+    const currentUser = await getDbUser();
     if (!currentUser) throw new Error('Unauthorized');
 
     // Changed from /api/chat/${chatRoomId}/generate-image to /api/image
@@ -456,4 +469,49 @@ async function generateAIResponse(
   // Implement AI response generation logic here
   // For demonstration purposes, return a dummy response
   return { content: 'This is a dummy AI response' };
+}
+
+export async function sendMessage(chatRoomId: string, content: string): Promise<Message> {
+  const response = await fetch(`/api/chat/${chatRoomId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to send message');
+  }
+
+  return response.json();
+}
+
+export async function getMessages(chatRoomId: string): Promise<Message[]> {
+  const response = await fetch(`/api/chat/${chatRoomId}/messages`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch messages');
+  }
+
+  return response.json();
+}
+
+export async function streamMessage(chatRoomId: string, content: string): Promise<ReadableStream> {
+  const response = await fetch(`/api/chat/${chatRoomId}/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to stream message');
+  }
+
+  return response.body as ReadableStream;
 }

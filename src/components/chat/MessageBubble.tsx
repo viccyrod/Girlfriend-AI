@@ -4,9 +4,8 @@ import { Avatar, AvatarImage } from '@/components/ui/avatar';
 import { VoiceMessagePlayer } from './VoiceMessagePlayer';
 import { motion } from 'framer-motion';
 import { slideIn } from '@/lib/utils/animations';
-import Image from 'next/image';
 import { ChatImageMessage } from './ChatImageMessage';
-import { Message, MessageMetadata } from '@/types/message';
+import { Message } from '@/types/message';
 import { Loader2 } from 'lucide-react';
 
 interface MessageBubbleProps {
@@ -28,10 +27,10 @@ export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProp
   };
 
   const renderMessageContent = () => {
+    const metadata = message.metadata as Record<string, any>;
+    
     // Handle image generation messages
-    if (message.metadata?.type === 'image') {
-      const metadata = message.metadata as { status?: string; prompt?: string };
-      
+    if (metadata?.type === 'image') {      
       // Show loading state while generating
       if (metadata.status === 'generating') {
         return (
@@ -54,10 +53,10 @@ export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProp
     }
 
     // Handle voice messages
-    if (message.metadata?.type === 'voice_message' && 'audioData' in message.metadata) {
+    if (metadata?.type === 'voice_message' && metadata.audioData) {
       return (
         <VoiceMessagePlayer
-          audioUrl={message.metadata.audioData || ''}
+          audioUrl={metadata.audioData}
           className={`max-w-[300px] ${isAIMessage ? 'bg-pink-500/10' : 'bg-secondary'}`}
         />
       );

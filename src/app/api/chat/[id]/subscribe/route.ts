@@ -1,71 +1,98 @@
-import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import { getCurrentUser } from '@/lib/session';
-import { messageEmitter } from '@/lib/messageEmitter';
+import { NextRequest } from 'next/server';
+import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
+import { messageEmitter, EmitData } from '@/lib/messageEmitter';
+import { z } from 'zod';
 
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
+
+// Validate route parameters
+const RouteParamsSchema = z.object({
+  id: z.string().min(1)
+});
 
 export async function GET(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Validate route parameters
+    const validatedParams = RouteParamsSchema.safeParse(params);
+    if (!validatedParams.success) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid route parameters' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
-    const chatRoomId = params.id;
-    const encoder = new TextEncoder();
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user?.id) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Create a readable stream for SSE
+    // Create SSE stream
+    const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
         // Send initial connection message
-        const initialMessage = encoder.encode('data: {"connected":true}\n\n');
-        controller.enqueue(initialMessage);
+        controller.enqueue(encoder.encode('data: {"connected":true}\n\n'));
 
-        // Subscribe to message events for this chat room
-        const onMessage = (data: any) => {
+        // Setup keepalive ping
+        const pingInterval = setInterval(() => {
           try {
-            // Ensure message is properly stringified and encoded
+            controller.enqueue(encoder.encode('data: {"ping":true}\n\n'));
+          } catch (error) {
+            console.error('Error sending ping:', error);
+          }
+        }, 30000); // Send ping every 30 seconds
+
+        // Message handler
+        const sendMessage = (data: EmitData) => {
+          try {
             const messageData = encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
             controller.enqueue(messageData);
           } catch (error) {
             console.error('Error sending message:', error);
+            // Send error message to client
+            const errorData = encoder.encode(`data: {"error": "Failed to process message"}\n\n`);
+            controller.enqueue(errorData);
           }
         };
 
-        // Add listener with error handling
-        messageEmitter.on(`chat:${chatRoomId}`, onMessage);
-        console.log(`[SSE] Subscribed to chat:${chatRoomId}`);
+        // Subscribe to messages
+        messageEmitter.on(`chat:${params.id}`, sendMessage);
+        console.log(`[SSE] Subscribed to chat:${params.id}`);
 
-        // Cleanup on close
-        request.signal.addEventListener('abort', () => {
-          messageEmitter.off(`chat:${chatRoomId}`, onMessage);
+        // Clean up on connection close
+        req.signal.addEventListener('abort', () => {
+          clearInterval(pingInterval);
+          messageEmitter.off(`chat:${params.id}`, sendMessage);
           controller.close();
-          console.log(`[SSE] Unsubscribed from chat:${chatRoomId}`);
+          console.log(`[SSE] Unsubscribed from chat:${params.id}`);
         });
       }
     });
 
-    // Return SSE response with proper headers
-    return new NextResponse(stream, {
+    // Return SSE response
+    return new Response(stream, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
         'Content-Encoding': 'none'
-      },
+      }
     });
   } catch (error) {
     console.error('Error in SSE setup:', error);
-    return NextResponse.json(
-      { error: 'Failed to setup SSE connection' },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: 'Failed to setup SSE connection' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }

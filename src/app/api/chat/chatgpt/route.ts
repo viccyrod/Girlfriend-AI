@@ -1,5 +1,8 @@
 // Importing necessary modules and functions from external libraries
 import { NextResponse } from 'next/server';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 import { getOpenAIClient } from '@/lib/clients/openai';
 
 // Handles POST requests to generate an embedding for the provided text

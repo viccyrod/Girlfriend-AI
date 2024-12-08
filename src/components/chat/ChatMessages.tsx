@@ -1,7 +1,7 @@
 import React from 'react';
 import { ExtendedChatRoom } from '@/types/chat';
 import ClientChatMessages from './ClientChatMessages';
-import { sendMessage } from '@/lib/actions/chat';
+import { sendMessage } from '@/lib/actions/server/chat';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 

@@ -1,53 +1,45 @@
-"use client";
+import { redirect } from 'next/navigation';
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import prisma from '@/lib/clients/prisma';
 
-import { useQuery } from "@tanstack/react-query";
-import { Loader } from "lucide-react";
-import { checkAuthStatus } from "./actions";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-const Page = () => {
-	const router = useRouter();
-	const { data, isLoading, error } = useQuery({
-		queryKey: ["authCheck"],
-		queryFn: () => checkAuthStatus(),
-	});
+export default async function AuthCallback() {
+	const { getUser } = getKindeServerSession();
+	const user = await getUser();
 
-	useEffect(() => {
-		if (data?.success) {
-			// User is authenticated and saved in the database
-			console.log("User data:", data.user);
-			router.push("/");
-		} else if (data?.success === false) {
-			// Authentication failed
-			router.push("/login");
+	if (!user?.email) {
+		redirect('/auth/login');
+	}
+
+	try {
+		let dbUser = await prisma.user.findUnique({
+			where: { email: user.email }
+		});
+
+		if (!dbUser) {
+			dbUser = await prisma.user.create({
+				data: {
+					id: user.id,
+					email: user.email,
+					name: user.given_name && user.family_name
+						? `${user.given_name} ${user.family_name}`
+						: user.email.split('@')[0],
+					image: user.picture || undefined,
+				},
+			});
+		} else if (dbUser.id !== user.id) {
+			// Update the user's ID if it doesn't match the Kinde ID
+			dbUser = await prisma.user.update({
+				where: { email: user.email },
+				data: { id: user.id },
+			});
 		}
-	}, [data, router]);
 
-	if (isLoading) {
-		return (
-			<div className='mt-20 w-full flex justify-center'>
-				<div className='flex flex-col items-center gap-2'>
-					<Loader className='w-10 h-10 animate-spin text-muted-foreground' />
-					<h3 className='text-xl font-bold'>Authenticating...</h3>
-					<p>Please wait...</p>
-				</div>
-			</div>
-		);
+		redirect('/');
+	} catch (error) {
+		console.error('Error in auth callback:', error);
+		redirect('/auth/error');
 	}
-
-	if (error) {
-		return (
-			<div className='mt-20 w-full flex justify-center'>
-				<div className='flex flex-col items-center gap-2'>
-					<h3 className='text-xl font-bold text-red-500'>Authentication Error</h3>
-					<p>Please try again later.</p>
-				</div>
-			</div>
-		);
-	}
-
-	return null;
-};
-
-export default Page;
+}

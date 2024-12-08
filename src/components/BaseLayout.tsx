@@ -21,7 +21,7 @@ const BaseLayout = ({ children, requireAuth = true }: BaseLayoutProps) => {
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated && requireAuth) {
-            router.push("/");
+            router.push("/auth/login");
         }
     }, [isLoading, isAuthenticated, router, requireAuth]);
 

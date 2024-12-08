@@ -1,6 +1,6 @@
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import ChatComponent from '../ChatComponent'
-import { sendMessage, subscribeToMessages, getChatRooms, getOrCreateChatRoom, deleteChatRoom } from '@/lib/actions/chat'
+import { sendMessage } from '@/lib/actions/chat'
 import { ExtendedChatRoom } from '@/types/chat'
 
 // Mock the chat actions
@@ -70,23 +70,18 @@ const TEST_TIMEOUTS = {
 
 // Mock fetch for message loading
 const mockMessage = {
-  id: 'msg-1',
-  content: 'test message',
-  isAIMessage: true,
+  id: '123',
+  content: 'Hello',
+  userId: '456',
+  chatRoomId: mockChatRoom.id,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  aiModelId: null,
+  isAIMessage: false,
   metadata: {},
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  chatRoomId: '1',
-  userId: 'user-1',
-  aiModelId: 'model-1',
-  role: 'assistant',
-  user: {
-    id: 'user-1',
-    name: 'Test User',
-    email: 'test@example.com',
-    imageUrl: null
-  }
-};
+  role: 'user',
+  user: { id: '456', name: 'Test User', image: null }
+}
 
 global.fetch = jest.fn((url) => {
   if (url.includes('/messages')) {
@@ -134,7 +129,19 @@ describe('ChatComponent', () => {
   })
 
   it('handles message sending', async () => {
-    const mockMessage = { content: 'Hello' }
+    const mockMessage = {
+      id: '123',
+      content: 'Hello',
+      userId: '456',
+      chatRoomId: mockChatRoom.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      aiModelId: null,
+      isAIMessage: false,
+      metadata: {},
+      role: 'user',
+      user: { id: '456', name: 'Test User', image: null }
+    }
     jest.mocked(sendMessage).mockResolvedValueOnce(mockMessage)
 
     render(<ChatComponent initialChatRoom={mockChatRoom} />)
@@ -289,5 +296,21 @@ describe('ChatComponent', () => {
       { timeout: TEST_TIMEOUTS.NETWORK_OPERATION }
     )
     expect(errorMessage).toHaveTextContent(/failed to send message/i)
+  })
+
+  test('sends message when form is submitted', async () => {
+    render(<ChatComponent initialChatRoom={mockChatRoom} modelId="model-1" />)
+    
+    const input = screen.getByPlaceholderText(/type a message/i)
+    const form = screen.getByRole('form')
+    
+    fireEvent.change(input, { target: { value: 'Hello' } })
+    fireEvent.submit(form)
+    
+    jest.mocked(sendMessage).mockResolvedValueOnce(mockMessage)
+    
+    await waitFor(() => {
+      expect(sendMessage).toHaveBeenCalledWith('1', 'Hello')
+    })
   })
 })

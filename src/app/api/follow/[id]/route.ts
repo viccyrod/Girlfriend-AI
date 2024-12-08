@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 // Initializing the Prisma client for database operations
 const prisma = new PrismaClient();
 

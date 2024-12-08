@@ -1,22 +1,8 @@
 import { User } from '@prisma/client';
+import { Message } from './message';
 
 // Core Types
-export interface Message {
-  id: string;
-  content: string;
-  chatRoomId: string;
-  role: 'user' | 'assistant';
-  createdAt: Date;
-  updatedAt: Date;
-  user?: {
-    id: string;
-    name: string | null;
-    image: string | null;
-  } | null;
-  aiModelId?: string | null;
-  isAIMessage?: boolean;
-  metadata?: Record<string, MetadataValue>;
-}
+export type { Message };
 
 export interface CreatedBy {
   id: string;

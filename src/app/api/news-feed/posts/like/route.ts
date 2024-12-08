@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import prisma from '@/lib/clients/prisma';
-import { getCurrentUser } from '@/lib/session';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
     const { postId } = await request.json();
-    const user = await getCurrentUser();
-
-    if (!user) {
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

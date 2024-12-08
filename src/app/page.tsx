@@ -1,11 +1,8 @@
-// Import React and various components
 import React from "react";
 import { Button } from "@/components/ui/button";
-// import { Card, CardContent } from "@/components/ui/card";
-// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BaseLayout from "@/components/BaseLayout";
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server"; // Authentication utility
-import prisma from "@/lib/clients/prisma"; // Prisma client for interacting with the database
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import prisma from "@/lib/clients/prisma";
 import Link from "next/link";
 import Image from "next/image";
 import { Users } from 'lucide-react';
@@ -13,11 +10,11 @@ import ChatButton from "@/components/ChatButton";
 import AuthWrapper from "@/components/ClientAuthWrapper";
 import CreateAIButton from "@/components/CreateAIButton";
 
-// Function to fetch featured AI models from the database
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 async function getFeaturedModels() {
   try {
-    console.log('🔍 Fetching featured models...');
-    
     const models = await prisma.aIModel.findMany({
       where: {
         isPrivate: false,
@@ -42,25 +39,21 @@ async function getFeaturedModels() {
       take: 8,
     });
 
-    console.log('📊 Found models:', models.length);
-    console.log('📝 Models data:', JSON.stringify(models, null, 2));
-
     return models;
   } catch (error) {
-    console.error('❌ Error fetching featured models:', error);
+    console.error('Error fetching featured models:', error);
     return [];
   }
 }
 
-// Default export - main function for rendering the Home page
 export default async function Home() {
-  const { getUser } = getKindeServerSession(); // Get the authentication session
-  const user = await getUser(); // Retrieve user information if logged in
-  const featuredModels = await getFeaturedModels(); // Fetch featured AI models
+  const { getUser } = getKindeServerSession();
+  const user = await getUser();
+  const featuredModels = await getFeaturedModels();
 
   return (
-    <AuthWrapper isAuthenticated={!!user}> {/* Ensure authentication context */}
-      <BaseLayout> {/* Base layout that wraps the content of the page */}
+    <AuthWrapper isAuthenticated={!!user}>
+      <BaseLayout>
         {/* Beta Banner */}
         <div className="bg-gradient-to-r from-pink-500/90 to-purple-600/90 text-white p-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -117,55 +110,50 @@ export default async function Home() {
               Most Popular <span className="text-pink-500">AI Girlfriends</span>
             </h2>
             <Link href="/community">
-              <Button variant="outline">View All Models</Button> {/* Button to view all AI models */}
+              <Button variant="outline">View All Models</Button>
             </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredModels.map((model) => ( // Loop through the featured models to display each one
+            {featuredModels.map((model) => (
               <Link 
-                href={`/community/AIModelProfile/${model.id}`} // Link to individual AI model profile
+                href={`/community/AIModelProfile/${model.id}`}
                 key={model.id}
                 className="group cursor-pointer"
               >
                 <div className="relative aspect-[3/4] rounded-xl overflow-hidden">
-                  {/* New Badge */}
                   <div className="absolute top-3 left-3 z-20">
                     <span className="bg-pink-500 text-white text-xs px-2 py-1 rounded-full font-medium">
                       ⚡ New
                     </span>
                   </div>
 
-                  {/* Chat Button */}
-                  <ChatButton modelId={model.id} /> {/* Button to chat with the AI model */}
+                  <ChatButton modelId={model.id} />
 
-                  {/* Main Image */}
                   <Image
-                    src={model.imageUrl || "/placeholder.jpg"} // AI model's image, or placeholder if not available
+                    src={model.imageUrl || "/placeholder.jpg"}
                     alt={model.name}
                     fill
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
                   />
 
-                  {/* Gradient Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                  {/* Content Overlay */}
                   <div className="absolute bottom-0 left-0 right-0 p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-xl font-bold text-white mb-1">{model.name}</h3>
-                        <p className="text-sm text-gray-200">26 years</p> {/* Age (static value here) */}
+                        <p className="text-sm text-gray-200">26 years</p>
                       </div>
                       <div className="flex items-center gap-1 bg-black/30 px-2 py-1 rounded-full">
                         <Users size={14} className="text-white" />
                         <span className="text-sm text-white font-medium">
-                          {model.followerCount?.toLocaleString() || '0'} {/* Follower count */}
+                          {model.followerCount?.toLocaleString() || '0'}
                         </span>
                       </div>
                     </div>
                     <p className="text-sm text-gray-200 mt-2 line-clamp-2">
-                      {model.personality} {/* AI model personality description */}
+                      {model.personality}
                     </p>
                   </div>
                 </div>

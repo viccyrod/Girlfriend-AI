@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/session';
+import prisma from '@/lib/clients/prisma';
+import { getDbUser } from '@/lib/actions/server/auth';
 import { v2 as cloudinary } from 'cloudinary';
 import { RunPodClient } from '@/lib/clients/runpod';
 import { generateAIModelDetails } from '@/lib/ai-client';
 import { MAGIC_AI_PROMPT } from './prompts';
 import { RunPodResponse } from '@/types/runpod';
 import { uploadBase64Image } from '@/lib/cloudinary';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -29,7 +32,7 @@ export async function POST(request: Request) {
       throw new Error('Invalid request format');
     });
 
-    const currentUser = await getCurrentUser();
+    const currentUser = await getDbUser();
     if (!currentUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

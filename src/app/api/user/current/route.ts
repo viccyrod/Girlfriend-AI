@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
+import { getDbUser } from '@/lib/actions/server/auth';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
+    const user = await getDbUser();
     if (!user) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
     }

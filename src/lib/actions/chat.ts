@@ -1,177 +1,252 @@
-import { Message } from '@prisma/client';
+'use server';
+
 import { ExtendedChatRoom } from '@/types/chat';
-import { getOrCreateChatRoomServer } from './server/chat';
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import prisma from '@/lib/prisma';
+import { messageEmitter } from '@/lib/messageEmitter';
+import { Message, User } from '@prisma/client';
 
-// Send a message in a chat room
-export async function sendMessage(
-  chatRoomId: string, 
-  content: string, 
-  options: { type?: string; audioData?: string; } = { type: 'text' }
-) {
-  const response = await fetch(`/api/chat/${chatRoomId}/messages`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ content, ...options }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to send message');
-  }
-
-  return response.json();
-}
-
-// Get messages for a specific chat room
-export async function getChatRoomMessages(chatRoomId: string): Promise<Message[]> {
-  console.log('Fetching messages for chat room:', chatRoomId);
-  const response = await fetch(`/api/chat/${chatRoomId}/messages`, {
-    // Add cache: no-store to prevent caching
-    cache: 'no-store'
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    console.error('Failed to fetch messages:', errorData);
-    throw new Error(errorData.error || 'Failed to fetch messages');
-  }
-
-  const messages = await response.json();
-  console.log('Fetched messages:', messages.length);
-  return messages;
-}
-
-// Create or get existing chat room for an AI model
-export async function getOrCreateChatRoom(modelId: string) {
+export async function getOrCreateChatRoom(aiModelId: string) {
   try {
-    const chatRoom = await getOrCreateChatRoomServer(modelId);
-    return {
-      ...chatRoom,
-      aiModel: chatRoom.aiModel ? {
-        ...chatRoom.aiModel,
-        isHuman: false,
-        isFollowing: false
-      } : null,
-      aiModelImageUrl: chatRoom.aiModel?.imageUrl || '/default-ai-image.png',
-      voiceId: null
-    };
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user?.id) {
+      throw new Error('Unauthorized');
+    }
+
+    // First find the AI model
+    const aiModel = await prisma.aIModel.findUnique({
+      where: { id: aiModelId },
+      include: { createdBy: true }
+    });
+
+    if (!aiModel) throw new Error('AI Model not found');
+
+    // Create or find chat room in a transaction
+    const chatRoom = await prisma.$transaction(async (tx) => {
+      // Find existing chat room
+      const existingRoom = await tx.chatRoom.findFirst({
+        where: {
+          aiModelId,
+          users: {
+            some: {
+              id: user.id
+            }
+          }
+        },
+        include: {
+          aiModel: {
+            include: {
+              createdBy: true
+            }
+          },
+          users: true,
+          messages: {
+            take: 50,
+            orderBy: {
+              createdAt: 'desc'
+            },
+            include: {
+              user: true
+            }
+          },
+          createdBy: true
+        }
+      });
+
+      if (existingRoom) return existingRoom;
+
+      // Create new chat room if none exists
+      return tx.chatRoom.create({
+        data: {
+          name: `Chat with ${aiModel.name}`,
+          aiModel: {
+            connect: {
+              id: aiModelId
+            }
+          },
+          users: {
+            connect: {
+              id: user.id
+            }
+          },
+          createdBy: {
+            connect: {
+              id: user.id
+            }
+          }
+        },
+        include: {
+          aiModel: {
+            include: {
+              createdBy: true
+            }
+          },
+          users: true,
+          messages: true,
+          createdBy: true
+        }
+      });
+    });
+
+    return chatRoom;
   } catch (error) {
     console.error('Error in getOrCreateChatRoom:', error);
-    throw error;
+    return null;
   }
 }
 
-// Get all chat rooms for the current user
-export async function getChatRooms(): Promise<ExtendedChatRoom[]> {
+export async function createMessage(
+  chatRoomId: string,
+  content: string,
+  isAIMessage: boolean = false
+) {
   try {
-    console.log('Fetching chat rooms...');
-    const response = await fetch('/api/chat/rooms', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch chat rooms: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('Raw chat rooms data:', data);
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
     
-    return data.chatRooms;
-  } catch (error) {
-    console.error('Error fetching chat rooms:', error);
-    throw error;
-  }
-}
+    if (!user?.id) {
+      throw new Error('Unauthorized');
+    }
 
-// Delete a chat room
-export async function deleteChatRoom(roomId: string): Promise<void> {
-  const response = await fetch(`/api/chat/${roomId}`, {
-    method: 'DELETE',
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to delete chat room');
-  }
-}
-
-// Generate an image in a chat room
-export async function generateImage(prompt: string, chatRoomId: string) {
-  try {
-    console.log('Generating image with prompt:', prompt);
-    const response = await fetch('/api/image', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    // Create the message
+    const message = await prisma.message.create({
+      data: {
+        content,
+        isAIMessage,
+        metadata: {},
+        chatRoom: {
+          connect: {
+            id: chatRoomId
+          }
+        },
+        user: {
+          connect: {
+            id: user.id
+          }
+        }
       },
-      body: JSON.stringify({
-        prompt,
-        chatRoomId,
-        style: 'realistic'
-      }),
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            isAI: true
+          }
+        }
+      }
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to generate image');
-    }
+    // Transform message to ensure consistent format
+    const transformedMessage = {
+      ...message,
+      metadata: message.metadata || {},
+      role: isAIMessage ? 'assistant' : 'user',
+      user: message.user || null
+    };
 
-    const data = await response.json();
-    console.log('Generated image response:', data);
-    return data;
+    // Emit the message event
+    messageEmitter.emit('newMessage', { message: transformedMessage });
+
+    return transformedMessage;
   } catch (error) {
-    console.error('Error generating image:', error);
-    throw error;
+    console.error('Error in createMessage:', error);
+    return null;
   }
 }
 
-// Subscribe to chat room messages using SSE
-export function subscribeToMessages(chatRoomId: string, onMessage: (message: Message) => void) {
-  console.log('Subscribing to messages for chat room:', chatRoomId);
-  const eventSource = new EventSource(`/api/chat/${chatRoomId}/subscribe`);
-  
-  eventSource.onmessage = (event) => {
-    try {
-      const message = JSON.parse(event.data);
-      if (message.id) { 
-        console.log('New message received:', message);
-        onMessage(message);
-      }
-    } catch (error) {
-      console.error('SSE parse error:', error);
+export async function deleteChatRoom(chatRoomId: string) {
+  try {
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user?.id) {
+      throw new Error('Unauthorized');
     }
-  };
 
-  eventSource.onerror = (error) => {
-    console.error('SSE connection error:', error);
-    // Attempt to reconnect after a delay
-    setTimeout(() => {
-      eventSource.close();
-      subscribeToMessages(chatRoomId, onMessage);
-    }, 5000);
-  };
+    const chatRoom = await prisma.chatRoom.findUnique({
+      where: { id: chatRoomId },
+      include: { users: true }
+    });
 
-  return () => {
-    console.log('Closing SSE connection for chat room:', chatRoomId);
-    eventSource.close();
-  };
+    if (!chatRoom) {
+      throw new Error('Chat room not found');
+    }
+
+    const hasAccess = chatRoom.users.some(u => u.id === user.id);
+    if (!hasAccess) {
+      throw new Error('User does not have access to this chat room');
+    }
+
+    await prisma.chatRoom.delete({
+      where: { id: chatRoomId }
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error in deleteChatRoom:', error);
+    return false;
+  }
 }
 
-// Helper function to check if a message should generate an image
-export function shouldGenerateImage(content: string): boolean {
-  const imageGenerationTriggers = [
-    'send me',
-    'generate',
-    'create image',
-    'show me'
-  ];
-  
-  return imageGenerationTriggers.some(trigger => 
-    content.toLowerCase().startsWith(trigger.toLowerCase())
-  );
+export async function getChatRoomMessages(chatId: string) {
+  try {
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user?.id) {
+      throw new Error('Unauthorized');
+    }
+
+    // Verify chat room exists and user has access
+    const chatRoom = await prisma.chatRoom.findFirst({
+      where: { 
+        id: chatId,
+        users: {
+          some: {
+            id: user.id
+          }
+        }
+      }
+    });
+
+    if (!chatRoom) {
+      throw new Error('Chat room not found or access denied');
+    }
+
+    // Fetch messages with user information
+    const messages = await prisma.message.findMany({
+      where: {
+        chatRoomId: chatId
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            isAI: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'asc'
+      }
+    });
+
+    // Transform messages to ensure consistent format
+    return messages.map(message => ({
+      ...message,
+      metadata: message.metadata || {},
+      role: message.isAIMessage ? 'assistant' : 'user',
+      user: message.user || null
+    }));
+  } catch (error) {
+    console.error('Error in getChatRoomMessages:', error);
+    return null;
+  }
 }

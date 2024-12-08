@@ -96,7 +96,7 @@ export async function POST(
 
     console.log('Emitting message event');
     // Emit the message event
-    messageEmitter.emit(`chat:${params.id}`, aiMessage);
+    messageEmitter.emit(`chat:${params.id}`, { message: aiMessage });
 
     console.log('Greeting completed successfully');
     return NextResponse.json({ message: aiMessage });

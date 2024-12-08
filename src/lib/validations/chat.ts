@@ -1,20 +1,27 @@
 import { z } from "zod";
+import { Message } from "@/types/message";
 
 export const MessageSchema = z.object({
   id: z.string(),
   content: z.string(),
+  userId: z.string().nullable(),
   chatRoomId: z.string(),
-  role: z.enum(["user", "assistant"]),
   createdAt: z.date(),
   updatedAt: z.date(),
+  aiModelId: z.string().nullable(),
+  isAIMessage: z.boolean(),
+  metadata: z.record(z.unknown()),
+  role: z.string(),
   user: z.object({
     id: z.string(),
     name: z.string().nullable(),
     image: z.string().nullable()
   }).nullable(),
-  aiModelId: z.string().nullable(),
-  isAIMessage: z.boolean().optional(),
-  metadata: z.record(z.unknown()).optional()
+  aiModel: z.object({
+    id: z.string(),
+    name: z.string(),
+    imageUrl: z.string()
+  }).nullable()
 });
 
 export const AiModelSchema = z.object({
@@ -63,6 +70,5 @@ export const ChatRoomSchema = z.object({
   }).nullable()
 });
 
-export type Message = z.infer<typeof MessageSchema>;
 export type AiModel = z.infer<typeof AiModelSchema>;
 export type ChatRoom = z.infer<typeof ChatRoomSchema>; 

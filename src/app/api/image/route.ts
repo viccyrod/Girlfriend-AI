@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
-import prisma from '@/lib/prisma';
+import { getDbUser } from '@/lib/actions/server/auth';
+import prisma from '@/lib/clients/prisma';
 import { v2 as cloudinary } from 'cloudinary';
 import { RunPodClient } from '@/lib/clients/runpod';
 import { messageEmitter } from '@/lib/messageEmitter';
 import { addImageToAIModel } from '@/lib/utils/image';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -15,7 +18,7 @@ cloudinary.config({
 
 export async function POST(request: Request) {
   try {
-    const currentUser = await getCurrentUser();
+    const currentUser = await getDbUser();
     if (!currentUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -70,7 +73,7 @@ export async function POST(request: Request) {
     });
 
     // Emit the pending message
-    messageEmitter.emit(`chat:${chatRoomId}`, pendingMessage);
+    messageEmitter.emit(`chat:${chatRoomId}`, { message: pendingMessage });
 
     // Start the async image generation process
     const enhancedPrompt = `${prompt}. 
@@ -226,7 +229,7 @@ export async function GET(request: Request) {
         console.log('📝 Message updated with image URL');
         
         console.log('📢 Emitting updated message to chat:', updatedMessage);
-        messageEmitter.emit(`chat:${chatRoomId}`, updatedMessage);
+        messageEmitter.emit(`chat:${chatRoomId}`, { message: updatedMessage });
 
         return NextResponse.json({ 
           success: true,
