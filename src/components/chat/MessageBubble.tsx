@@ -8,13 +8,17 @@ import { ChatImageMessage } from './ChatImageMessage';
 import { Message } from '@/types/message';
 import { Loader2 } from 'lucide-react';
 
-interface MessageBubbleProps {
+export interface MessageBubbleProps {
   message: Message;
   modelImage: string | null;
-  isRead: boolean;
+  isRead?: boolean;
 }
 
-export function MessageBubble({ message, modelImage, isRead }: MessageBubbleProps) {
+export function MessageBubble({ 
+  message,
+  modelImage,
+  isRead
+}: MessageBubbleProps) {
   const isAIMessage = message.isAIMessage;
 
   const formatMessageDate = (dateString: Date) => {

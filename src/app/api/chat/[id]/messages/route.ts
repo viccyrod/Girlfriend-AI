@@ -43,17 +43,6 @@ export async function POST(
       return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
     }
 
-    // Save user message
-    const userMessage = await prisma.message.create({
-      data: {
-        content,
-        chatRoomId: params.id,
-        userId: user.id,
-        isAIMessage: false,
-        role: 'user'
-      }
-    });
-
     // Create system message with AI model's personality
     const systemMessage = {
       role: 'system',
@@ -65,8 +54,24 @@ export async function POST(
       Likes: ${chatRoom.aiModel.likes}
       Dislikes: ${chatRoom.aiModel.dislikes}
       
-      Please respond in character, maintaining these traits consistently.`
+      ${content === 'greeting' 
+        ? 'Generate a flirty greeting message to welcome the user back. Be excited to see them again!'
+        : 'Please respond in character, maintaining these traits consistently.'}`
     };
+
+    // For greetings, don't save a user message
+    if (content !== 'greeting') {
+      // Save user message
+      await prisma.message.create({
+        data: {
+          content,
+          chatRoomId: params.id,
+          userId: user.id,
+          isAIMessage: false,
+          role: 'user'
+        }
+      });
+    }
 
     // Format messages for OpenAI
     const messages = [
@@ -75,15 +80,18 @@ export async function POST(
         role: msg.isAIMessage ? 'assistant' : 'user',
         content: msg.content
       })),
-      { role: 'user', content }
+      ...(content !== 'greeting' ? [{ role: 'user', content }] : [])
     ];
 
     // Create stream
     const stream = await OpenAIStream({
-      model: 'gpt-4',
+      model: 'grok-beta',
       messages,
-      temperature: 0.9,
-      max_tokens: 500,
+      temperature: 1.0,
+      max_tokens: 150,
+      presence_penalty: 0.9,
+      frequency_penalty: 0.9,
+      top_p: 0.9
     });
 
     return new Response(stream);

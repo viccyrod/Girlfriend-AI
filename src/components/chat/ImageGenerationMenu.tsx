@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-interface ImageGenerationMenuProps {
+export interface ImageGenerationMenuProps {
   chatRoom: ExtendedChatRoom;
   onGenerate: (prompt: string) => Promise<void>;
   isGenerating: boolean;

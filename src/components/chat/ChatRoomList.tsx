@@ -111,6 +111,17 @@ const ChatRoomItem = React.memo(({
 
 ChatRoomItem.displayName = 'ChatRoomItem';
 
+// Add loading skeleton component
+const ChatRoomSkeleton = () => (
+  <div className="flex items-center gap-3 p-4 animate-pulse">
+    <div className="w-12 h-12 rounded-full bg-muted" />
+    <div className="space-y-2 flex-1">
+      <div className="h-4 bg-muted rounded w-3/4" />
+      <div className="h-3 bg-muted rounded w-1/2" />
+    </div>
+  </div>
+);
+
 export function ChatRoomList({
   chatRooms: initialChatRooms,
   selectedRoom,
@@ -203,7 +214,13 @@ export function ChatRoomList({
   }, [initialChatRooms]);
 
   if (isLoading) {
-    return <div className="p-4 text-muted-foreground">Loading chat rooms...</div>;
+    return (
+      <div className="space-y-1">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <ChatRoomSkeleton key={i} />
+        ))}
+      </div>
+    );
   }
 
   if (sortedRooms.length === 0) {
@@ -211,21 +228,23 @@ export function ChatRoomList({
   }
 
   return (
-    <ScrollArea className={cn('h-[calc(100vh-4rem)] px-2', className)}>
-      <div className="flex flex-col gap-2 p-2">
-        {sortedRooms.map((room) => (
-          <ChatRoomItem
-            key={room.id}
-            room={room}
-            isSelected={selectedRoom?.id === room.id}
-            isLoading={loadingRoomId === room.id}
-            onSelect={() => onSelectRoom(room)}
-            onDelete={() => onDeleteRoom(room.id)}
-            showDeleteButton={hoveredRoomId === room.id}
-          />
-        ))}
-      </div>
-    </ScrollArea>
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <ScrollArea className="flex-1">
+        <div className="flex flex-col gap-2 p-4">
+          {sortedRooms.map((room) => (
+            <ChatRoomItem
+              key={room.id}
+              room={room}
+              isSelected={selectedRoom?.id === room.id}
+              isLoading={loadingRoomId === room.id}
+              onSelect={() => onSelectRoom(room)}
+              onDelete={() => onDeleteRoom(room.id)}
+              showDeleteButton={hoveredRoomId === room.id}
+            />
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
 

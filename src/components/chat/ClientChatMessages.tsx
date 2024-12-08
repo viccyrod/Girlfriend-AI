@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import TextareaAutosize from 'react-textarea-autosize';
-import { Send, ImageIcon, Mic } from 'lucide-react';
+import { Send, ImageIcon, Mic, Loader2 } from 'lucide-react';
 import { ImageGenerationMenu } from './ImageGenerationMenu';
 import { VoiceMessage } from './VoiceMessage';
 import { MessageBubble } from './MessageBubble';
@@ -68,7 +68,9 @@ export default function ClientChatMessages({
         const response = await fetch(`/api/chat/${chatRoom.id}/messages?limit=${PAGE_SIZE}`);
         if (!response.ok) throw new Error('Failed to fetch messages');
         const data = await response.json();
-        setMessages(data.messages.map((msg: any) => ({
+        
+        // Format and set messages
+        const formattedMessages = data.messages.map((msg: any) => ({
           id: msg.id,
           content: msg.content,
           chatRoomId: msg.chatRoomId,
@@ -83,8 +85,67 @@ export default function ClientChatMessages({
             type: 'text',
             ...(typeof msg.metadata === 'object' ? msg.metadata : {})
           } as MessageMetadata
-        })));
+        }));
+        
+        setMessages(formattedMessages);
         setHasMoreMessages(data.hasMore);
+
+        // Always send greeting when entering chat
+        if (chatRoom.aiModel) {
+          try {
+            const greetingResponse = await fetch(`/api/chat/${chatRoom.id}/greeting`, {
+              method: 'POST'
+            });
+
+            if (greetingResponse.ok) {
+              const reader = greetingResponse.body?.getReader();
+              if (!reader) throw new Error('No response reader available');
+
+              let streamedContent = '';
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = new TextDecoder().decode(value);
+                const lines = chunk.split('\n');
+                
+                for (const line of lines) {
+                  if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    if (data === '[DONE]') continue;
+                    try {
+                      const parsed = JSON.parse(data);
+                      streamedContent = parsed.content;
+                      setStreamingMessage(streamedContent);
+                    } catch (e) {
+                      console.error('Error parsing streaming response:', e);
+                    }
+                  }
+                }
+              }
+
+              // Create final greeting message
+              const greetingMessage: Message = {
+                id: `greeting-${Date.now()}`,
+                content: streamedContent,
+                isAIMessage: true,
+                userId: null,
+                user: null,
+                chatRoomId: chatRoom.id,
+                aiModelId: chatRoom.aiModel.id,
+                metadata: { type: 'greeting' },
+                role: 'assistant',
+                createdAt: new Date(),
+                updatedAt: new Date()
+              };
+
+              setMessages(prev => [...prev, greetingMessage]);
+              setStreamingMessage('');
+            }
+          } catch (error) {
+            console.error('Error sending greeting:', error);
+          }
+        }
       } catch (error) {
         console.error('Error fetching messages:', error);
         toast({
@@ -96,7 +157,7 @@ export default function ClientChatMessages({
     };
 
     fetchInitialMessages();
-  }, [chatRoom.id, toast]);
+  }, [chatRoom.id, chatRoom.aiModel, toast]);
 
   // Handle scroll
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
@@ -195,7 +256,8 @@ export default function ClientChatMessages({
         } as MessageMetadata,
         role: 'user',
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        user: null
       };
 
       // Add the message to the UI immediately
@@ -254,7 +316,7 @@ export default function ClientChatMessages({
         userId: null,
         user: null,
         chatRoomId: chatRoom.id,
-        aiModelId: null,
+        aiModelId: chatRoom.aiModel?.id || null,
         metadata: { type: 'text' },
         role: 'assistant',
         createdAt: new Date(),
@@ -273,32 +335,7 @@ export default function ClientChatMessages({
     } finally {
       setIsLoadingResponse(false);
     }
-  }, [newMessage, isLoadingResponse, messages, chatRoom.id, chatRoom.aiModelId, onSendMessage, toast]);
-
-  const handleVoiceMessage = useCallback(async (blob: Blob) => {
-    const file = new File([blob], 'voice_message.wav');
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch(`/api/chat/${chatRoom.id}/voice`, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) throw new Error('Failed to send voice message');
-
-      const data = await response.json();
-      setMessages(prev => [...prev, data.message]);
-    } catch (error) {
-      console.error('Error sending voice message:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send voice message",
-        variant: "destructive"
-      });
-    }
-  }, [chatRoom.id, toast]);
+  }, [newMessage, isLoadingResponse, messages, chatRoom.id, chatRoom.aiModel?.id, onSendMessage, toast]);
 
   const handleImageGeneration = async (prompt: string) => {
     try {
@@ -314,7 +351,7 @@ export default function ClientChatMessages({
         isAIMessage: true,
         metadata: { type: 'image', status: 'generating', prompt } as MessageMetadata,
         userId: null,
-        aiModelId: chatRoom.aiModelId,
+        aiModelId: chatRoom.aiModel?.id || null,
         role: 'assistant',
         user: null
       };
@@ -395,25 +432,12 @@ export default function ClientChatMessages({
 
     } catch (error) {
       console.error('Error generating image:', error);
-      
-      // Update the optimistic message to show error
-      setMessages(prev => prev.map(msg => 
-        msg.id.startsWith('temp-') 
-          ? {
-              ...msg,
-              content: 'Failed to generate image. Please try again.',
-              metadata: { type: 'image', status: 'error' } as MessageMetadata
-            }
-          : msg
-      ));
-
+      setIsGeneratingImage(false);
       toast({
         title: "Error",
         description: "Failed to generate image. Please try again.",
         variant: "destructive"
       });
-    } finally {
-      setIsGeneratingImage(false);
     }
   };
 
@@ -434,7 +458,7 @@ export default function ClientChatMessages({
             <MessageBubble
               key={message.id}
               message={message}
-              modelImage={chatRoom.aiModel?.imageUrl || ''}
+              modelImage={chatRoom.aiModel?.imageUrl || null}
               isRead={true}
             />
           ))}
@@ -445,7 +469,7 @@ export default function ClientChatMessages({
                 content: streamingMessage,
                 isAIMessage: true,
                 userId: null,
-                aiModelId: null,
+                aiModelId: chatRoom.aiModel?.id || null,
                 chatRoomId: chatRoom.id,
                 createdAt: new Date(),
                 updatedAt: new Date(),
@@ -453,7 +477,7 @@ export default function ClientChatMessages({
                 role: 'assistant',
                 user: null
               }}
-              modelImage={chatRoom.aiModel?.imageUrl || ''}
+              modelImage={chatRoom.aiModel?.imageUrl || null}
               isRead={true}
             />
           )}

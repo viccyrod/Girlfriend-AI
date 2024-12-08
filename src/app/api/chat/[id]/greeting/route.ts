@@ -1,110 +1,150 @@
-import { NextResponse } from 'next/server';
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import { generateGreeting } from '@/lib/ai-client';
-import prisma from '@/lib/clients/prisma';
-import { messageEmitter } from '@/lib/messageEmitter';
-import { AiModel } from '@/types/chat';
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { getDbUser } from "@/lib/actions/server/auth";
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function POST(
-  request: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('Greeting request for room:', params.id);
-    const { getUser } = getKindeServerSession();
-    const user = await getUser();
-    
-    if (!user?.email) {
-      console.log('Unauthorized greeting request');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const user = await getDbUser();
+    if (!user) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Get chat room and AI model details
-    console.log('Fetching chat room details');
-    const chatRoom = await prisma.chatRoom.findUnique({
+    const room = await prisma.chatRoom.findUnique({
       where: { id: params.id },
-      include: {
-        aiModel: {
-          select: {
-            id: true,
-            name: true,
-            isPrivate: true,
-            imageUrl: true,
-            userId: true,
-            createdAt: true,
-            updatedAt: true,
-            personality: true,
-            appearance: true,
-            backstory: true,
-            hobbies: true,
-            likes: true,
-            dislikes: true,
-            isHumanX: true,
-            voiceId: true,
-            followerCount: true
-          }
-        }
-      }
+      include: { aiModel: true }
     });
 
-    if (!chatRoom?.aiModel) {
-      console.error('Chat room or AI model not found:', params.id);
-      throw new Error('Chat room or AI model not found');
+    if (!room || !room.aiModel) {
+      return new NextResponse("Room not found", { status: 404 });
     }
 
-    console.log('Generating greeting for model:', chatRoom.aiModel.name);
-    // Generate greeting
-    const greeting = await generateGreeting(
-      {
-        id: chatRoom.aiModel.id,
-        userId: chatRoom.aiModel.userId,
-        name: chatRoom.aiModel.name,
-        personality: chatRoom.aiModel.personality,
-        appearance: chatRoom.aiModel.appearance,
-        backstory: chatRoom.aiModel.backstory,
-        hobbies: chatRoom.aiModel.hobbies,
-        likes: chatRoom.aiModel.likes,
-        dislikes: chatRoom.aiModel.dislikes,
-        imageUrl: chatRoom.aiModel.imageUrl,
-        isPrivate: chatRoom.aiModel.isPrivate,
-        followerCount: chatRoom.aiModel.followerCount || 0,
-        isHumanX: chatRoom.aiModel.isHumanX,
-        isAnime: false,
-        age: null,
-        voiceId: chatRoom.aiModel.voiceId,
-        createdAt: new Date(chatRoom.aiModel.createdAt),
-        updatedAt: new Date(chatRoom.aiModel.updatedAt)
-      } as AiModel,
-      [],
-      false
-    );
+    const { aiModel } = room;
+    const systemPrompt = `You are ${aiModel.name}. ${aiModel.personality}. Your appearance: ${aiModel.appearance}. Your backstory: ${aiModel.backstory}. Your hobbies: ${aiModel.hobbies}. You like: ${aiModel.likes}. You dislike: ${aiModel.dislikes}.`;
 
-    console.log('Creating AI message');
-    // Create AI message
-    const aiMessage = await prisma.message.create({
+    // Create initial message
+    const message = await prisma.message.create({
       data: {
-        content: greeting,
-        chatRoomId: params.id,
+        content: "",
+        role: "assistant",
+        chatRoomId: room.id,
         isAIMessage: true,
-        aiModelId: chatRoom.aiModel.id,
-        metadata: {
-          type: 'greeting',
-          isRead: true
+        metadata: { type: "greeting" },
+        aiModelId: room.aiModelId
+      }
+    });
+
+    // Call grok-beta API with streaming
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.XAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'grok-beta',
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "assistant", content: "Greet the user in your unique personality style." }
+        ],
+        stream: true,
+        temperature: 1.0,
+        max_tokens: 150,
+        presence_penalty: 0.9,
+        frequency_penalty: 0.9,
+        top_p: 0.9
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get AI response');
+    }
+
+    // Create a transform stream to accumulate content and update the message
+    const reader = response.body!.getReader();
+    const encoder = new TextEncoder();
+    let accumulatedContent = '';
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = new TextDecoder().decode(value);
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
+
+                try {
+                  const parsed = JSON.parse(data);
+                  const content = parsed.choices[0]?.delta?.content || '';
+                  accumulatedContent += content;
+
+                  // Forward the chunk to the client in SSE format
+                  controller.enqueue(encoder.encode(
+                    `data: ${JSON.stringify({
+                      id: message.id,
+                      content: accumulatedContent,
+                      chatRoomId: room.id,
+                      role: "assistant",
+                      isAIMessage: true,
+                      aiModelId: room.aiModelId,
+                      createdAt: message.createdAt,
+                      updatedAt: message.updatedAt,
+                      metadata: { type: "greeting" }
+                    })}\n\n`
+                  ));
+                } catch (e) {
+                  console.error('Error parsing streaming response:', e);
+                }
+              }
+            }
+          }
+
+          // Update the message with final content
+          await prisma.message.update({
+            where: { id: message.id },
+            data: { content: accumulatedContent }
+          });
+
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        } catch (error) {
+          console.error('Stream error:', error);
+          controller.error(error);
         }
       }
     });
 
-    console.log('Emitting message event');
-    // Emit the message event
-    messageEmitter.emit(`chat:${params.id}`, { message: aiMessage });
+    return new NextResponse(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
 
-    console.log('Greeting completed successfully');
-    return NextResponse.json({ message: aiMessage });
   } catch (error) {
-    console.error('Error in greeting generation:', error);
-    return NextResponse.json({ 
-      error: 'Failed to generate greeting',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    console.error("Greeting error:", error);
+    return new NextResponse(
+      JSON.stringify({ 
+        error: "Internal error", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      }), 
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   }
-}
+} 

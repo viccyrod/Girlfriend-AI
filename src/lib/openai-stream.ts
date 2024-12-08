@@ -5,6 +5,9 @@ export interface OpenAIStreamConfig {
   messages: { role: string; content: string }[];
   temperature?: number;
   max_tokens?: number;
+  presence_penalty?: number;
+  frequency_penalty?: number;
+  top_p?: number;
 }
 
 export async function OpenAIStream(config: OpenAIStreamConfig) {
@@ -18,8 +21,14 @@ export async function OpenAIStream(config: OpenAIStreamConfig) {
       Authorization: `Bearer ${process.env.XAI_API_KEY}`,
     },
     body: JSON.stringify({
-      ...config,
+      model: config.model,
+      messages: config.messages,
       stream: true,
+      temperature: config.temperature || 1.0,
+      max_tokens: config.max_tokens || 150,
+      presence_penalty: config.presence_penalty || 0.9,
+      frequency_penalty: config.frequency_penalty || 0.9,
+      top_p: config.top_p || 0.9
     }),
   });
 

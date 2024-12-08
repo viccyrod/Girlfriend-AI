@@ -31,7 +31,7 @@ export default function ModelProfile({
       {/* Profile header */}
       <div className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#1a1a1a] p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">Profile</h2>
+          <h2 className="text-xl font-semibold text-white">{model.name}</h2>
           <button
             onClick={onClose}
             className="md:hidden p-2 hover:bg-[#1a1a1a] rounded-full transition-colors"
@@ -69,7 +69,6 @@ export default function ModelProfile({
       {/* Profile info section */}
       <div className="flex-1 p-6">
         <div className="mb-6">
-          <h2 className="text-3xl font-bold text-white mb-2">{model.name}</h2>
           <p className="text-gray-400">{model.personality}</p>
         </div>
 
