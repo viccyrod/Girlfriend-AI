@@ -31,7 +31,10 @@ export function MagicAIModelCreationForm({ user }: MagicAIModelCreationFormProps
       const response = await fetch('/api/ai-models/magic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          customPrompt: formData.prompt,
+          isPrivate: formData.isPrivate
+        })
       });
 
       if (!response.ok) {

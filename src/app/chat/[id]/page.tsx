@@ -27,7 +27,7 @@ export default async function ChatPage({ params }: { params: { id: string } }) {
     const user = await getUser();
     
     if (!user?.id) {
-      redirect('/auth/login');
+      redirect('/api/auth/login');
     }
 
     // First verify the AI Model exists

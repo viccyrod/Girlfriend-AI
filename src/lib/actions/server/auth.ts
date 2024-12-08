@@ -8,7 +8,7 @@ export async function getDbUser() {
   const kindeUser = await getUser();
   
   if (!kindeUser?.id || !kindeUser.email) return null;
-
+  
   // Find or create user in database
   const dbUser = await prisma.user.upsert({
     where: { id: kindeUser.id },

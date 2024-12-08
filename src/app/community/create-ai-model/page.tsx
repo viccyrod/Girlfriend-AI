@@ -27,7 +27,7 @@ export default async function CreateAIModelPage() {
   const { getUser } = getKindeServerSession();
   const user = await getUser();
   
-  if (!user?.id) redirect('/auth/login');
+  if (!user?.id) redirect('/api/auth/login');
 
   return (
     <BaseLayout>

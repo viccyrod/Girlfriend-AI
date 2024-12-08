@@ -7,6 +7,7 @@ import { generateAIModelDetails } from '@/lib/ai-client';
 import { MAGIC_AI_PROMPT } from './prompts';
 import { RunPodResponse } from '@/types/runpod';
 import { uploadBase64Image } from '@/lib/cloudinary';
+import { z } from 'zod';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,15 +23,27 @@ interface AIResponse {
   content: string;
 }
 
+// Request validation schema
+const RequestSchema = z.object({
+  customPrompt: z.string().min(1, "Custom prompt is required").max(1000),
+});
+
 // Increase timeout to 120 seconds (2 minutes)
 const AI_TIMEOUT = 120000;
 
 export async function POST(request: Request) {
   try {
-    const { customPrompt } = await request.json().catch((error) => {
-      console.error('Error parsing request body:', error);
-      throw new Error('Invalid request format');
-    });
+    const body = await request.json().catch(() => ({}));
+    const result = RequestSchema.safeParse(body);
+    
+    if (!result.success) {
+      return NextResponse.json({ 
+        error: 'Invalid request format',
+        details: result.error.issues 
+      }, { status: 400 });
+    }
+
+    const { customPrompt } = result.data;
 
     const currentUser = await getDbUser();
     if (!currentUser) {
@@ -43,7 +56,7 @@ export async function POST(request: Request) {
     const pendingModel = await prisma.aIModel.create({
       data: {
         name: "AI Model (Generating...)",
-        personality: customPrompt,
+        personality: customPrompt || "Generating personality...",
         appearance: "",
         backstory: "",
         hobbies: "",
@@ -54,7 +67,7 @@ export async function POST(request: Request) {
         isPrivate: false,
         isAnime: false,
         isHumanX: false,
-        status: 'PENDING' // Add this status field to your schema
+        status: 'PENDING'
       }
     });
 
