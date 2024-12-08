@@ -30,7 +30,7 @@ export default async function CreateAIModelPage() {
   if (!user?.id) redirect('/api/auth/login');
 
   return (
-    <BaseLayout>
+    <BaseLayout requireAuth={true}>
       <CreateAIModelClient user={user as any} />
     </BaseLayout>
   );

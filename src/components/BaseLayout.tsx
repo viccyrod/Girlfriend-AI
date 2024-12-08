@@ -10,7 +10,7 @@ interface BaseLayoutProps {
     requireAuth?: boolean;
 }
 
-const BaseLayout = ({ children, requireAuth = true }: BaseLayoutProps) => {
+const BaseLayout = ({ children, requireAuth = false }: BaseLayoutProps) => {
     const { isAuthenticated, isLoading } = useKindeBrowserClient();
     const router = useRouter();
     const [mounted, setMounted] = useState(false);

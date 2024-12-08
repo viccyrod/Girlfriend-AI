@@ -58,7 +58,7 @@ export default async function ChatPage({ params }: { params: { id: string } }) {
     }
 
     return (
-      <BaseLayout>
+      <BaseLayout requireAuth={true}>
         <div className="h-[calc(100vh-4rem)]">
           <ChatRoomClient 
             chatRoom={chatRoom} 
