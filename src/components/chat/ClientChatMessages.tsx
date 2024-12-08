@@ -340,28 +340,58 @@ export default function ClientChatMessages({
 
       if (!response.ok) throw new Error('Failed to generate image');
       
-      const data = await response.json();
+      const { jobId, message: initialMessage } = await response.json();
 
-      // Update messages with the real image
-      setMessages(prev => prev.map(msg => 
-        msg.id === optimisticMessage.id 
-          ? {
-              ...msg,
-              content: `Generated image for: "${prompt}"`,
-              metadata: {
-                type: 'image',
-                status: 'complete',
-                imageUrl: data.imageUrl,
-                prompt
-              } as MessageMetadata
-            }
-          : msg
-      ));
+      // Start polling for status
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(`/api/image?jobId=${jobId}&chatRoomId=${chatRoom.id}&messageId=${initialMessage.id}`);
+          if (!statusResponse.ok) throw new Error('Failed to check image status');
+          
+          const statusData = await statusResponse.json();
+          console.log('Status data:', statusData);
+          
+          // Check both message metadata and status
+          if ((statusData.message?.metadata?.status === 'completed' || statusData.status === 'COMPLETED') && statusData.message) {
+            console.log('Image generation completed, stopping polling');
+            // Update message with completed image
+            setMessages(prev => prev.map(msg => 
+              msg.id === optimisticMessage.id ? statusData.message : msg
+            ));
+            clearInterval(pollInterval);
+            setIsGeneratingImage(false);
+          } else if (statusData.status === 'FAILED') {
+            throw new Error('Image generation failed');
+          }
+        } catch (error) {
+          console.error('Error polling image status:', error);
+          clearInterval(pollInterval);
+          setIsGeneratingImage(false);
+          
+          // Update the optimistic message to show error
+          setMessages(prev => prev.map(msg => 
+            msg.id === optimisticMessage.id 
+              ? {
+                  ...msg,
+                  content: 'Failed to generate image. Please try again.',
+                  metadata: { type: 'image', status: 'error' } as MessageMetadata
+                }
+              : msg
+          ));
 
-      toast({
-        title: "Image generated",
-        description: "Your image has been generated successfully",
-      });
+          toast({
+            title: "Error",
+            description: "Failed to check image status. Please try again.",
+            variant: "destructive"
+          });
+        }
+      }, 2000);
+
+      // Cleanup interval after 5 minutes (timeout)
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        setIsGeneratingImage(false);
+      }, 5 * 60 * 1000);
 
     } catch (error) {
       console.error('Error generating image:', error);
