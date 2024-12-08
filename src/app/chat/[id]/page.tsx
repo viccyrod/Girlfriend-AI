@@ -26,10 +26,6 @@ export default async function ChatPage({ params }: { params: { id: string } }) {
     const { getUser } = getKindeServerSession();
     const user = await getUser();
     
-    if (!user?.id) {
-      redirect('/api/auth/login');
-    }
-
     // First verify the AI Model exists
     const aiModel = await prisma.aIModel.findUnique({
       where: { id: params.id },

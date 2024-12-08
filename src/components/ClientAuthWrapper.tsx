@@ -1,8 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
-import AuthScreen from "@/components/auth-screen/AuthScreen"
+import { useRouter } from "next/navigation"
 
 interface ClientAuthWrapperProps {
   children: React.ReactNode
@@ -10,28 +8,20 @@ interface ClientAuthWrapperProps {
 }
 
 const ClientAuthWrapper = ({ children, isAuthenticated }: ClientAuthWrapperProps) => {
-  const [showAuth, setShowAuth] = useState(false)
+  const router = useRouter()
 
   const handleInteraction = (e: React.MouseEvent) => {
     if (!isAuthenticated) {
       e.preventDefault()
       e.stopPropagation()
-      setShowAuth(true)
+      router.push('/auth/login')
     }
   }
 
   return (
-    <>
-      <div onClick={handleInteraction}>
-        {children}
-      </div>
-
-      <Dialog open={showAuth} onOpenChange={setShowAuth}>
-        <DialogContent className="sm:max-w-[800px] p-0">
-          <AuthScreen />
-        </DialogContent>
-      </Dialog>
-    </>
+    <div onClick={handleInteraction}>
+      {children}
+    </div>
   )
 }
 

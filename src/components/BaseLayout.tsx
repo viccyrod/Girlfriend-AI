@@ -4,6 +4,7 @@ import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
 import { useRouter } from 'next/navigation';
 import React, { ReactNode, useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
+import Footer from './Footer';
 
 interface BaseLayoutProps {
     children: ReactNode;
@@ -20,19 +21,23 @@ const BaseLayout = ({ children, requireAuth = false }: BaseLayoutProps) => {
     }, []);
 
     useEffect(() => {
-        if (!isLoading && !isAuthenticated && requireAuth) {
-            router.push("/auth/login");
+        if (!isLoading && !isAuthenticated && requireAuth && mounted) {
+            router.push('/auth/login');
         }
-    }, [isLoading, isAuthenticated, router, requireAuth]);
+    }, [isLoading, isAuthenticated, requireAuth, mounted, router]);
 
+    // Don't render anything while loading auth state
     if (!mounted || (isLoading && requireAuth)) return null;
 
     return (
-        <div className='flex min-h-screen bg-[#0a0a0a]'>
-            <Sidebar />
-            <main className="flex-1 overflow-y-auto scrollbar-pretty">
-                {children}
-            </main>
+        <div className='flex min-h-screen bg-[#0a0a0a] flex-col'>
+            <div className='flex flex-1'>
+                <Sidebar />
+                <main className="flex-1 overflow-y-auto scrollbar-pretty">
+                    {children}
+                </main>
+            </div>
+            <Footer />
         </div>
     )
 }

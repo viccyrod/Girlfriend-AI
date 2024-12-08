@@ -5,9 +5,13 @@ import Community from "../../app/community/CommunityContent"
 
 const HomeScreen = () => {
   return (
-    <BaseLayout>
-      <Community filterIsAnime={false} />
-    </BaseLayout>
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-grow">
+        <BaseLayout>
+          <Community filterIsAnime={false} />
+        </BaseLayout>
+      </main>
+    </div>
   )
 }
 
