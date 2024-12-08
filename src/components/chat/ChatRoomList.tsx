@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { ExtendedMessage } from '@/types/chat';
+import { Message } from '@/types/message';
 import { useToast } from '@/hooks/use-toast';
 
 interface ChatRoomListProps {
@@ -35,9 +35,9 @@ const ChatRoomItem = React.memo(({
   onDelete: () => void;
   showDeleteButton: boolean;
 }) => {
-  const latestMessage = room.messages?.[room.messages.length - 1] as ExtendedMessage | undefined;
+  const latestMessage = room.messages?.[room.messages.length - 1];
 
-  const getMessagePreview = (message?: ExtendedMessage) => {
+  const getMessagePreview = (message?: Message) => {
     if (!message) return 'No messages yet';
     
     if (message.metadata?.type === 'image') {
@@ -48,20 +48,20 @@ const ChatRoomItem = React.memo(({
       return `🎤 Voice Message`;
     }
 
-    if (message.content.startsWith('cm2') || /^[a-zA-Z0-9]{20,}$/.test(message.content)) {
-      return message.isAIMessage ? 'AI is typing...' : 'Message sent';
-    }
-    
     return message.isAIMessage 
       ? message.content
       : `You: ${message.content}`;
   };
 
   return (
-    <div
-      onClick={onSelect}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        onSelect();
+      }}
       className={cn(
-        'w-full flex items-center gap-3 rounded-lg p-4 text-sm transition-colors relative group',
+        'w-full flex items-center gap-3 rounded-lg p-4 text-sm transition-colors relative group text-left',
         'hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
         isSelected ? 'bg-accent' : 'transparent',
         isLoading ? 'opacity-50' : ''
@@ -92,18 +92,20 @@ const ChatRoomItem = React.memo(({
       </div>
       {showDeleteButton && (
         <Button
+          type="button"
           variant="ghost"
           size="icon"
           className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={(e) => {
             e.stopPropagation();
+            e.preventDefault();
             onDelete();
           }}
         >
           <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
         </Button>
       )}
-    </div>
+    </button>
   );
 });
 
@@ -152,22 +154,22 @@ export function ChatRoomList({
 
         if (data.room) {
           setLocalChatRooms(prevRooms => {
-            // Find if room already exists
-            const roomIndex = prevRooms.findIndex(r => r.id === data.room.id);
-            
-            if (roomIndex !== -1) {
-              // Update existing room
-              const updatedRooms = [...prevRooms];
-              updatedRooms[roomIndex] = {
-                ...updatedRooms[roomIndex],
-                ...data.room,
-                messages: data.room.messages || updatedRooms[roomIndex].messages
-              };
-              return updatedRooms;
-            } else {
-              // Add new room
-              return [...prevRooms, data.room];
+            const updatedRooms = prevRooms.map(room => {
+              if (room.id === data.room.id) {
+                return {
+                  ...room,
+                  messages: data.room.messages || room.messages
+                };
+              }
+              return room;
+            });
+
+            // If room doesn't exist, add it
+            if (!prevRooms.find(r => r.id === data.room.id)) {
+              updatedRooms.unshift(data.room);
             }
+
+            return updatedRooms;
           });
         }
 

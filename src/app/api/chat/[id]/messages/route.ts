@@ -106,9 +106,14 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const before = searchParams.get('before');
+    const limit = parseInt(searchParams.get('limit') || '30');
+
     const messages = await prisma.message.findMany({
       where: {
         chatRoomId: params.id,
+        ...(before ? { id: { lt: before } } : {}),
         chatRoom: {
           users: {
             some: {
@@ -127,11 +132,18 @@ export async function GET(
         }
       },
       orderBy: {
-        createdAt: 'asc'
-      }
+        createdAt: 'desc'
+      },
+      take: limit + 1 // Take one extra to check if there are more
     });
 
-    return NextResponse.json(messages);
+    const hasMore = messages.length > limit;
+    const messagesToReturn = hasMore ? messages.slice(0, -1) : messages;
+
+    return NextResponse.json({
+      messages: messagesToReturn.reverse(), // Reverse to get chronological order
+      hasMore
+    });
   } catch (error) {
     console.error('Error fetching messages:', error);
     return NextResponse.json(

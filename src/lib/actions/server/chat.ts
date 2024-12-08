@@ -48,7 +48,6 @@ export async function getOrCreateChatRoom(aiModelId: string) {
           orderBy: {
             createdAt: 'desc'
           },
-          take: 10,
           include: {
             user: {
               select: {
@@ -106,7 +105,6 @@ export async function getOrCreateChatRoom(aiModelId: string) {
             orderBy: {
               createdAt: 'desc'
             },
-            take: 10,
             include: {
               user: {
                 select: {

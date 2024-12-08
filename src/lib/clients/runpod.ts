@@ -24,6 +24,9 @@ export class RunPodClient {
   }): Promise<string> {
     console.log('🎨 RunPod starting image generation with prompt:', prompt);
 
+    // Format multiline prompt into a single line
+    const formattedPrompt = prompt.replace(/\n\s+/g, ' ').trim();
+
     const startResponse = await fetch(`${this.API_URL}/run`, {
       method: 'POST',
       headers: {
@@ -32,8 +35,14 @@ export class RunPodClient {
       },
       body: JSON.stringify({
         input: {
-          prompt,
-          ...options
+          prompt: formattedPrompt,
+          negative_prompt: options.negative_prompt,
+          num_inference_steps: options.num_inference_steps,
+          guidance_scale: options.guidance_scale,
+          width: options.width,
+          height: options.height,
+          sampler_name: options.scheduler,
+          num_outputs: options.num_images
         }
       })
     });

@@ -300,7 +300,7 @@ const ChatComponent = ({
   }, [selectedRoom?.id]);
 
   return (
-    <div className="flex h-full overflow-hidden relative">
+    <div className="flex h-[100dvh] overflow-hidden">
       {/* Chat rooms list */}
       <div className={`
         ${selectedRoom ? 'hidden md:flex' : 'flex'} 
@@ -318,28 +318,18 @@ const ChatComponent = ({
 
       {/* Chat messages container */}
       <div className={`
-        flex-1 flex flex-col h-full relative
+        flex-1 flex flex-col
         transition-all duration-300 ease-in-out
         ${selectedRoom ? 'flex' : 'hidden md:flex'}
         ${isProfileVisible ? 'md:mr-[400px]' : ''}
       `}>
         {selectedRoom ? (
-          <div className="relative flex flex-col h-full w-full">
-            {/* Mobile back button */}
-            <button
-              onClick={() => setSelectedRoom(null)}
-              className="md:hidden absolute left-4 top-4 p-2 bg-[#1a1a1a] hover:bg-[#2a2a2a] rounded-full transition-all duration-200 z-10"
-            >
-              <ChevronLeft className="w-4 h-4 text-white" />
-            </button>
-            
-            <ClientChatMessages
-              chatRoom={selectedRoom}
-              onSendMessage={(content: string) => handleSendMessage(content, selectedRoom)}
-              isLoading={isMessageSending}
-              isGeneratingResponse={isGeneratingResponse}
-            />
-          </div>
+          <ClientChatMessages
+            chatRoom={selectedRoom}
+            onSendMessage={(content: string) => handleSendMessage(content, selectedRoom)}
+            isLoading={isMessageSending}
+            isGeneratingResponse={isGeneratingResponse}
+          />
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-muted-foreground">
@@ -353,12 +343,9 @@ const ChatComponent = ({
       <div className={`
         fixed md:absolute inset-y-0 right-0
         w-[85vw] md:w-[400px] border-l border-[#1a1a1a] 
-        flex-shrink-0 h-full bg-[#0a0a0a] 
+        flex-shrink-0 bg-[#0a0a0a] 
         transition-transform duration-300 ease-in-out z-40
-        ${isProfileVisible 
-          ? "translate-x-0 shadow-2xl" 
-          : "translate-x-full"
-        }
+        ${isProfileVisible ? "translate-x-0 shadow-2xl" : "translate-x-full"}
         ${isProfileVisible && !selectedRoom ? "hidden md:block" : ""}
       `}>
         {/* Profile toggle button */}

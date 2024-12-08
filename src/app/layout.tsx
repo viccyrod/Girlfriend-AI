@@ -7,6 +7,7 @@ import { Analytics } from "@vercel/analytics/react"
 import React from 'react';
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import ClientProviders from "@/components/providers/ClientProviders";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -66,14 +67,14 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={geistSans.className}>
+      <body className={`${geistSans.className}`}>
         <ClientProviders>
-          <div className='h-screen flex flex-col'>
-            <div className='flex-1'>
+          <ScrollArea className="h-screen">
+            <main className="min-h-screen">
               {children}
-            </div>
-            {!user && <Footer />}
-          </div>
+              {!user && <Footer />}
+            </main>
+          </ScrollArea>
         </ClientProviders>
         <Analytics />
         <SpeedInsights />

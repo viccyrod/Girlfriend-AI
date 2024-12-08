@@ -54,6 +54,8 @@ export async function POST(request: Request) {
         content: prompt,
         chatRoomId: chatRoomId,
         isAIMessage: true,
+        userId: currentUser.id,
+        aiModelId: chatRoom.aiModel.id,
         metadata: {
           type: 'image',
           status: 'generating',
