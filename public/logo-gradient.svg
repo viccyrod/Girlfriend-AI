@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="385" height="91" viewBox="0 0 385 91" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGradient" x1="0" y1="0" x2="100%" y2="0">
+      <stop offset="0%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#9333EA"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#glow)">
+    <!-- Heart Icon -->
+    <path 
+      d="M32 58L14.2 41.8C11.4 39.3 10 36.2 10 32.8C10 26.1 15.4 20.7 22 20.7C25.7 20.7 29.3 22.4 32 25C34.7 22.4 38.3 20.7 42 20.7C48.6 20.7 54 26.1 54 32.8C54 36.2 52.6 39.3 49.8 41.8L32 58Z"
+      fill="url(#logoGradient)"
+    />
+    
+    <!-- Text -->
+    <text x="85" y="58" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="52" fill="url(#logoGradient)" letter-spacing="-0.02em">
+      girlfriend
+    </text>
+  </g>
+</svg> 

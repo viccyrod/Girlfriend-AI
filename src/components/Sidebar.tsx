@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import Link from 'next/link';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HomeIcon, CameraIcon, PersonIcon, GearIcon, ChatBubbleIcon, HamburgerMenuIcon, Cross1Icon, GlobeIcon } from '@radix-ui/react-icons';
 import { DropdownMenuTrigger } from '@radix-ui/react-dropdown-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from './ui/dropdown-menu';
@@ -41,9 +41,16 @@ const SIDEBAR_LINKS = [
 ];
 
 const Sidebar = () => {
-    const { user } = useKindeBrowserClient();
+    const { user, isLoading } = useKindeBrowserClient();
+    const [mounted, setMounted] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     // const isAdmin = user?.email === process.env.ADMIN_EMAIL;
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) return null;
 
     const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -76,13 +83,16 @@ const Sidebar = () => {
                     
                     {/* Logo - only show on desktop */}
                     <div className="flex-shrink-0 mb-6 hidden lg:block">
-                        <Image
-                            src="/logo.png"
-                            alt="Logo"
-                            width={200}
-                            height={60}
-                            className="mx-auto"
-                        />
+                        <Link href="/" className="flex items-center mb-6 px-2">
+                            <Image
+                                src="/logo-gradient.svg"
+                                alt="girlfriend.cx"
+                                width={200}
+                                height={60}
+                                className="w-auto h-[45px] hover:scale-105 transition-transform duration-300"
+                                priority
+                            />
+                        </Link>
                     </div>
 
                     {/* Navigation Links */}

@@ -34,11 +34,12 @@ const BaseLayout = ({ children, requireAuth = false }: BaseLayoutProps) => {
             {/* Mobile Header */}
             <div className="lg:hidden flex justify-center items-center py-4 px-4 border-b border-[#1a1a1a]">
                 <Image
-                    src="/logo.png"
-                    alt="Logo"
+                    src="/logo-gradient.svg"
+                    alt="girlfriend.cx"
                     width={150}
                     height={45}
                     className="h-[30px] w-auto"
+                    priority
                 />
             </div>
             <div className='flex flex-1'>

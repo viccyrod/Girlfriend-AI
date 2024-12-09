@@ -55,21 +55,6 @@ export default async function Home() {
   return (
     <AuthWrapper isAuthenticated={!!user}>
       <BaseLayout>
-        {/* Beta Banner */}
-        <div className="hidden md:flex bg-gradient-to-r from-pink-500/90 to-purple-600/90 text-white p-4 justify-between items-center">
-          <div className="flex items-center gap-4">
-            <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold">
-              🚀 BETA
-            </span>
-            <span className="text-white/90">
-              Full launch coming soon - join the waitlist!
-            </span>
-          </div>
-          <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white">
-            Join Waitlist →
-          </Button>
-        </div>
-
         {/* Hero Section */}
         <HeroSection />
 
