@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from '@/hooks/use-toast';
 import { AiModel as AIModel } from "@/types/chat";
-import { Heart, MessageCircle, User, ImageIcon, X, Download, ExternalLink, Info } from 'lucide-react';
+import { Heart, MessageCircle, User, ImageIcon, X, Download, ExternalLink, Info, Share2, Twitter, Facebook, Link } from 'lucide-react';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
@@ -13,6 +13,12 @@ import {
 } from "@/components/ui/dialog";
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface AIModelProfileProps {
   aiModel: AIModel;
@@ -161,6 +167,42 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
     return 'Dev 🚀';
   };
 
+  const handleShare = async (platform: 'twitter' | 'facebook' | 'copy') => {
+    const url = window.location.href;
+    const text = `Check out ${aiModelState.name} on Girlfriend.cx - Your AI Companion for Meaningful Connections`;
+    
+    switch (platform) {
+      case 'twitter':
+        window.open(
+          `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+          '_blank'
+        );
+        break;
+      case 'facebook':
+        window.open(
+          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+          '_blank'
+        );
+        break;
+      case 'copy':
+        try {
+          await navigator.clipboard.writeText(url);
+          toast({
+            title: "Link copied!",
+            description: "The profile link has been copied to your clipboard.",
+          });
+        } catch (err) {
+          console.error('Failed to copy:', err);
+          toast({
+            title: "Failed to copy",
+            description: "Please try again or copy the URL manually.",
+            variant: "destructive",
+          });
+        }
+        break;
+    }
+  };
+
   return (
     <>
       <div className="w-full h-full overflow-auto bg-gradient-to-b from-gray-900 via-purple-900/20 to-gray-900 text-white">
@@ -214,6 +256,41 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
                 <Heart className={`w-4 h-4 mr-2 transition-colors duration-300 ${isFollowingState ? 'text-red-500 fill-current' : ''}`} /> 
                 {isFollowingState ? 'Following' : 'Follow'}
               </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="relative group overflow-hidden font-bold py-3 px-6 rounded-full transition-all duration-300 ease-in-out transform hover:-translate-y-1 bg-transparent border-2 border-purple-500/50 text-purple-500 hover:bg-purple-500/10"
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-gray-900/95 backdrop-blur-xl border border-white/10">
+                  <DropdownMenuItem 
+                    onClick={() => handleShare('twitter')}
+                    className="flex items-center px-3 py-2 text-sm cursor-pointer hover:bg-purple-500/10 focus:bg-purple-500/10"
+                  >
+                    <Twitter className="w-4 h-4 mr-2" />
+                    Share on Twitter
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleShare('facebook')}
+                    className="flex items-center px-3 py-2 text-sm cursor-pointer hover:bg-purple-500/10 focus:bg-purple-500/10"
+                  >
+                    <Facebook className="w-4 h-4 mr-2" />
+                    Share on Facebook
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleShare('copy')}
+                    className="flex items-center px-3 py-2 text-sm cursor-pointer hover:bg-purple-500/10 focus:bg-purple-500/10"
+                  >
+                    <Link className="w-4 h-4 mr-2" />
+                    Copy Link
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 

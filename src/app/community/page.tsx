@@ -2,10 +2,32 @@ import React from 'react';
 import BaseLayout from "@/components/BaseLayout";
 import dynamic from 'next/dynamic';
 import prisma from '@/lib/prisma';
+import { Metadata } from 'next';
 
 // Page configuration for Next.js
 export const runtime = 'nodejs';
 export const revalidate = 0;
+
+export const metadata: Metadata = {
+  title: 'AI Companion Community | Girlfriend.cx',
+  description: 'Explore our diverse community of AI companions. Find your perfect match among thousands of unique personalities, each with their own stories and interests.',
+  openGraph: {
+    title: 'AI Companion Community | Girlfriend.cx',
+    description: 'Explore our diverse community of AI companions. Find your perfect match among thousands of unique personalities, each with their own stories and interests.',
+    images: [{
+      url: '/community-preview.jpg',
+      width: 1200,
+      height: 630,
+      alt: 'Girlfriend.cx Community Preview'
+    }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AI Companion Community | Girlfriend.cx',
+    description: 'Explore our diverse community of AI companions. Find your perfect match among thousands of unique personalities.',
+    images: ['/community-preview.jpg'],
+  },
+}
 
 // Dynamically import the CommunityContent component
 const CommunityContent = dynamic(

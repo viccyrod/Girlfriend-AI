@@ -3,9 +3,31 @@ import { default as dynamicImport } from 'next/dynamic';
 import BaseLayout from '@/components/BaseLayout';
 import { getDbUser } from '@/lib/actions/server/auth';
 import { redirect } from 'next/navigation';
+import { Metadata } from 'next';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Your Chats | Girlfriend.cx',
+  description: 'View and manage your conversations with AI companions. Continue meaningful discussions and build deeper connections.',
+  openGraph: {
+    title: 'Your AI Companion Chats | Girlfriend.cx',
+    description: 'View and manage your conversations with AI companions. Continue meaningful discussions and build deeper connections.',
+    images: [{
+      url: '/chat-preview.jpg',
+      width: 1200,
+      height: 630,
+      alt: 'Girlfriend.cx Chat Interface'
+    }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Your AI Companion Chats | Girlfriend.cx',
+    description: 'View and manage your conversations with AI companions. Continue meaningful discussions and build deeper connections.',
+    images: ['/chat-preview.jpg'],
+  },
+}
 
 // Import ChatComponent with no SSR
 const ChatComponent = dynamicImport(() => import('@/components/chat/ChatComponent'), {

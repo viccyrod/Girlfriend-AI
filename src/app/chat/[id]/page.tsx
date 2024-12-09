@@ -4,9 +4,56 @@ import BaseLayout from "@/components/BaseLayout";
 import { getOrCreateChatRoom } from "@/lib/actions/chat";
 import prisma from "@/lib/prisma";
 import { default as dynamicImport } from 'next/dynamic';
+import { Metadata, ResolvingMetadata } from 'next';
 
 export const runtime = 'nodejs';
 export const revalidate = 0;
+
+type Props = {
+  params: { id: string }
+}
+
+export async function generateMetadata(
+  { params }: Props,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const aiModel = await prisma.aIModel.findUnique({
+    where: { id: params.id },
+    select: {
+      name: true,
+      personality: true,
+      imageUrl: true,
+    }
+  });
+
+  if (!aiModel) {
+    return {
+      title: 'Chat Not Found',
+      description: 'The requested chat could not be found.',
+    }
+  }
+
+  return {
+    title: `Chat with ${aiModel.name} | Girlfriend.cx`,
+    description: `Have a meaningful conversation with ${aiModel.name}, your AI companion. Experience personalized interactions in a safe, judgment-free space.`,
+    openGraph: {
+      title: `Chat with ${aiModel.name} on Girlfriend.cx`,
+      description: `Have a meaningful conversation with ${aiModel.name}, your AI companion.`,
+      images: [{
+        url: aiModel.imageUrl || '/placeholder.jpg',
+        width: 1200,
+        height: 630,
+        alt: `Chat with ${aiModel.name}`
+      }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `Chat with ${aiModel.name} on Girlfriend.cx`,
+      description: `Have a meaningful conversation with ${aiModel.name}, your AI companion.`,
+      images: [aiModel.imageUrl || '/placeholder.jpg'],
+    },
+  }
+}
 
 const ChatRoomClient = dynamicImport(() => import('@/components/ChatRoomClient'), {
   ssr: false,

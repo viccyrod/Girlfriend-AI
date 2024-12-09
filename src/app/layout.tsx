@@ -17,45 +17,83 @@ const geistSans = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Girlfriend - Your AI Companion',
-    template: '%s | Girlfriend - Your AI Companion'
+    default: 'Girlfriend.cx - Your AI Companion for Meaningful Connections',
+    template: '%s | Girlfriend.cx'
   },
-  description: 'Connect with AI companions for meaningful conversations and relationships.',
-  keywords: ['AI girlfriend', 'virtual companion', 'AI chat', 'relationship'],
-  authors: [{ name: 'Your Name' }],
-  creator: 'Your Name/Company',
+  description: 'Create and connect with AI companions for deep, meaningful conversations and relationships. Experience personalized interactions in a safe, judgment-free space.',
+  keywords: [
+    'AI companion',
+    'virtual girlfriend',
+    'AI chat',
+    'digital relationship',
+    'AI conversation',
+    'personal AI',
+    'emotional connection',
+    'AI interaction',
+    'virtual companion',
+    'AI friendship'
+  ],
+  authors: [{ name: 'Girlfriend.cx Team' }],
+  creator: 'Girlfriend.cx',
+  publisher: 'Girlfriend.cx',
   metadataBase: new URL('https://girlfriend.cx'),
+  alternates: {
+    canonical: 'https://girlfriend.cx'
+  },
   openGraph: {
     type: 'website',
     locale: 'en_US',
     url: 'https://girlfriend.cx',
-    title: 'Girlfriend - Your AI Companion',
-    description: 'Connect with AI companions for meaningful conversations and relationships.',
-    siteName: 'Girlfriend - Your AI Companion',
+    siteName: 'Girlfriend.cx',
+    title: 'Girlfriend.cx - Your AI Companion for Meaningful Connections',
+    description: 'Create and connect with AI companions for deep, meaningful conversations and relationships. Experience personalized interactions in a safe, judgment-free space.',
     images: [{
       url: '/og-image.jpg',
       width: 1200,
       height: 630,
-      alt: 'Girlfriend.cx Preview'
+      alt: 'Girlfriend.cx - AI Companions for Meaningful Connections'
     }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Girlfriend - Your AI Companion',
-    description: 'Connect with AI companions for meaningful conversations and relationships.',
+    site: '@girlfriend_cx',
+    creator: '@girlfriend_cx',
+    title: 'Girlfriend.cx - Your AI Companion',
+    description: 'Create and connect with AI companions for deep, meaningful conversations and relationships.',
     images: ['/twitter-image.jpg'],
-    creator: '@yourtwitter'
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
   icons: {
-    icon: '/gf-favicon.svg',
-    shortcut: '/gf-favicon.svg',
-    apple: '/gf-favicon.svg',
-    other: {
-      rel: 'apple-touch-icon-precomposed',
-      url: '/gf-favicon.svg'
-    }
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/gf-favicon.svg', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    other: [
+      {
+        rel: 'mask-icon',
+        url: '/safari-pinned-tab.svg',
+      },
+    ],
   },
-  manifest: '/site.webmanifest'
+  manifest: '/site.webmanifest',
+  verification: {
+    google: 'your-google-site-verification',
+  },
+  category: 'technology',
 }
 
 export default async function RootLayout({
