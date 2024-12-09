@@ -166,10 +166,12 @@ const creationPhrases = [
   "Infusing with unique character traits... ✨",
   "Optimizing neural pathways... 🧠",
   "Adding sprinkles of charm and wit... ⭐",
-  "Performing final personality alignment... 🎯"
+  "Performing final personality alignment... 🎯",
+  "Almost there, adding finishing touches... ✨",
+  "Just a moment more, perfecting the details... 💫"
 ];
 
-const CreationAnimation = () => {
+const CreationAnimation = ({ attempt }: { attempt: number }) => {
   const [currentPhrase, setCurrentPhrase] = useState(0);
 
   useEffect(() => {
@@ -213,6 +215,11 @@ const CreationAnimation = () => {
             <p className="text-lg text-muted-foreground animate-fade-in">
               {creationPhrases[currentPhrase]}
             </p>
+            {attempt > 10 && (
+              <p className="text-sm text-muted-foreground">
+                This is taking longer than usual, but we&apos;re still working on it...
+              </p>
+            )}
             {/* Progress Bar */}
             <div className="w-full h-2.5 bg-secondary rounded-full overflow-hidden">
               <div 
@@ -299,6 +306,7 @@ export function GuidedCreationForm({ user, setParentLoading }: GuidedCreationFor
     isPrivate: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pollAttempt, setPollAttempt] = useState(0);
 
   useEffect(() => {
     setParentLoading(isSubmitting);
@@ -319,13 +327,11 @@ export function GuidedCreationForm({ user, setParentLoading }: GuidedCreationFor
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Only proceed if we're on the last step
     if (currentStep < CREATION_STEPS.length - 1) {
       handleNext();
       return;
     }
 
-    // Validate required fields before submitting
     if (!formData.name || !formData.gender || !formData.style) {
       toast({
         title: "Missing Information",
@@ -336,6 +342,7 @@ export function GuidedCreationForm({ user, setParentLoading }: GuidedCreationFor
     }
 
     setIsSubmitting(true);
+    setPollAttempt(0);
 
     try {
       // Format the appearance string in a cleaner way
@@ -381,29 +388,31 @@ Please expand on these details and create a rich, engaging character profile.`;
 
       const { id } = await grokResponse.json();
       
-      // Poll for model completion
-      let retries = 0;
-      const maxRetries = 30; // 30 * 2 seconds = 60 seconds max wait
-      
       const checkModelStatus = async () => {
-        if (retries >= maxRetries) {
-          throw new Error('Model generation timed out');
+        if (pollAttempt >= 30) { // 2 minutes max
+          throw new Error('Model generation is taking longer than expected. Please check your profile page to see if it completed.');
         }
 
-        const statusResponse = await fetch(`/api/ai-models/${id}/status`);
-        if (!statusResponse.ok) {
-          throw new Error('Failed to check model status');
-        }
+        try {
+          const statusResponse = await fetch(`/api/ai-models/${id}/status`);
+          if (!statusResponse.ok) {
+            throw new Error('Failed to check model status');
+          }
 
-        const { status } = await statusResponse.json();
-        
-        if (status === 'COMPLETED') {
-          router.push(`/community/AIModelProfile/${id}`);
-        } else if (status === 'FAILED') {
-          throw new Error('Model generation failed');
-        } else {
-          retries++;
-          setTimeout(checkModelStatus, 2000);
+          const { status } = await statusResponse.json();
+          
+          if (status === 'COMPLETED') {
+            router.push(`/community/AIModelProfile/${id}`);
+          } else if (status === 'FAILED') {
+            throw new Error('Model generation failed');
+          } else {
+            setPollAttempt(prev => prev + 1);
+            // Increase polling interval as time goes on
+            const delay = Math.min(2000 + (pollAttempt * 500), 10000); // Start at 2s, max 10s
+            setTimeout(checkModelStatus, delay);
+          }
+        } catch (error) {
+          throw error;
         }
       };
 
@@ -830,7 +839,7 @@ Please expand on these details and create a rich, engaging character profile.`;
 
   return (
     <>
-      {isSubmitting && <CreationAnimation />}
+      {isSubmitting && <CreationAnimation attempt={pollAttempt} />}
       <form onSubmit={handleSubmit} className="space-y-8 pb-10">
         <div className="relative">
           {/* Progress bar */}
