@@ -273,28 +273,13 @@ const ChatComponent = ({
       console.log('Initial messages:', messagesData.messages);
       setMessages(messagesData.messages || []);
       
-      // Send greeting for AI models if needed
-      if (room.aiModel) {
-        try {
-          const greetingResponse = await fetch(`/api/chat/${room.id}/greeting`, {
-            method: 'POST'
-          });
-
-          if (!greetingResponse.ok && greetingResponse.status !== 409) {
-            console.warn('Non-critical greeting error:', await greetingResponse.text());
-          }
-        } catch (error) {
-          console.warn('Non-critical greeting error:', error);
-        }
-      }
     } catch (error) {
-      console.error('Room selection error:', error);
+      console.error('Error selecting room:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to select chat room",
+        description: "Failed to load chat room",
         variant: "destructive"
       });
-      setSelectedRoom(null);
     } finally {
       setLoadingRoomId(null);
     }

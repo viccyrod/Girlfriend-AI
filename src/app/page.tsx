@@ -9,6 +9,7 @@ import { Users } from 'lucide-react';
 import ChatButton from "@/components/ChatButton";
 import AuthWrapper from "@/components/ClientAuthWrapper";
 import CreateAIButton from "@/components/CreateAIButton";
+import HeroSection from "@/components/HeroSection";
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,47 +71,24 @@ export default async function Home() {
         </div>
 
         {/* Hero Section */}
-        <div className="relative bg-black text-white">
-          <div className="container mx-auto flex items-center justify-between py-16 px-4 md:px-6">
-            {/* Left Content */}
-            <div className="w-full z-10">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
-                Create your own <span className="text-[#ff4d8d]">AI Girlfriend</span>
-              </h1>
-              <p className="text-lg text-gray-300 mb-8 max-w-xl">
-                Your dream companion awaits! Create your AI Girlfriend, shape her look, personality, and bring her to life in one click. 100% powered by Artificial Intelligence.
-              </p>
-              <div className="flex justify-start mt-8">
-                <CreateAIButton />
-              </div>
-            </div>
-
-            {/* Right Content - Image Group */}
-            <div className="hidden md:block w-1/2 relative h-[400px]">
-              <Image
-                src="/banner-models.jpeg"
-                alt="AI Companions"
-                fill
-                className="object-cover object-center rounded-2xl"
-                priority
-              />
-              {/* Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-transparent" />
-            </div>
-          </div>
-          
-          {/* Background Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-transparent" />
-        </div>
+        <HeroSection />
 
         {/* Featured AI Characters Section */}
         <div className="container mx-auto py-16">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-bold">
-              Most Popular <span className="text-pink-500">AI Girlfriends</span>
+              Most Popular{' '}
+              <span className="bg-gradient-to-r from-pink-500 to-purple-600 text-transparent bg-clip-text">
+                AI Companions
+              </span>
             </h2>
             <Link href="/community">
-              <Button variant="outline">View All Models</Button>
+              <Button 
+                variant="outline" 
+                className="border-pink-500/20 hover:bg-gradient-to-r from-pink-500/10 to-purple-600/10 transition-all duration-300"
+              >
+                View All Models
+              </Button>
             </Link>
           </div>
 
@@ -121,9 +99,9 @@ export default async function Home() {
                 key={model.id}
                 className="group cursor-pointer"
               >
-                <div className="relative aspect-[3/4] rounded-xl overflow-hidden">
+                <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-pink-500/20 bg-gradient-to-br from-pink-500/5 to-purple-600/5">
                   <div className="absolute top-3 left-3 z-20">
-                    <span className="bg-pink-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                    <span className="bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs px-3 py-1 rounded-full font-medium shadow-lg shadow-pink-500/20">
                       ⚡ New
                     </span>
                   </div>
@@ -134,25 +112,27 @@ export default async function Home() {
                     src={model.imageUrl || "/placeholder.jpg"}
                     alt={model.name}
                     fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
                   <div className="absolute bottom-0 left-0 right-0 p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-xl font-bold text-white mb-1">{model.name}</h3>
-                        <p className="text-sm text-gray-200">26 years</p>
+                        <h3 className="text-xl font-bold text-white mb-1 group-hover:text-pink-500 transition-colors duration-300">
+                          {model.name}
+                        </h3>
+                        <p className="text-sm text-gray-300">26 years</p>
                       </div>
-                      <div className="flex items-center gap-1 bg-black/30 px-2 py-1 rounded-full">
-                        <Users size={14} className="text-white" />
+                      <div className="flex items-center gap-1 bg-gradient-to-r from-pink-500/20 to-purple-600/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                        <Users size={14} className="text-pink-500" />
                         <span className="text-sm text-white font-medium">
                           {model.followerCount?.toLocaleString() || '0'}
                         </span>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-200 mt-2 line-clamp-2">
+                    <p className="text-sm text-gray-300 mt-2 line-clamp-2">
                       {model.personality}
                     </p>
                   </div>

@@ -89,63 +89,6 @@ export default function ClientChatMessages({
         
         setMessages(formattedMessages);
         setHasMoreMessages(data.hasMore);
-
-        // Always send greeting when entering chat
-        if (chatRoom.aiModel) {
-          try {
-            const greetingResponse = await fetch(`/api/chat/${chatRoom.id}/greeting`, {
-              method: 'POST'
-            });
-
-            if (greetingResponse.ok) {
-              const reader = greetingResponse.body?.getReader();
-              if (!reader) throw new Error('No response reader available');
-
-              let streamedContent = '';
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = new TextDecoder().decode(value);
-                const lines = chunk.split('\n');
-                
-                for (const line of lines) {
-                  if (line.startsWith('data: ')) {
-                    const data = line.slice(6);
-                    if (data === '[DONE]') continue;
-                    try {
-                      const parsed = JSON.parse(data);
-                      streamedContent = parsed.content;
-                      setStreamingMessage(streamedContent);
-                    } catch (e) {
-                      console.error('Error parsing streaming response:', e);
-                    }
-                  }
-                }
-              }
-
-              // Create final greeting message
-              const greetingMessage: Message = {
-                id: `greeting-${Date.now()}`,
-                content: streamedContent,
-                isAIMessage: true,
-                userId: null,
-                user: null,
-                chatRoomId: chatRoom.id,
-                aiModelId: chatRoom.aiModel.id,
-                metadata: { type: 'greeting' },
-                role: 'assistant',
-                createdAt: new Date(),
-                updatedAt: new Date()
-              };
-
-              setMessages(prev => [...prev, greetingMessage]);
-              setStreamingMessage('');
-            }
-          } catch (error) {
-            console.error('Error sending greeting:', error);
-          }
-        }
       } catch (error) {
         console.error('Error fetching messages:', error);
         toast({
