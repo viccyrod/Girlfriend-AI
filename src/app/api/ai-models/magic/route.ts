@@ -4,6 +4,7 @@ import { getDbUser } from '@/lib/actions/server/auth';
 import { v2 as cloudinary } from 'cloudinary';
 import { RunPodClient } from '@/lib/clients/runpod';
 import { generateAIModelDetails } from '@/lib/ai-client';
+import type { AIResponse } from '@/lib/ai-client';
 import { MAGIC_AI_PROMPT } from './prompts';
 import { RunPodResponse } from '@/types/runpod';
 import { uploadBase64Image } from '@/lib/cloudinary';
@@ -18,10 +19,6 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-
-interface AIResponse {
-  content: string;
-}
 
 // Request validation schema
 const RequestSchema = z.object({
@@ -41,24 +38,34 @@ const IMAGE_GEN_CONFIG = {
   sampler_name: "DPM++ 2M Karras",
 };
 
-// Add prompt enhancement function
+// Add timeout utility
+const timeout = (ms: number) => new Promise((_, reject) => 
+  setTimeout(() => reject(new Error('Timeout')), ms)
+);
+
+// Add prompt enhancement function with timeout
 async function enhanceImagePrompt(basePrompt: string): Promise<string> {
   try {
-    const grokPrompt = `As a professional photographer and creative director, enhance this basic description into a detailed photography prompt. Focus on physical features, styling, lighting, and mood. Base description: "${basePrompt}"
+    const PROMPT_TIMEOUT = 5000; // 5 seconds timeout
 
-    Format your response as a concise, detailed photography prompt that includes:
-    - Physical features and styling
-    - Lighting setup and mood
-    - Camera settings and technical details
-    Keep it natural and tasteful.`;
+    const grokPrompt = `Enhance this description for a photorealistic portrait: "${basePrompt}". Focus on physical features and styling. Be concise.`;
 
-    const aiResponse = await generateAIModelDetails(grokPrompt);
-    const enhancedPrompt = JSON.parse(aiResponse.content).appearance;
-    
-    return enhancedPrompt;
+    // Race between prompt enhancement and timeout
+    const enhancedPrompt = await Promise.race<AIResponse | null>([
+      generateAIModelDetails(grokPrompt) as Promise<AIResponse>,
+      timeout(PROMPT_TIMEOUT) as Promise<null>
+    ]).catch(() => null);
+
+    if (!enhancedPrompt) {
+      console.log('Prompt enhancement timed out, using original prompt');
+      return basePrompt;
+    }
+
+    const parsed = JSON.parse(enhancedPrompt.content);
+    return parsed.appearance || basePrompt;
   } catch (error) {
     console.error('Error enhancing prompt:', error);
-    return basePrompt; // Fallback to original prompt if enhancement fails
+    return basePrompt;
   }
 }
 
@@ -83,29 +90,28 @@ export async function POST(request: Request) {
 
     console.log('🚀 Starting optimized AI model generation');
 
-    // 1. Create pending model immediately
-    const pendingModel = await prisma.aIModel.create({
-      data: {
-        name: "AI Model (Generating...)",
-        personality: customPrompt || "Generating personality...",
-        appearance: "",
-        backstory: "",
-        hobbies: "",
-        likes: "",
-        dislikes: "",
-        userId: currentUser.id,
-        imageUrl: "",
-        isPrivate,
-        isAnime: false,
-        isHumanX: false,
-        status: 'PENDING'
-      }
-    });
+    // Create pending model and enhance prompt in parallel
+    const [pendingModel, enhancedPrompt] = await Promise.all([
+      prisma.aIModel.create({
+        data: {
+          name: "AI Model (Generating...)",
+          personality: customPrompt || "Generating personality...",
+          appearance: "",
+          backstory: "",
+          hobbies: "",
+          likes: "",
+          dislikes: "",
+          userId: currentUser.id,
+          imageUrl: "",
+          isPrivate,
+          isAnime: false,
+          isHumanX: false,
+          status: 'PENDING'
+        }
+      }),
+      enhanceImagePrompt(customPrompt)
+    ]);
 
-    // 2. Start both image generation and AI details generation in parallel
-    // First, enhance the base prompt
-    const enhancedPrompt = await enhanceImagePrompt(customPrompt);
-    
     const imagePrompt = `Create a photorealistic portrait of a beautiful woman with the following characteristics: ${enhancedPrompt}. Professional photography, natural lighting, high resolution, ultra detailed, photorealistic, 8k, highly detailed skin texture and facial features, centered composition, looking at camera, head and shoulders portrait, instagram style photo, soft natural lighting, shallow depth of field, shot on Canon EOS R5, 85mm f/1.2 lens --ar 1:1 --v 5.2 --style raw`;
 
     // Start both processes in parallel

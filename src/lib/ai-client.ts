@@ -47,10 +47,9 @@ const grok = typeof window === 'undefined'
 export type AIMode = 'balanced' | 'creative' | 'precise'; // Different response modes available for AI generation
 
 // Structure for the AI response
-interface AIResponse {
+export interface AIResponse {
   content: string;
-  mode: AIMode;
-  confidence: number;
+  appearance?: string;
 }
 
 // Add at the top with other interfaces
@@ -632,9 +631,7 @@ Be creative and detailed while keeping content appropriate for image generation.
     }
     
     return {
-      content: JSON.stringify(parsed),
-      mode: 'creative',
-      confidence: 0.9
+      content: JSON.stringify(parsed)
     };
   } catch (error) {
     console.error('Error generating AI model details:', error);
