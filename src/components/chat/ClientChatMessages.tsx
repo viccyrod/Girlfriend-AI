@@ -442,10 +442,10 @@ export default function ClientChatMessages({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full w-full overflow-hidden">
       <ScrollArea 
         ref={scrollAreaRef as any}
-        className="flex-1"
+        className="flex-1 w-full"
         onScroll={handleScroll}
       >
         <div className="p-4 space-y-4">
@@ -484,15 +484,15 @@ export default function ClientChatMessages({
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
-      <div className="flex-shrink-0 border-t border-[#1a1a1a] bg-background p-4">
+      <div className="flex-shrink-0 border-t border-[#1a1a1a] bg-background p-4 sticky bottom-0 w-full">
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2 bg-[#1E1B2C] rounded-lg px-4 py-2">
+          <div className="flex-1 flex items-center gap-2 bg-[#1E1B2C] rounded-lg px-4 py-2 min-w-0">
             <ImageGenerationMenu 
               chatRoom={chatRoom}
               onGenerate={handleImageGeneration}
               isGenerating={isGeneratingImage}
             />
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <TextareaAutosize
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
@@ -513,7 +513,7 @@ export default function ClientChatMessages({
             size="icon"
             disabled={isLoading || !newMessage.trim()}
             className={cn(
-              "bg-[#392C72] hover:bg-[#2D2259] transition-colors",
+              "bg-[#392C72] hover:bg-[#2D2259] transition-colors shrink-0",
               isLoading && "opacity-50 cursor-not-allowed",
               "h-10 w-10 rounded-full flex items-center justify-center"
             )}

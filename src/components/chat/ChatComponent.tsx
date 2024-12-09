@@ -551,11 +551,23 @@ const ChatComponent = ({
 
   return (
     <div className="flex h-[100dvh] overflow-hidden relative">
+      {/* Mobile back button */}
+      {selectedRoom && (
+        <button
+          onClick={() => setSelectedRoom(null)}
+          className="md:hidden fixed top-4 left-4 z-30 bg-[#1a1a1a] hover:bg-[#2a2a2a] p-2 rounded-md"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      )}
+
       {/* Chat rooms list */}
       <div className={`
-        ${selectedRoom ? 'hidden md:block' : 'block'} 
-        w-full md:w-80 border-r border-[#1a1a1a] overflow-hidden
-        relative z-20
+        absolute md:relative w-full md:w-80 border-r border-[#1a1a1a] 
+        overflow-hidden bg-[#0a0a0a] h-full
+        transition-transform duration-200
+        ${selectedRoom ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}
+        z-20
       `}>
         <ChatRoomList
           chatRooms={chatRooms}
@@ -569,10 +581,10 @@ const ChatComponent = ({
 
       {/* Chat messages container */}
       <div className={`
-        flex-1 flex flex-col
+        flex-1 flex flex-col min-w-0
         transition-all duration-300 ease-in-out
         relative z-10
-        ${selectedRoom ? 'flex' : 'hidden md:flex'}
+        ${selectedRoom ? 'translate-x-0' : 'hidden md:flex'}
         ${isProfileVisible ? 'md:mr-[400px]' : ''}
       `}>
         {selectedRoom ? (

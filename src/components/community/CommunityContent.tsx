@@ -59,17 +59,17 @@ export default function CommunityContent({ filterIsAnime = false, initialModels 
   }
 
   return (
-    <div className="container mx-auto py-12 px-4">
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-bold">
+    <div className="container mx-auto py-6 md:py-12 px-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
+        <h2 className="text-2xl sm:text-3xl font-bold">
           Meet Your New <span className="text-pink-500">Girlfriends</span>
         </h2>
-        <Button onClick={() => router.push('/community/create-ai-model')} variant="outline">
+        <Button onClick={() => router.push('/community/create-ai-model')} variant="outline" className="w-full sm:w-auto">
           Create Your Own
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         {aiModels?.map((aiModel) => (
           <div 
             key={aiModel.id}
@@ -78,21 +78,21 @@ export default function CommunityContent({ filterIsAnime = false, initialModels 
           >
             <div className="relative aspect-[3/4] rounded-xl overflow-hidden">
               {/* New Badge */}
-              <div className="absolute top-3 left-3 z-20">
-                <span className="bg-pink-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+              <div className="absolute top-2 sm:top-3 left-2 sm:left-3 z-20">
+                <span className="bg-pink-500 text-white text-[10px] sm:text-xs px-2 py-1 rounded-full font-medium">
                   ⚡ New
                 </span>
               </div>
 
               {/* Chat Button */}
               <button 
-                className="absolute top-3 right-3 z-20 bg-white/20 backdrop-blur-sm p-2 rounded-full hover:bg-white/30 transition-colors"
+                className="absolute top-2 sm:top-3 right-2 sm:right-3 z-20 bg-white/20 backdrop-blur-sm p-1.5 sm:p-2 rounded-full hover:bg-white/30 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   router.push(`/chat/${aiModel.id}`);
                 }}
               >
-                <MessageSquare className="w-5 h-5 text-white" />
+                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </button>
 
               {/* Main Image */}
@@ -111,20 +111,20 @@ export default function CommunityContent({ filterIsAnime = false, initialModels 
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
               {/* Content Overlay */}
-              <div className="absolute bottom-0 left-0 right-0 p-4">
+              <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-xl font-bold text-white mb-1">{aiModel.name}</h3>
-                    <p className="text-sm text-gray-200">{aiModel.age || '26'} years</p>
+                    <h3 className="text-base sm:text-xl font-bold text-white mb-0.5 sm:mb-1">{aiModel.name}</h3>
+                    <p className="text-xs sm:text-sm text-gray-200">{aiModel.age || '26'} years</p>
                   </div>
-                  <div className="flex items-center gap-1 bg-black/30 px-2 py-1 rounded-full">
-                    <Users size={14} className="text-white" />
-                    <span className="text-sm text-white font-medium">
+                  <div className="flex items-center gap-1 bg-black/30 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
+                    <Users size={12} className="text-white" />
+                    <span className="text-xs sm:text-sm text-white font-medium">
                       {aiModel.followerCount?.toLocaleString() || '0'}
                     </span>
                   </div>
                 </div>
-                <p className="text-sm text-gray-200 mt-2 line-clamp-2">
+                <p className="text-xs sm:text-sm text-gray-200 mt-1 sm:mt-2 line-clamp-2">
                   {aiModel.personality}
                 </p>
               </div>

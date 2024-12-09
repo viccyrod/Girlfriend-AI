@@ -74,8 +74,8 @@ const Sidebar = () => {
                 {/* Main Content */}
                 <div className="flex flex-col h-full">
                     
-                    {/* Logo */}
-                    <div className="flex-shrink-0 mb-6">
+                    {/* Logo - only show on desktop */}
+                    <div className="flex-shrink-0 mb-6 hidden lg:block">
                         <Image
                             src="/logo.png"
                             alt="Logo"
@@ -86,10 +86,11 @@ const Sidebar = () => {
                     </div>
 
                     {/* Navigation Links */}
-                    <nav className="flex-grow mb-6">
+                    <nav className="flex-grow mb-6 mt-12 lg:mt-0">
                         {SIDEBAR_LINKS.map(link => (
                             <Link key={link.href} href={link.href}
                                 className="flex items-center gap-3 p-3 text-sm hover:bg-primary-foreground hover:text-primary rounded-lg transition-colors"
+                                onClick={() => setIsOpen(false)}
                             >
                                 <link.icon className="w-5 h-5" />
                                 <span>{link.label}</span>

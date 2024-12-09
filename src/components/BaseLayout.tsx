@@ -4,7 +4,7 @@ import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
 import { useRouter } from 'next/navigation';
 import React, { ReactNode, useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
-import Footer from './footer';
+import Image from 'next/image';
 
 interface BaseLayoutProps {
     children: ReactNode;
@@ -31,13 +31,22 @@ const BaseLayout = ({ children, requireAuth = false }: BaseLayoutProps) => {
 
     return (
         <div className='flex min-h-screen bg-[#0a0a0a] flex-col'>
+            {/* Mobile Header */}
+            <div className="lg:hidden flex justify-center items-center py-4 px-4 border-b border-[#1a1a1a]">
+                <Image
+                    src="/logo.png"
+                    alt="Logo"
+                    width={150}
+                    height={45}
+                    className="h-[30px] w-auto"
+                />
+            </div>
             <div className='flex flex-1'>
                 <Sidebar />
                 <main className="flex-1 overflow-y-auto scrollbar-pretty">
                     {children}
                 </main>
             </div>
-            <Footer />
         </div>
     )
 }
