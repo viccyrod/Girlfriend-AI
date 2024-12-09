@@ -89,6 +89,10 @@ interface MagicAIModelCreationFormProps {
   setParentLoading: (loading: boolean) => void;
 }
 
+const INITIAL_POLLING_INTERVAL = 2000; // 2 seconds
+const MAX_POLLING_INTERVAL = 10000; // 10 seconds
+const MAX_POLLING_DURATION = 180000; // 3 minutes
+
 export function MagicAIModelCreationForm({ user, setParentLoading }: MagicAIModelCreationFormProps) {
   const { toast } = useToast();
   const router = useRouter();
@@ -101,6 +105,46 @@ export function MagicAIModelCreationForm({ user, setParentLoading }: MagicAIMode
   useEffect(() => {
     setParentLoading(isSubmitting);
   }, [isSubmitting, setParentLoading]);
+
+  const pollModelStatus = async (id: string, startTime: number, interval: number = INITIAL_POLLING_INTERVAL) => {
+    const currentTime = Date.now();
+    if (currentTime - startTime > MAX_POLLING_DURATION) {
+      throw new Error('Model generation is taking longer than expected. Please check your profile page later to see if it completed.');
+    }
+
+    try {
+      const statusResponse = await fetch(`/api/ai-models/${id}/status`);
+      if (!statusResponse.ok) {
+        throw new Error('Failed to check model status');
+      }
+
+      const { status } = await statusResponse.json();
+      
+      if (status === 'COMPLETED') {
+        router.push(`/community/AIModelProfile/${id}`);
+        return;
+      } 
+      
+      if (status === 'FAILED') {
+        throw new Error('Model generation failed. Please try again.');
+      }
+
+      // Calculate next polling interval with exponential backoff
+      const nextInterval = Math.min(interval * 1.5, MAX_POLLING_INTERVAL);
+      
+      // Show longer wait message after 30 seconds
+      if (currentTime - startTime > 30000) {
+        toast({
+          title: 'Still working...',
+          description: 'This is taking longer than usual, but we\'re still processing your request.',
+        });
+      }
+
+      setTimeout(() => pollModelStatus(id, startTime, nextInterval), interval);
+    } catch (error) {
+      throw error;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,33 +166,8 @@ export function MagicAIModelCreationForm({ user, setParentLoading }: MagicAIMode
 
       const { id } = await response.json();
       
-      // Poll for model completion
-      let retries = 0;
-      const maxRetries = 30; // 30 * 2 seconds = 60 seconds max wait
-      
-      const checkModelStatus = async () => {
-        if (retries >= maxRetries) {
-          throw new Error('Model generation timed out');
-        }
-
-        const statusResponse = await fetch(`/api/ai-models/${id}/status`);
-        if (!statusResponse.ok) {
-          throw new Error('Failed to check model status');
-        }
-
-        const { status } = await statusResponse.json();
-        
-        if (status === 'COMPLETED') {
-          router.push(`/community/AIModelProfile/${id}`);
-        } else if (status === 'FAILED') {
-          throw new Error('Model generation failed');
-        } else {
-          retries++;
-          setTimeout(checkModelStatus, 2000); // Check every 2 seconds
-        }
-      };
-
-      await checkModelStatus();
+      // Start polling with timestamp
+      await pollModelStatus(id, Date.now());
     } catch (error) {
       console.error('Creation error:', error);
       toast({

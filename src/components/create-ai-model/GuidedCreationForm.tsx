@@ -279,6 +279,10 @@ const ETHNICITIES = [
   { id: 'mixed', label: 'Mixed' }
 ];
 
+const INITIAL_POLLING_INTERVAL = 2000; // 2 seconds
+const MAX_POLLING_INTERVAL = 10000; // 10 seconds
+const MAX_POLLING_DURATION = 180000; // 3 minutes
+
 export function GuidedCreationForm({ user, setParentLoading }: GuidedCreationFormProps) {
   const { toast } = useToast();
   const router = useRouter();
@@ -324,23 +328,49 @@ export function GuidedCreationForm({ user, setParentLoading }: GuidedCreationFor
     }
   };
 
+  const pollModelStatus = async (id: string, startTime: number, interval: number = INITIAL_POLLING_INTERVAL) => {
+    const currentTime = Date.now();
+    if (currentTime - startTime > MAX_POLLING_DURATION) {
+      throw new Error('Model generation is taking longer than expected. Please check your profile page later to see if it completed.');
+    }
+
+    try {
+      const statusResponse = await fetch(`/api/ai-models/${id}/status`);
+      if (!statusResponse.ok) {
+        throw new Error('Failed to check model status');
+      }
+
+      const { status } = await statusResponse.json();
+      
+      if (status === 'COMPLETED') {
+        router.push(`/community/AIModelProfile/${id}`);
+        return;
+      } 
+      
+      if (status === 'FAILED') {
+        throw new Error('Model generation failed. Please try again.');
+      }
+
+      // Calculate next polling interval with exponential backoff
+      const nextInterval = Math.min(interval * 1.5, MAX_POLLING_INTERVAL);
+      
+      // Show longer wait message after 30 seconds
+      if (currentTime - startTime > 30000) {
+        toast({
+          title: 'Still working...',
+          description: 'This is taking longer than usual, but we\'re still processing your request.',
+        });
+      }
+
+      setPollAttempt(prev => prev + 1);
+      setTimeout(() => pollModelStatus(id, startTime, nextInterval), interval);
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (currentStep < CREATION_STEPS.length - 1) {
-      handleNext();
-      return;
-    }
-
-    if (!formData.name || !formData.gender || !formData.style) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsSubmitting(true);
     setPollAttempt(0);
 
@@ -388,35 +418,8 @@ Please expand on these details and create a rich, engaging character profile.`;
 
       const { id } = await grokResponse.json();
       
-      const checkModelStatus = async () => {
-        if (pollAttempt >= 30) { // 2 minutes max
-          throw new Error('Model generation is taking longer than expected. Please check your profile page to see if it completed.');
-        }
-
-        try {
-          const statusResponse = await fetch(`/api/ai-models/${id}/status`);
-          if (!statusResponse.ok) {
-            throw new Error('Failed to check model status');
-          }
-
-          const { status } = await statusResponse.json();
-          
-          if (status === 'COMPLETED') {
-            router.push(`/community/AIModelProfile/${id}`);
-          } else if (status === 'FAILED') {
-            throw new Error('Model generation failed');
-          } else {
-            setPollAttempt(prev => prev + 1);
-            // Increase polling interval as time goes on
-            const delay = Math.min(2000 + (pollAttempt * 500), 10000); // Start at 2s, max 10s
-            setTimeout(checkModelStatus, delay);
-          }
-        } catch (error) {
-          throw error;
-        }
-      };
-
-      await checkModelStatus();
+      // Start polling with timestamp
+      await pollModelStatus(id, Date.now());
     } catch (error) {
       console.error('Creation error:', error);
       toast({
