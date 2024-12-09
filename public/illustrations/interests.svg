@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#9333EA"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Central circle -->
+  <circle cx="100" cy="100" r="40" fill="url(#gradient)" fill-opacity="0.1" stroke="url(#gradient)" stroke-width="4"/>
+  
+  <!-- Connected circles -->
+  <circle cx="50" cy="50" r="20" fill="url(#gradient)" fill-opacity="0.1" stroke="url(#gradient)" stroke-width="4"/>
+  <circle cx="150" cy="50" r="20" fill="url(#gradient)" fill-opacity="0.1" stroke="url(#gradient)" stroke-width="4"/>
+  <circle cx="50" cy="150" r="20" fill="url(#gradient)" fill-opacity="0.1" stroke="url(#gradient)" stroke-width="4"/>
+  <circle cx="150" cy="150" r="20" fill="url(#gradient)" fill-opacity="0.1" stroke="url(#gradient)" stroke-width="4"/>
+  
+  <!-- Connecting lines -->
+  <path d="M70 70l15 15M130 70l-15 15M70 130l15-15M130 130l-15-15" 
+    stroke="url(#gradient)" stroke-width="4" stroke-linecap="round"/>
+</svg> 

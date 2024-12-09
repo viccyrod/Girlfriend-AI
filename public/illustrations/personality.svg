@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#9333EA"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Heart -->
+  <path d="M100 160l-60-60c-10-10-10-30 0-40s30-10 40 0l20 20 20-20c10-10 30-10 40 0s10 30 0 40l-60 60z" 
+    fill="url(#gradient)" fill-opacity="0.2" stroke="url(#gradient)" stroke-width="4"/>
+  
+  <!-- Stars -->
+  <path d="M40 40l10 10-10 10-10-10z" fill="url(#gradient)"/>
+  <path d="M160 40l10 10-10 10-10-10z" fill="url(#gradient)"/>
+  <path d="M100 20l10 10-10 10-10-10z" fill="url(#gradient)"/>
+  
+  <!-- Sparkles -->
+  <circle cx="50" cy="100" r="4" fill="url(#gradient)"/>
+  <circle cx="150" cy="100" r="4" fill="url(#gradient)"/>
+  <circle cx="100" cy="180" r="4" fill="url(#gradient)"/>
+</svg> 

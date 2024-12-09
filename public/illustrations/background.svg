@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#9333EA"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Book -->
+  <path d="M40 40h120v120H40z" fill="url(#gradient)" fill-opacity="0.1" stroke="url(#gradient)" stroke-width="4"/>
+  <path d="M40 40h120" stroke="url(#gradient)" stroke-width="4"/>
+  <path d="M100 40v120" stroke="url(#gradient)" stroke-width="4" stroke-dasharray="4 4"/>
+  
+  <!-- Text lines -->
+  <path d="M60 70h30" stroke="url(#gradient)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M60 90h30" stroke="url(#gradient)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M60 110h30" stroke="url(#gradient)" stroke-width="4" stroke-linecap="round"/>
+  
+  <!-- Images -->
+  <rect x="110" y="70" width="30" height="30" rx="4" stroke="url(#gradient)" stroke-width="4"/>
+  <rect x="110" y="110" width="30" height="30" rx="4" stroke="url(#gradient)" stroke-width="4"/>
+</svg> 
