@@ -10,7 +10,7 @@ export default function CreateAIButton() {
 
   const handleClick = () => {
     if (isAuthenticated) {
-      router.push('/create');
+      router.push('/community/create-ai-model');
     } else {
       router.push('/auth/login');
     }
