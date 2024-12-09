@@ -6,7 +6,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export async function uploadBase64Image(base64Data: string) {
+export async function uploadBase64Image(base64Data: string, options: any = {}) {
   try {
     // Check if the data is already in the correct format
     const formattedData = base64Data.startsWith('data:image') 
@@ -15,7 +15,8 @@ export async function uploadBase64Image(base64Data: string) {
 
     const result = await cloudinary.uploader.upload(formattedData, {
       folder: 'ai-models',
-      resource_type: 'auto'
+      resource_type: 'auto',
+      ...options
     });
 
     return result.secure_url;

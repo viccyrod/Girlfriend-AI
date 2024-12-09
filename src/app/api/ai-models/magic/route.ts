@@ -26,10 +26,41 @@ interface AIResponse {
 // Request validation schema
 const RequestSchema = z.object({
   customPrompt: z.string().min(1, "Custom prompt is required").max(1000),
+  isPrivate: z.boolean().optional(),
 });
 
-// Increase timeout to 120 seconds (2 minutes)
-const AI_TIMEOUT = 120000;
+// Reduced timeout to 90 seconds for faster feedback
+const AI_TIMEOUT = 90000;
+
+// Optimized image generation parameters
+const IMAGE_GEN_CONFIG = {
+  num_inference_steps: 25,
+  guidance_scale: 7.5,
+  width: 512,
+  height: 512,
+  sampler_name: "DPM++ 2M Karras",
+};
+
+// Add prompt enhancement function
+async function enhanceImagePrompt(basePrompt: string): Promise<string> {
+  try {
+    const grokPrompt = `As a professional photographer and creative director, enhance this basic description into a detailed photography prompt. Focus on physical features, styling, lighting, and mood. Base description: "${basePrompt}"
+
+    Format your response as a concise, detailed photography prompt that includes:
+    - Physical features and styling
+    - Lighting setup and mood
+    - Camera settings and technical details
+    Keep it natural and tasteful.`;
+
+    const aiResponse = await generateAIModelDetails(grokPrompt);
+    const enhancedPrompt = JSON.parse(aiResponse.content).appearance;
+    
+    return enhancedPrompt;
+  } catch (error) {
+    console.error('Error enhancing prompt:', error);
+    return basePrompt; // Fallback to original prompt if enhancement fails
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -43,16 +74,16 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const { customPrompt } = result.data;
+    const { customPrompt, isPrivate = false } = result.data;
 
     const currentUser = await getDbUser();
     if (!currentUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('Starting AI model generation with prompt:', customPrompt);
+    console.log('🚀 Starting optimized AI model generation');
 
-    // 1. First, create a pending AI model in the database
+    // 1. Create pending model immediately
     const pendingModel = await prisma.aIModel.create({
       data: {
         name: "AI Model (Generating...)",
@@ -63,112 +94,140 @@ export async function POST(request: Request) {
         likes: "",
         dislikes: "",
         userId: currentUser.id,
-        imageUrl: "", // Will be updated later
-        isPrivate: false,
+        imageUrl: "",
+        isPrivate,
         isAnime: false,
         isHumanX: false,
         status: 'PENDING'
       }
     });
 
-    // 2. Start the image generation asynchronously
-    const imagePrompt = `Create a photorealistic portrait of a beautiful woman with the following characteristics: ${customPrompt}. Professional photography, natural lighting, high resolution, ultra detailed, photorealistic, 8k, highly detailed skin texture and facial features, centered composition, looking at camera, head and shoulders portrait, instagram style photo, soft natural lighting, shallow depth of field, shot on Canon EOS R5, 85mm f/1.2 lens --ar 1:1 --v 5.2 --style raw`;
+    // 2. Start both image generation and AI details generation in parallel
+    // First, enhance the base prompt
+    const enhancedPrompt = await enhanceImagePrompt(customPrompt);
     
-    const jobId = await RunPodClient.startImageGeneration(JSON.stringify({
-      prompt: imagePrompt,
-      negative_prompt: "cartoon, anime, illustration, painting, drawing, artwork, 3d, render, cgi, watermark, signature, label, text, deformed, unrealistic, distorted, disfigured, bad anatomy, ugly, duplicate, extra limbs, missing limbs",
-      num_inference_steps: 30,
-      guidance_scale: 7.5,
-      width: 768,
-      height: 768,
-      sampler_name: "DPM++ 2M Karras",
-      seed: Math.floor(Math.random() * 999999999)
-    }));
+    const imagePrompt = `Create a photorealistic portrait of a beautiful woman with the following characteristics: ${enhancedPrompt}. Professional photography, natural lighting, high resolution, ultra detailed, photorealistic, 8k, highly detailed skin texture and facial features, centered composition, looking at camera, head and shoulders portrait, instagram style photo, soft natural lighting, shallow depth of field, shot on Canon EOS R5, 85mm f/1.2 lens --ar 1:1 --v 5.2 --style raw`;
 
-    // 3. Start the AI model details generation
-    generateAIModelDetails(customPrompt || MAGIC_AI_PROMPT)
-      .then(async (aiResponse: AIResponse) => {
-        try {
-          // Process AI response and update model details
-          const cleanJson = aiResponse.content
-            .replace(/```json\n?|\n?```/g, '')
-            .replace(/^Here is a?n? .*?:\n?/i, '')
-            .trim();
+    // Start both processes in parallel
+    const [imageJobId, aiDetailsPromise] = await Promise.all([
+      RunPodClient.startImageGeneration(JSON.stringify({
+        prompt: imagePrompt,
+        negative_prompt: "cartoon, anime, illustration, painting, drawing, artwork, 3d, render, cgi, watermark, signature, label, text, deformed, unrealistic, distorted, disfigured, bad anatomy, ugly, duplicate, extra limbs, missing limbs",
+        ...IMAGE_GEN_CONFIG,
+        seed: Math.floor(Math.random() * 999999999)
+      })),
+      generateAIModelDetails(customPrompt || MAGIC_AI_PROMPT)
+    ]);
 
-          let aiModelDetails;
-          try {
-            aiModelDetails = JSON.parse(cleanJson);
-          } catch (error) {
-            // Fallback to text extraction if JSON parsing fails
-            const text = aiResponse.content;
-            aiModelDetails = extractModelDetailsFromText(text, customPrompt);
-          }
+    // 3. Process AI details while waiting for image
+    let aiModelDetails;
+    try {
+      const aiResponse = await aiDetailsPromise;
+      const cleanJson = aiResponse.content
+        .replace(/```json\n?|\n?```/g, '')
+        .replace(/^Here is a?n? .*?:\n?/i, '')
+        .trim();
 
-          // 4. Poll for image completion in a separate process
-          let retries = 0;
-          const maxRetries = 30;
-          
-          const checkImage = async () => {
-            if (retries >= maxRetries) return;
-            
-            const status = await RunPodClient.checkJobStatus(jobId);
-            console.log('RunPod status:', status);
-            
-            if (status.status === 'COMPLETED' && status.output?.image) {
-              // Upload to Cloudinary and update the model
-              const cloudinaryImageUrl = await uploadBase64Image(status.output.image);
-              
-              await prisma.aIModel.update({
-                where: { id: pendingModel.id },
-                data: {
-                  imageUrl: cloudinaryImageUrl,
-                  name: aiModelDetails.name,
-                  personality: aiModelDetails.personality,
-                  appearance: aiModelDetails.appearance,
-                  backstory: aiModelDetails.backstory,
-                  hobbies: aiModelDetails.hobbies,
-                  likes: aiModelDetails.likes,
-                  dislikes: aiModelDetails.dislikes,
-                  status: 'COMPLETED',
-                  images: {
-                    create: {
-                      imageUrl: cloudinaryImageUrl,
-                      isNSFW: false
-                    }
-                  }
-                }
-              });
-            } else if (status.status === 'FAILED') {
-              await prisma.aIModel.update({
-                where: { id: pendingModel.id },
-                data: { status: 'FAILED' }
-              });
-            } else {
-              retries++;
-              setTimeout(checkImage, 2000);
+      try {
+        aiModelDetails = JSON.parse(cleanJson);
+      } catch (error) {
+        aiModelDetails = extractModelDetailsFromText(aiResponse.content, customPrompt);
+      }
+
+      // Update model with AI details immediately, don't wait for image
+      await prisma.aIModel.update({
+        where: { id: pendingModel.id },
+        data: {
+          name: aiModelDetails.name,
+          personality: aiModelDetails.personality,
+          appearance: aiModelDetails.appearance,
+          backstory: aiModelDetails.backstory,
+          hobbies: aiModelDetails.hobbies,
+          likes: aiModelDetails.likes,
+          dislikes: aiModelDetails.dislikes,
+        }
+      });
+    } catch (error) {
+      console.error('Error processing AI details:', error);
+      // Continue with image processing even if AI details fail
+    }
+
+    // 4. Start image polling process
+    let retries = 0;
+    const maxRetries = 20;
+    const pollInterval = 3000;
+
+    const checkImage = async () => {
+      if (retries >= maxRetries) {
+        await prisma.aIModel.update({
+          where: { id: pendingModel.id },
+          data: { status: 'FAILED' }
+        });
+        return;
+      }
+
+      try {
+        const status = await RunPodClient.checkJobStatus(imageJobId);
+        console.log(`🖼️ Image status (attempt ${retries + 1}):`, status.status);
+
+        if (status.status === 'COMPLETED' && status.output?.image) {
+          // Upload to Cloudinary with optimized parameters
+          const cloudinaryImageUrl = await uploadBase64Image(
+            status.output.image,
+            {
+              quality: 'auto:good',
+              fetch_format: 'auto',
+              flags: 'progressive'
             }
-          };
+          );
 
-          checkImage();
-        } catch (error) {
-          console.error('Error in background processing:', error);
+          await prisma.aIModel.update({
+            where: { id: pendingModel.id },
+            data: {
+              imageUrl: cloudinaryImageUrl,
+              status: 'COMPLETED',
+              images: {
+                create: {
+                  imageUrl: cloudinaryImageUrl,
+                  isNSFW: false
+                }
+              }
+            }
+          });
+          return;
+        } 
+        
+        if (status.status === 'FAILED') {
           await prisma.aIModel.update({
             where: { id: pendingModel.id },
             data: { status: 'FAILED' }
           });
+          return;
         }
-      });
 
-    // Return immediately with the pending model ID
+        retries++;
+        setTimeout(checkImage, pollInterval);
+      } catch (error) {
+        console.error('Error in image check:', error);
+        retries++;
+        setTimeout(checkImage, pollInterval);
+      }
+    };
+
+    // Start the image polling process
+    checkImage();
+
+    // 5. Return immediately with the model ID
     return NextResponse.json({ 
       id: pendingModel.id,
-      message: 'AI Model creation started. Please check back in a few moments.' 
+      message: 'AI model creation started'
     });
 
   } catch (error) {
-    console.error('Error in magic AI creation:', error);
+    console.error('Error in AI model creation:', error);
     return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Failed to create AI model' 
+      error: 'Failed to create AI model',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

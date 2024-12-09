@@ -45,8 +45,8 @@ export async function GET(
       where: {
         id: params.id,
         OR: [
-          { userId: user?.id },
-          { isPrivate: false }
+          { isPrivate: false }, // Public models are always accessible
+          ...(user?.id ? [{ userId: user.id }] : []) // Only check user ownership if user is logged in
         ]
       },
       include: {
