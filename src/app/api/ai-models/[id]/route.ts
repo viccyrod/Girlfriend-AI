@@ -23,6 +23,18 @@ const UpdateModelSchema = z.object({
   isPrivate: z.boolean()
 });
 
+// Update the schema to make all fields optional for PATCH
+const PatchModelSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  personality: z.string().min(1).optional(),
+  appearance: z.string().min(1).optional(),
+  backstory: z.string().min(1).optional(),
+  hobbies: z.string().min(1).optional(),
+  likes: z.string().min(1).optional(),
+  dislikes: z.string().min(1).optional(),
+  isPrivate: z.boolean().optional()
+});
+
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -150,6 +162,77 @@ export async function PUT(
           },
         },
       },
+    });
+
+    return NextResponse.json(updatedModel);
+  } catch (error) {
+    console.error('Error updating AI model:', error);
+    return NextResponse.json(
+      { error: 'Failed to update AI model' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Validate route parameters
+    const validatedParams = RouteParamsSchema.safeParse(params);
+    if (!validatedParams.success) {
+      return NextResponse.json(
+        { error: 'Invalid route parameters' },
+        { status: 400 }
+      );
+    }
+
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Validate request body
+    const body = await req.json();
+    const validatedData = PatchModelSchema.safeParse(body);
+    if (!validatedData.success) {
+      return NextResponse.json(
+        { error: 'Invalid request data', details: validatedData.error },
+        { status: 400 }
+      );
+    }
+
+    // Check if model exists and belongs to user
+    const existingModel = await prisma.aIModel.findFirst({
+      where: {
+        id: params.id,
+        userId: user.id
+      }
+    });
+
+    if (!existingModel) {
+      return NextResponse.json(
+        { error: 'AI Model not found or access denied' },
+        { status: 404 }
+      );
+    }
+
+    const updatedModel = await prisma.aIModel.update({
+      where: { id: params.id },
+      data: validatedData.data,
+      include: {
+        _count: {
+          select: {
+            followers: true
+          }
+        }
+      }
     });
 
     return NextResponse.json(updatedModel);
