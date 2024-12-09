@@ -60,7 +60,16 @@ export default function MyModelsClient({ user }: MyModelsClientProps) {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/ai-models/my-models');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+      const response = await fetch('/api/ai-models/my-models', {
+        signal: controller.signal,
+        next: { revalidate: 30 }
+      });
+      
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch models');
@@ -82,6 +91,12 @@ export default function MyModelsClient({ user }: MyModelsClientProps) {
 
   useEffect(() => {
     fetchMyModels();
+    return () => {
+      // Cleanup any pending requests
+      setModels([]);
+      setIsLoading(false);
+      setError(null);
+    };
   }, [fetchMyModels]);
 
   const PageHeader = () => (
@@ -171,7 +186,7 @@ export default function MyModelsClient({ user }: MyModelsClientProps) {
     <div className="container mx-auto py-12 px-4">
       <PageHeader />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {models.map((model) => (
+        {models.map((model, index) => (
           <div 
             key={model.id} 
             className="group relative aspect-[3/4] rounded-xl overflow-hidden border border-pink-500/20 bg-gradient-to-br from-pink-500/5 to-purple-600/5 hover:border-pink-500/40 transition-all duration-300"
@@ -231,8 +246,8 @@ export default function MyModelsClient({ user }: MyModelsClientProps) {
                     img.src = DEFAULT_IMAGE_URL;
                   }
                 }}
-                priority={false}
-                loading="lazy"
+                priority={index < 4}
+                loading={index < 4 ? 'eager' : 'lazy'}
               />
             </div>
 
