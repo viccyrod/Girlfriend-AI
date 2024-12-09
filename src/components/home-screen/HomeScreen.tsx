@@ -28,7 +28,6 @@ const HomeScreen = () => {
           <Community initialModels={[]} />
         </BaseLayout>
       </div>
-      <Footer />
     </div>
   )
 }

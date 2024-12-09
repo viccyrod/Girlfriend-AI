@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import LogoutButton from './LogoutButton';
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
 import AuthButton from "./AuthButton";
+import { Instagram, Twitter } from 'lucide-react';
 
 const SIDEBAR_LINKS = [
     {
@@ -72,16 +73,16 @@ const Sidebar = () => {
             )}
 
             {/* Sidebar */}
-            <div className={`fixed top-0 left-0 h-full bg-background/80 backdrop-blur-md transform transition-transform duration-300 ease-in-out z-50 shadow-lg
-                ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:w-64
+            <div className={`fixed top-0 left-0 h-screen w-64 bg-background/80 backdrop-blur-md transform transition-transform duration-300 ease-in-out z-50 shadow-lg
+                ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static
                 flex flex-col py-6 px-4 border-r`}>
                 
-                {/* Main Content */}
-                <div className="flex flex-col h-full">
+                {/* Main Content Container */}
+                <div className="flex flex-col min-h-full">
                     
-                    {/* Logo - only show on desktop */}
-                    <div className="flex-shrink-0 mb-6 hidden lg:block">
-                        <Link href="/" className="flex items-center mb-6 px-2">
+                    {/* Logo */}
+                    <div className="flex-shrink-0 hidden lg:block">
+                        <Link href="/" className="flex items-center px-2">
                             <Image
                                 src="/logo-gradient.svg"
                                 alt="girlfriend logo"
@@ -94,7 +95,7 @@ const Sidebar = () => {
                     </div>
 
                     {/* Navigation Links */}
-                    <nav className="flex-grow space-y-1 mb-6 mt-12 lg:mt-0">
+                    <nav className="flex-1 mt-6">
                         {SIDEBAR_LINKS.map(link => (
                             <Link key={link.href} href={link.href}
                                 className="flex items-center gap-3 p-3 text-sm hover:bg-primary/10 hover:text-primary rounded-lg transition-all duration-200"
@@ -106,55 +107,74 @@ const Sidebar = () => {
                         ))}
                     </nav>
 
-                    {/* User Info & Settings at the Bottom */}
-                    <div className="mt-auto">
-                        {user ? (
-                            <>
-                                <div className="flex items-center justify-between p-3 hover:bg-primary/10 rounded-lg transition-all duration-200">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="w-10 h-10 border-2 border-primary/20">
-                                            <AvatarImage src={user?.picture || ""} className="object-cover" />
-                                            <AvatarFallback className="bg-primary/5">
-                                                {user?.given_name?.[0]}{user?.family_name?.[0]}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <p className="text-sm font-medium">{user?.given_name} {user?.family_name}</p>
-                                            <p className="text-xs text-muted-foreground">{user?.email}</p>
-                                        </div>
-                                    </div>
+                    {/* Bottom Section */}
+                    <div className="mt-auto pt-6">
+                        {/* Social Media Links */}
+                        <div className="flex items-center justify-center gap-4 mb-6">
+                            <Link 
+                                href="https://www.instagram.com/girl.friendcx/" 
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gray-400 hover:text-pink-500 transition-colors p-2 hover:bg-primary/10 rounded-lg"
+                            >
+                                <Instagram className="w-5 h-5" />
+                            </Link>
+                            <Link 
+                                href="https://x.com/girlfriend_cx" 
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gray-400 hover:text-pink-500 transition-colors p-2 hover:bg-primary/10 rounded-lg"
+                            >
+                                <Twitter className="w-5 h-5" />
+                            </Link>
+                        </div>
 
-                                    {/* Gear Icon with Dropdown */}
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger className="p-2 hover:bg-primary/10 rounded-full transition-all duration-200">
-                                            <GearIcon className="w-5 h-5" />
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-56">
-                                            <DropdownMenuLabel className="font-normal">
-                                                <div className="flex flex-col space-y-1">
-                                                    <p className="text-sm font-medium">My Account</p>
-                                                    <p className="text-xs text-muted-foreground">{user?.email}</p>
-                                                </div>
-                                            </DropdownMenuLabel>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem asChild>
-                                                <Link href="/settings/profile" className="cursor-pointer">
-                                                    <PersonIcon className="mr-2 h-4 w-4" />
-                                                    <span>Profile</span>
-                                                </Link>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem asChild>
-                                                <Link href="/settings/billing" className="cursor-pointer">
-                                                    <GearIcon className="mr-2 h-4 w-4" />
-                                                    <span>Billing</span>
-                                                </Link>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <LogoutButton />
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                        {/* User Section */}
+                        {user ? (
+                            <div className="flex items-center justify-between p-3 hover:bg-primary/10 rounded-lg transition-all duration-200">
+                                <div className="flex items-center gap-3">
+                                    <Avatar className="w-10 h-10 border-2 border-primary/20">
+                                        <AvatarImage src={user?.picture || ""} className="object-cover" />
+                                        <AvatarFallback className="bg-primary/5">
+                                            {user?.given_name?.[0]}{user?.family_name?.[0]}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="text-sm font-medium">{user?.given_name} {user?.family_name}</p>
+                                        <p className="text-xs text-muted-foreground">{user?.email}</p>
+                                    </div>
                                 </div>
-                            </>
+
+                                {/* Gear Icon with Dropdown */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger className="p-2 hover:bg-primary/10 rounded-full transition-all duration-200">
+                                        <GearIcon className="w-5 h-5" />
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-56">
+                                        <DropdownMenuLabel className="font-normal">
+                                            <div className="flex flex-col space-y-1">
+                                                <p className="text-sm font-medium">My Account</p>
+                                                <p className="text-xs text-muted-foreground">{user?.email}</p>
+                                            </div>
+                                        </DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem asChild>
+                                            <Link href="/settings/profile" className="cursor-pointer">
+                                                <PersonIcon className="mr-2 h-4 w-4" />
+                                                <span>Profile</span>
+                                            </Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild>
+                                            <Link href="/settings/billing" className="cursor-pointer">
+                                                <GearIcon className="mr-2 h-4 w-4" />
+                                                <span>Billing</span>
+                                            </Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <LogoutButton />
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                         ) : (
                             <AuthButton isAuthenticated={false} />
                         )}
