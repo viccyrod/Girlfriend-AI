@@ -7,7 +7,6 @@ import React, { useState, useEffect } from 'react';
 import { HomeIcon, CameraIcon, PersonIcon, GearIcon, ChatBubbleIcon, HamburgerMenuIcon, Cross1Icon, GlobeIcon } from '@radix-ui/react-icons';
 import { DropdownMenuTrigger } from '@radix-ui/react-dropdown-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from './ui/dropdown-menu';
-import { ModeToggle } from './ModeToggle';
 import LogoutButton from './LogoutButton';
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
 import AuthButton from "./AuthButton";
@@ -44,7 +43,6 @@ const Sidebar = () => {
     const { user, isLoading } = useKindeBrowserClient();
     const [mounted, setMounted] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
-    // const isAdmin = user?.email === process.env.ADMIN_EMAIL;
 
     useEffect(() => {
         setMounted(true);
@@ -59,7 +57,7 @@ const Sidebar = () => {
             {/* Hamburger menu for mobile */}
             <button
                 aria-label="Toggle sidebar"
-                className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-background rounded-md"
+                className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-background/80 backdrop-blur-sm rounded-md border shadow-sm"
                 onClick={toggleSidebar}
             >
                 {isOpen ? <Cross1Icon className="w-6 h-6" /> : <HamburgerMenuIcon className="w-6 h-6" />}
@@ -68,13 +66,13 @@ const Sidebar = () => {
             {/* Overlay for mobile when sidebar is open */}
             {isOpen && (
                 <div
-                    className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+                    className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
                     onClick={toggleSidebar}
                 ></div>
             )}
 
             {/* Sidebar */}
-            <div className={`fixed top-0 left-0 h-full bg-background transform transition-transform duration-300 ease-in-out z-50 shadow-lg
+            <div className={`fixed top-0 left-0 h-full bg-background/80 backdrop-blur-md transform transition-transform duration-300 ease-in-out z-50 shadow-lg
                 ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:w-64
                 flex flex-col py-6 px-4 border-r`}>
                 
@@ -86,7 +84,7 @@ const Sidebar = () => {
                         <Link href="/" className="flex items-center mb-6 px-2">
                             <Image
                                 src="/logo-gradient.svg"
-                                alt="girlfriend.cx"
+                                alt="girlfriend"
                                 width={200}
                                 height={60}
                                 className="w-auto h-[45px] hover:scale-105 transition-transform duration-300"
@@ -96,14 +94,14 @@ const Sidebar = () => {
                     </div>
 
                     {/* Navigation Links */}
-                    <nav className="flex-grow mb-6 mt-12 lg:mt-0">
+                    <nav className="flex-grow space-y-1 mb-6 mt-12 lg:mt-0">
                         {SIDEBAR_LINKS.map(link => (
                             <Link key={link.href} href={link.href}
-                                className="flex items-center gap-3 p-3 text-sm hover:bg-primary-foreground hover:text-primary rounded-lg transition-colors"
+                                className="flex items-center gap-3 p-3 text-sm hover:bg-primary/10 hover:text-primary rounded-lg transition-all duration-200"
                                 onClick={() => setIsOpen(false)}
                             >
                                 <link.icon className="w-5 h-5" />
-                                <span>{link.label}</span>
+                                <span className="font-medium">{link.label}</span>
                             </Link>
                         ))}
                     </nav>
@@ -112,11 +110,13 @@ const Sidebar = () => {
                     <div className="mt-auto">
                         {user ? (
                             <>
-                                <div className="flex items-center justify-between p-2 hover:bg-primary-foreground rounded-lg transition-colors">
+                                <div className="flex items-center justify-between p-3 hover:bg-primary/10 rounded-lg transition-all duration-200">
                                     <div className="flex items-center gap-3">
-                                        <Avatar className="w-10 h-10">
+                                        <Avatar className="w-10 h-10 border-2 border-primary/20">
                                             <AvatarImage src={user?.picture || ""} className="object-cover" />
-                                            <AvatarFallback>CN</AvatarFallback>
+                                            <AvatarFallback className="bg-primary/5">
+                                                {user?.given_name?.[0]}{user?.family_name?.[0]}
+                                            </AvatarFallback>
                                         </Avatar>
                                         <div>
                                             <p className="text-sm font-medium">{user?.given_name} {user?.family_name}</p>
@@ -126,27 +126,33 @@ const Sidebar = () => {
 
                                     {/* Gear Icon with Dropdown */}
                                     <DropdownMenu>
-                                        <DropdownMenuTrigger className="p-2 hover:bg-gray-600 rounded-full transition-colors">
+                                        <DropdownMenuTrigger className="p-2 hover:bg-primary/10 rounded-full transition-all duration-200">
                                             <GearIcon className="w-5 h-5" />
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                                        <DropdownMenuContent align="end" className="w-56">
+                                            <DropdownMenuLabel className="font-normal">
+                                                <div className="flex flex-col space-y-1">
+                                                    <p className="text-sm font-medium">My Account</p>
+                                                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                                                </div>
+                                            </DropdownMenuLabel>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem>
-                                                <Link href="/update-profile">Profile</Link>
+                                            <DropdownMenuItem asChild>
+                                                <Link href="/settings/profile" className="cursor-pointer">
+                                                    <PersonIcon className="mr-2 h-4 w-4" />
+                                                    <span>Profile</span>
+                                                </Link>
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem>
-                                                <Link href="#">Billing</Link>
+                                            <DropdownMenuItem asChild>
+                                                <Link href="/settings/billing" className="cursor-pointer">
+                                                    <GearIcon className="mr-2 h-4 w-4" />
+                                                    <span>Billing</span>
+                                                </Link>
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                             <LogoutButton />
                                         </DropdownMenuContent>
                                     </DropdownMenu>
-                                </div>
-
-                                {/* Mode Toggle */}
-                                <div className="flex justify-center mt-4">
-                                    <ModeToggle />
                                 </div>
                             </>
                         ) : (
