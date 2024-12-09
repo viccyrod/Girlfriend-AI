@@ -86,23 +86,23 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
           {/* Features Grid */}
           <div className="grid grid-cols-2 gap-4 mt-8">
-            <div className="space-y-2 p-4 rounded-xl bg-primary/5 border">
-              <div className="text-xl">💝</div>
+            <div className="space-y-2 p-4 rounded-xl bg-primary/5 border border-primary/10 transition-colors hover:bg-primary/10">
+              <div className="text-xl">💘</div>
               <h3 className="font-medium">Deep Connection</h3>
               <p className="text-sm text-muted-foreground">Build intimate relationships without boundaries</p>
             </div>
-            <div className="space-y-2 p-4 rounded-xl bg-primary/5 border">
-              <div className="text-xl">🎭</div>
+            <div className="space-y-2 p-4 rounded-xl bg-primary/5 border border-primary/10 transition-colors hover:bg-primary/10">
+              <div className="text-xl">😈</div>
               <h3 className="font-medium">Unrestricted Chat</h3>
               <p className="text-sm text-muted-foreground">Enjoy open, unfiltered conversations</p>
             </div>
-            <div className="space-y-2 p-4 rounded-xl bg-primary/5 border">
-              <div className="text-xl">💫</div>
+            <div className="space-y-2 p-4 rounded-xl bg-primary/5 border border-primary/10 transition-colors hover:bg-primary/10">
+              <div className="text-xl">💋</div>
               <h3 className="font-medium">Total Freedom</h3>
               <p className="text-sm text-muted-foreground">Express yourself without limits or judgment</p>
             </div>
-            <div className="space-y-2 p-4 rounded-xl bg-primary/5 border">
-              <div className="text-xl">🌙</div>
+            <div className="space-y-2 p-4 rounded-xl bg-primary/5 border border-primary/10 transition-colors hover:bg-primary/10">
+              <div className="text-xl">🔥</div>
               <h3 className="font-medium">Adult Content</h3>
               <p className="text-sm text-muted-foreground">Mature themes and conversations (18+)</p>
             </div>
