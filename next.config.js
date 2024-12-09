@@ -12,6 +12,7 @@ const nextConfig = {
   output: 'standalone',
   
   images: {
+    domains: ['localhost', 'res.cloudinary.com'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -25,7 +26,8 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       }
-    ]
+    ],
+    unoptimized: process.env.NODE_ENV === 'development'
   }
 }
 

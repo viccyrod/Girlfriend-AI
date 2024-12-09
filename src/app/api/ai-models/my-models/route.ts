@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import prisma from '@/lib/prisma';
+import { AIModelResponse } from '@/types/ai-model';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,11 +19,14 @@ export async function GET() {
     const user = await getUser();
     
     if (!user?.id) {
+      console.error('No user ID found in session');
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { 'content-type': 'application/json' } }
       );
     }
+
+    console.log('Fetching models for user:', user.id);
 
     // Query the database to find all AI models created by the current user
     const myModels = await prisma.aIModel.findMany({
@@ -41,20 +45,35 @@ export async function GET() {
         followerCount: true,
       },
       orderBy: {
-        createdAt: 'desc' // Order the models by creation date in descending order
+        createdAt: 'desc'
       }
     });
 
+    console.log('Found models:', myModels);
+
+    // Ensure the response matches AIModelResponse type
+    const formattedModels: AIModelResponse[] = myModels.map(model => ({
+      ...model,
+      followerCount: model.followerCount ?? 0,
+      isPrivate: model.isPrivate ?? false,
+      personality: model.personality ?? null,
+      appearance: model.appearance ?? null,
+      imageUrl: model.imageUrl ?? null,
+    }));
+
     // Return the user's AI models in JSON format
     return new NextResponse(
-      JSON.stringify(myModels),
+      JSON.stringify(formattedModels),
       { status: 200, headers: { 'content-type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error fetching user\'s AI models:', error);
     // Return a 500 response in case of an unexpected error
     return new NextResponse(
-      JSON.stringify({ error: 'Internal Server Error' }),
+      JSON.stringify({ 
+        error: 'Internal Server Error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
       { status: 500, headers: { 'content-type': 'application/json' } }
     );
   }
