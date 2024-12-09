@@ -84,10 +84,10 @@ const Sidebar = () => {
                         <Link href="/" className="flex items-center mb-6 px-2">
                             <Image
                                 src="/logo-gradient.svg"
-                                alt="girlfriend"
+                                alt="girlfriend logo"
                                 width={200}
                                 height={60}
-                                className="w-auto h-[45px] hover:scale-105 transition-transform duration-300"
+                                className="w-auto h-12 sm:h-14 md:h-16 hover:scale-105 transition-transform duration-300"
                                 priority
                             />
                         </Link>

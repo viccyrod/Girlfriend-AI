@@ -38,7 +38,7 @@ const BaseLayout = ({ children, requireAuth = false }: BaseLayoutProps) => {
                     alt="girlfriend.cx"
                     width={150}
                     height={45}
-                    className="h-[30px] w-auto"
+                    className="h-[40px] w-auto"
                     priority
                 />
             </div>
