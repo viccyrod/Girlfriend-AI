@@ -188,3 +188,53 @@ Access to the code is strictly confidential.
 - [Kinde](https://kinde.com/)
 - [Pinecone](https://www.pinecone.io/)
 
+## Architecture
+
+### Queue System
+
+The application uses a distributed queue system for AI model generation:
+
+- **Main App (Vercel)**: Handles web requests and queues jobs in Redis
+- **Queue Worker (Railway)**: Separate service that processes AI generation jobs
+  - Repository: [girlfriend-queue-worker](https://github.com/yourusername/girlfriend-queue-worker)
+  - Runs continuously on Railway
+  - Polls the Redis queue for new jobs
+  - Processes AI model generation requests
+
+### Environment Variables
+
+#### Main App (Vercel)
+```env
+# Redis Queue (Upstash)
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+```
+
+#### Queue Worker (Railway)
+```env
+# API Access
+WORKER_ENDPOINT=https://girlfriend.cx/api/ai-models/worker
+WORKER_AUTH_TOKEN=your_auth_token
+
+# Queue Configuration
+QUEUE_POLL_INTERVAL=5000
+QUEUE_RETRY_INTERVAL=10000
+QUEUE_MAX_RETRIES=3
+
+# Redis Queue (Upstash) - same as main app
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+```
+
+### Flow
+1. User requests AI model generation
+2. Main app creates pending model in database
+3. Job is added to Redis queue
+4. Worker picks up job and processes it
+5. Worker updates model status when complete
+
+### Deployment
+- Main app: Deployed on Vercel
+- Queue worker: Deployed on Railway
+- Redis queue: Hosted on Upstash
+
