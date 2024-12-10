@@ -11,6 +11,7 @@ import LogoutButton from './LogoutButton';
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
 import AuthButton from "./AuthButton";
 import { Instagram, Twitter } from 'lucide-react';
+import { TokenCounter } from './TokenCounter';
 
 const SIDEBAR_LINKS = [
     {
@@ -127,6 +128,11 @@ const Sidebar = () => {
                             >
                                 <Twitter className="w-5 h-5" />
                             </Link>
+                        </div>
+
+                        {/* Token Counter - Added here */}
+                        <div className="mb-4">
+                            <TokenCounter minimal />
                         </div>
 
                         {/* User Section */}

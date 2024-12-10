@@ -1,6 +1,6 @@
 'use client';
 
-import { CREDIT_COSTS } from '@/lib/constants';
+import { TOKEN_COSTS } from '@/lib/constants';
 import { TokenIcon } from './TokenIcon';
 import {
   Tooltip,
@@ -23,9 +23,9 @@ export function TokenTooltip() {
           <div className="space-y-2">
             <p className="font-medium">Token Usage:</p>
             <ul className="text-sm space-y-1">
-              <li>• 1 message = {CREDIT_COSTS.MESSAGE} token</li>
-              <li>• 1 photo = {CREDIT_COSTS.PHOTO} tokens</li>
-              <li>• 1 character = {CREDIT_COSTS.CHARACTER} tokens</li>
+              <li>• 1 message = {TOKEN_COSTS.CHAT} token</li>
+              <li>• 1 photo = {TOKEN_COSTS.IMAGE} tokens</li>
+              <li>• 1 character = {TOKEN_COSTS.CHARACTER} tokens</li>
             </ul>
           </div>
         </TooltipContent>

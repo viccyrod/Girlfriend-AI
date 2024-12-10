@@ -7,17 +7,20 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from 'sonner';
 import { PhantomGuide } from './PhantomGuide';
 import { Wallet, HelpCircle } from 'lucide-react';
+import { useGenerations } from '@/hooks/useGenerations';
 
 interface Props {
   onSuccess?: () => void;
   amount: number;
   label: string;
+  generationCount?: number;
 }
 
-export function SolanaPaymentButton({ onSuccess, amount, label }: Props) {
+export function SolanaPaymentButton({ onSuccess, amount, label, generationCount }: Props) {
   const { connected, publicKey, sendTransaction, connect } = useWallet();
   const { connection } = useConnection();
   const [isLoading, setIsLoading] = useState(false);
+  const { refresh: refreshGenerations } = useGenerations();
 
   const handlePayment = async () => {
     if (!connected || !publicKey) return;
@@ -27,7 +30,10 @@ export function SolanaPaymentButton({ onSuccess, amount, label }: Props) {
       const response = await fetch('/api/payments/solana', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ 
+          amount,
+          generationCount
+        }),
       });
 
       if (!response.ok) {
@@ -44,6 +50,7 @@ export function SolanaPaymentButton({ onSuccess, amount, label }: Props) {
           loading: 'Confirming transaction...',
           success: () => {
             onSuccess?.();
+            refreshGenerations();
             return 'Payment successful!';
           },
           error: 'Transaction failed'

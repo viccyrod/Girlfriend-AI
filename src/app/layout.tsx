@@ -8,6 +8,7 @@ import React from 'react';
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import ClientProviders from "@/components/providers/ClientProviders";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Toaster } from 'sonner';
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -116,6 +117,7 @@ export default async function RootLayout({
         </ClientProviders>
         <Analytics />
         <SpeedInsights />
+        <Toaster />
       </body>
     </html>
   );

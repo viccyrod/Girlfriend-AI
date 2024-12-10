@@ -1,54 +1,45 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import { Connection, PublicKey } from '@solana/web3.js';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
+import { PublicKey, Transaction, Connection } from '@solana/web3.js';
 
 export async function POST(req: Request) {
   try {
-    const { signature } = await req.json();
     const { getUser } = getKindeServerSession();
     const user = await getUser();
-
+    
     if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Connect to Solana network
-    const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+    const { amount, tokenCount } = await req.json();
 
-    // Verify the transaction
-    const tx = await connection.getTransaction(signature);
-    if (!tx || !tx.meta) {
-      return NextResponse.json({ error: 'Transaction not found or invalid' }, { status: 404 });
+    // Create Solana connection
+    const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com');
+
+    // Create the transaction
+    const transaction = new Transaction();
+    // Add your transaction instructions here
+    // ...
+
+    // After verifying the transaction, update the user's token count
+    if (tokenCount) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          tokens: {
+            increment: tokenCount
+          }
+        }
+      });
     }
 
-    // Verify the amount (in production, you'd want to verify the exact amount)
-    const preBalance = tx.meta.preBalances[0] ?? 0;
-    const postBalance = tx.meta.postBalances[0] ?? 0;
-    const lamports = postBalance - preBalance;
-    
-    if (lamports < 0) {
-      return NextResponse.json({ error: 'Invalid transaction amount' }, { status: 400 });
-    }
-
-    // Update user subscription status
-    await prisma.user.update({
-      where: { email: user.email || '' },
-      data: {
-        isSubscribed: true,
-      },
-    });
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ transaction: transaction.serialize() });
   } catch (error) {
-    console.error('Payment verification failed:', error);
+    console.error('Payment error:', error);
     return NextResponse.json(
-      { error: 'Payment verification failed' },
+      { error: 'Failed to process payment' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 } 

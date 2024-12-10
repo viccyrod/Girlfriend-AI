@@ -5,22 +5,31 @@ import BaseLayout from '@/components/BaseLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { CreditCard, MessageCircle, Image as ImageIcon, UserCircle, Plus, Calculator } from 'lucide-react';
+import { CreditCard, MessageCircle, Image as ImageIcon, UserCircle, Plus, Calculator, Copy, Users2 } from 'lucide-react';
 import { SolanaPaymentButton } from '@/components/SolanaPaymentButton';
 import { SolanaProvider } from '@/providers/SolanaProvider';
-import { CREDIT_PACKAGES, CREDIT_COSTS } from '@/lib/constants';
+import { CREDIT_PACKAGES, TOKEN_COSTS } from '@/lib/constants';
 import { TokenIcon } from '@/components/TokenIcon';
 import { TokenTooltip } from '@/components/TokenTooltip';
 import { Input } from '@/components/ui/input';
+import { useQuery } from '@tanstack/react-query';
+import { Sparkles } from 'lucide-react';
+import { TokenCounter } from '@/components/TokenCounter';
+import { toast } from 'sonner';
 
 interface UsageStats {
   currentPlan: string;
-  messages: {
+  chat: {
     used: number;
     limit: number;
     percentage: number;
   };
   images: {
+    used: number;
+    limit: number;
+    percentage: number;
+  };
+  characters: {
     used: number;
     limit: number;
     percentage: number;
@@ -32,6 +41,8 @@ export default function BillingSettings() {
   const [loading, setLoading] = useState(true);
   const [customAmount, setCustomAmount] = useState<number>(1000);
   const [showCustomForm, setShowCustomForm] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [referralStats, setReferralStats] = useState<{ used: number; total: number } | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -73,11 +84,36 @@ export default function BillingSettings() {
     return Math.floor(baseTokens + bonusTokens);
   };
 
+  const generateShareLink = async () => {
+    try {
+      const response = await fetch('/api/referral/generate', {
+        method: 'POST'
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate link');
+      
+      const { code } = await response.json();
+      const link = `${window.location.origin}/claim/${code}`;
+      setShareLink(link);
+      
+      // Get stats for this referral code
+      const statsResponse = await fetch(`/api/referral/stats?code=${code}`);
+      if (statsResponse.ok) {
+        const stats = await statsResponse.json();
+        setReferralStats(stats);
+      }
+    } catch (error) {
+      toast.error('Failed to generate share link');
+    }
+  };
+
   const content = (
     <div className="container max-w-4xl mx-auto py-8 px-4">
       <h1 className="text-3xl font-bold mb-8 bg-gradient-to-r from-pink-500 to-purple-500 text-transparent bg-clip-text">
         Billing & Usage
       </h1>
+
+      <TokenCounter />
 
       {/* Token System Explanation */}
       <div className="mb-8 p-4 rounded-lg bg-gray-900/50 border border-gray-800">
@@ -91,21 +127,21 @@ export default function BillingSettings() {
               <MessageCircle className="w-4 h-4" />
               <span className="font-medium">Messages</span>
             </div>
-            <p className="text-sm text-gray-400">{CREDIT_COSTS.MESSAGE} token per message</p>
+            <p className="text-sm text-gray-400">{TOKEN_COSTS.CHAT} token per message</p>
           </div>
           <div className="p-3 rounded-md bg-gray-800/50">
             <div className="flex items-center gap-2 mb-2">
               <ImageIcon className="w-4 h-4" />
               <span className="font-medium">Photos</span>
             </div>
-            <p className="text-sm text-gray-400">{CREDIT_COSTS.PHOTO} tokens per photo</p>
+            <p className="text-sm text-gray-400">{TOKEN_COSTS.IMAGE} tokens per photo</p>
           </div>
           <div className="p-3 rounded-md bg-gray-800/50">
             <div className="flex items-center gap-2 mb-2">
               <UserCircle className="w-4 h-4" />
               <span className="font-medium">Characters</span>
             </div>
-            <p className="text-sm text-gray-400">{CREDIT_COSTS.CHARACTER} tokens per character</p>
+            <p className="text-sm text-gray-400">{TOKEN_COSTS.CHARACTER} tokens per character</p>
           </div>
         </div>
       </div>
@@ -265,6 +301,54 @@ export default function BillingSettings() {
         </div>
       </div>
 
+      <div className="mb-12">
+        <div className="flex items-center gap-2 mb-6">
+          <Sparkles className="w-8 h-8 text-purple-400" />
+          <h2 className="text-2xl font-bold">Share & Earn Tokens</h2>
+        </div>
+
+        <div className="p-6 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-2">
+              <h3 className="text-xl font-semibold">Give 600, Get 600</h3>
+              <p className="text-gray-400">Share tokens with friends and earn the same amount back when they sign up</p>
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                onClick={generateShareLink}
+                className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300"
+              >
+                Generate Link
+              </Button>
+              {shareLink && (
+                <Button
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareLink);
+                    toast.success('Link copied to clipboard!');
+                  }}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy Link
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {shareLink && (
+            <div className="mt-4 p-3 bg-purple-950/20 rounded-lg border border-purple-500/20 flex items-center justify-between">
+              <code className="text-sm text-purple-300">{shareLink}</code>
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Users2 className="w-4 h-4" />
+                <span>{referralStats?.used || 0}/{referralStats?.total || 0} claimed</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="space-y-6">
         {/* Current Plan Card */}
         <Card className="bg-gray-900/50 border-gray-800">
@@ -304,21 +388,21 @@ export default function BillingSettings() {
             <CardDescription>Monitor your current usage and limits.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Messages Usage */}
+            {/* Chat Usage */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MessageCircle className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm font-medium">Messages</span>
+                  <span className="text-sm font-medium">Chat Messages</span>
                 </div>
                 <span className="text-sm text-gray-400">
-                  {stats?.messages.used}/{stats?.messages.limit} messages
+                  {stats?.chat.used}/{stats?.chat.limit} messages
                 </span>
               </div>
-              <Progress value={stats?.messages.percentage} className="h-2 bg-gray-800">
+              <Progress value={stats?.chat.percentage} className="h-2 bg-gray-800">
                 <div 
                   className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" 
-                  style={{ width: `${stats?.messages.percentage}%` }} 
+                  style={{ width: `${stats?.chat.percentage}%` }} 
                 />
               </Progress>
             </div>
@@ -338,6 +422,25 @@ export default function BillingSettings() {
                 <div 
                   className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full" 
                   style={{ width: `${stats?.images.percentage}%` }} 
+                />
+              </Progress>
+            </div>
+
+            {/* Character Generation Usage */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserCircle className="w-4 h-4 text-pink-400" />
+                  <span className="text-sm font-medium">Character Generation</span>
+                </div>
+                <span className="text-sm text-gray-400">
+                  {stats?.characters.used}/{stats?.characters.limit} characters
+                </span>
+              </div>
+              <Progress value={stats?.characters.percentage} className="h-2 bg-gray-800">
+                <div 
+                  className="h-full bg-gradient-to-r from-pink-500 to-pink-400 rounded-full" 
+                  style={{ width: `${stats?.characters.percentage}%` }} 
                 />
               </Progress>
             </div>

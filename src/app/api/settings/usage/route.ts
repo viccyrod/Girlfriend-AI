@@ -1,70 +1,64 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
+import { TOKEN_COSTS } from '@/lib/constants';
+import { GenerationType } from '@prisma/client';
 
 export async function GET() {
   try {
-    // Check authentication
     const { getUser } = getKindeServerSession();
     const user = await getUser();
-
+    
     if (!user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's message and image counts
     const userData = await prisma.user.findUnique({
-      where: { email: user.email || '' },
+      where: { id: user.id },
       select: {
-        messageCount: true,
-        imageCount: true,
-        isSubscribed: true,
-      },
+        tokens: true,
+        generations: {
+          select: {
+            type: true,
+            cost: true
+          }
+        }
+      }
     });
 
-    if (!userData) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
+    const generations = userData?.generations || [];
+    const tokens = userData?.tokens || 0;
 
-    // Define limits based on subscription status
-    const limits = userData.isSubscribed ? {
-      messages: 1000,
-      images: 100,
-    } : {
-      messages: 200,
-      images: 10,
-    };
+    // Calculate usage for each type
+    const chatUsed = generations.filter(g => g.type === GenerationType.CHAT).length;
+    const imagesUsed = generations.filter(g => g.type === GenerationType.IMAGE).length;
+    const charactersUsed = generations.filter(g => g.type === GenerationType.CHARACTER).length;
 
-    const stats = {
-      currentPlan: userData.isSubscribed ? 'Premium' : 'Free',
-      messages: {
-        used: userData.messageCount,
-        limit: limits.messages,
-        percentage: Math.min((userData.messageCount / limits.messages) * 100, 100),
+    // Calculate limits based on remaining tokens
+    const chatLimit = Math.floor(tokens / TOKEN_COSTS.CHAT);
+    const imageLimit = Math.floor(tokens / TOKEN_COSTS.IMAGE);
+    const characterLimit = Math.floor(tokens / TOKEN_COSTS.CHARACTER);
+
+    return NextResponse.json({
+      currentPlan: 'Token Based',
+      chat: {
+        used: chatUsed,
+        limit: chatLimit + chatUsed,
+        percentage: (chatUsed / (chatLimit + chatUsed)) * 100
       },
       images: {
-        used: userData.imageCount,
-        limit: limits.images,
-        percentage: Math.min((userData.imageCount / limits.images) * 100, 100),
+        used: imagesUsed,
+        limit: imageLimit + imagesUsed,
+        percentage: (imagesUsed / (imageLimit + imagesUsed)) * 100
       },
-    };
-
-    return NextResponse.json(stats);
+      characters: {
+        used: charactersUsed,
+        limit: characterLimit + charactersUsed,
+        percentage: (charactersUsed / (characterLimit + charactersUsed)) * 100
+      }
+    });
   } catch (error) {
-    console.error('Error fetching usage stats:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch usage statistics' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    console.error('Failed to fetch usage stats:', error);
+    return NextResponse.json({ error: 'Failed to fetch usage stats' }, { status: 500 });
   }
 } 

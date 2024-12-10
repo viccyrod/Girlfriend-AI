@@ -8,8 +8,8 @@ datasource db {
 }
 
 enum GenerationType {
+  CHAT
   IMAGE
-  PHOTO
   CHARACTER
 }
 
@@ -50,6 +50,9 @@ model User {
   imageCredits           Int                     @default(0)
   photoCredits           Int                     @default(0)
   characterCredits       Int                     @default(0)
+  tokens                 Int                     @default(0)
+  claimedTokens          TokenClaim[]            @relation("ClaimedTokens")
+  createdClaims          TokenClaim[]            @relation("CreatedTokenClaims")
 }
 
 model Follow {
@@ -383,4 +386,21 @@ model Generation {
 
   @@index([userId])
   @@index([type])
+}
+
+model TokenClaim {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  amount         Int       @default(1200)
+  referralReward Int? // Amount the referrer gets
+  claimed        Boolean   @default(false)
+  claimedById    String?
+  claimedAt      DateTime?
+  createdById    String? // The user who created the referral
+  createdAt      DateTime  @default(now())
+  claimedBy      User?     @relation("ClaimedTokens", fields: [claimedById], references: [id])
+  createdBy      User?     @relation("CreatedTokenClaims", fields: [createdById], references: [id])
+
+  @@index([code])
+  @@index([createdById])
 }
