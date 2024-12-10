@@ -126,29 +126,67 @@ const ChatComponent = ({
   const initAttempts = useRef(0);
   const maxInitAttempts = 3;
 
+  // Message handling
+  const handleSendMessage = async (content: string, room: ExtendedChatRoom) => {
+    try {
+      setIsMessageSending(true);
+      console.log('Sending message to room:', room.id);
+      
+      // Create optimistic message
+      const optimisticMessage: Message = {
+        id: `temp-${Date.now()}`,
+        content,
+        role: 'user',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        chatRoomId: room.id,
+        isAIMessage: false,
+        metadata: { type: 'text' },
+        userId: null,
+        user: null,
+        aiModelId: null
+      };
+
+      // Add optimistic message immediately
+      setMessages(prev => [...prev, optimisticMessage]);
+
+      // Send message to server
+      const response = await sendMessage(room.id, content);
+      console.log('Message sent:', response);
+
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setMessageError("Failed to send message");
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive",
+        duration: 3000,
+        role: "alert"
+      });
+      throw error;
+    } finally {
+      setIsMessageSending(false);
+    }
+  };
+
   // Handle room selection with improved error handling
   const handleRoomSelection = useCallback(async (room: ExtendedChatRoom) => {
     try {
       if (loadingRoomId || room.id === selectedRoom?.id) return;
       
       setLoadingRoomId(room.id);
-      setSelectedRoom(room);
-      setMessages([]); // Clear messages while loading
-      
-      // Update URL without page reload
-      const currentPath = window.location.pathname;
-      const targetPath = `/chat/${room.id}`;
-      if (currentPath !== targetPath) {
-        router.push(targetPath);
-      }
       
       // Fetch messages for the selected room
       const response = await fetch(`/api/chat/${room.id}/messages`);
       if (!response.ok) throw new Error('Failed to fetch messages');
       const data = await response.json();
       
+      // Only update room and messages after successful fetch
+      setSelectedRoom(room);
       setMessages(data.messages || []);
       setIsProfileVisible(false);
+
     } catch (error) {
       console.error('Error selecting room:', error);
       toast({
@@ -156,12 +194,12 @@ const ChatComponent = ({
         description: "Failed to load chat messages",
         variant: "destructive"
       });
-      // Revert selection on error
-      setSelectedRoom(null);
+      // Don't revert selection on error, just clear loading state
+      setLoadingRoomId(null);
     } finally {
       setLoadingRoomId(null);
     }
-  }, [router, toast, selectedRoom, loadingRoomId]);
+  }, [toast, selectedRoom, loadingRoomId]);
 
   // Initialize chat
   const initializeChat = useCallback(async (retry = false) => {
@@ -308,7 +346,7 @@ const ChatComponent = ({
     if (!selectedRoom?.id) return;
 
     console.log('Setting up SSE connection for chat room:', selectedRoom.id);
-    const eventSource = new EventSource(`/api/chat/${selectedRoom.id}/sse`);
+    const eventSource = new EventSource(`/api/chat/${selectedRoom.id}/subscribe`);
     let isConnectionActive = true;
 
     eventSource.onmessage = (event) => {
@@ -358,50 +396,6 @@ const ChatComponent = ({
       eventSource.close();
     };
   }, [selectedRoom?.id]);
-
-  // Message handling
-  const handleSendMessage = async (content: string, room: ExtendedChatRoom) => {
-    try {
-      setIsMessageSending(true);
-      console.log('Sending message to room:', room.id);
-      
-      // Create optimistic message
-      const optimisticMessage: Message = {
-        id: `temp-${Date.now()}`,
-        content,
-        role: 'user',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        chatRoomId: room.id,
-        isAIMessage: false,
-        metadata: { type: 'text' },
-        userId: null,
-        user: null,
-        aiModelId: null
-      };
-
-      // Add optimistic message immediately
-      setMessages(prev => [...prev, optimisticMessage]);
-
-      // Send message to server
-      const response = await sendMessage(room.id, content);
-      console.log('Message sent:', response);
-
-    } catch (error) {
-      console.error('Error sending message:', error);
-      setMessageError("Failed to send message");
-      toast({
-        title: "Error",
-        description: "Failed to send message",
-        variant: "destructive",
-        duration: 3000,
-        role: "alert"
-      });
-      throw error;
-    } finally {
-      setIsMessageSending(false);
-    }
-  };
 
   // Room deletion
   const handleDeleteRoom = async (roomId: string) => {

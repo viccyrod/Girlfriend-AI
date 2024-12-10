@@ -73,11 +73,30 @@ export default async function ChatPage({ params }: { params: { id: string } }) {
     const { getUser } = getKindeServerSession();
     const user = await getUser();
     
-    // First verify the AI Model exists
-    const aiModel = await prisma.aIModel.findUnique({
-      where: { id: params.id },
+    // First try to find the chat room
+    const chatRoom = await prisma.chatRoom.findFirst({
+      where: {
+        id: params.id,
+        users: {
+          some: {
+            id: user?.id
+          }
+        }
+      },
       include: {
-        createdBy: {
+        aiModel: {
+          include: {
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true
+              }
+            }
+          }
+        },
+        users: {
           select: {
             id: true,
             name: true,
@@ -88,15 +107,55 @@ export default async function ChatPage({ params }: { params: { id: string } }) {
       }
     });
 
-    if (!aiModel) {
-      console.error('AI Model not found');
+    if (!chatRoom) {
+      // If no chat room found, try to find AI model (for new chat creation)
+      const aiModel = await prisma.aIModel.findUnique({
+        where: { id: params.id },
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true
+            }
+          }
+        }
+      });
+
+      if (!aiModel) {
+        console.error('Neither chat room nor AI Model found');
+        redirect('/chat');
+      }
+
+      // Create new chat room
+      const newChatRoom = await getOrCreateChatRoom(params.id);
+      if (!newChatRoom) {
+        console.error('Failed to create chat room');
+        redirect('/chat');
+      }
+
+      return (
+        <BaseLayout requireAuth={true}>
+          <div className="h-[calc(100vh-4rem)]">
+            <ChatRoomClient 
+              chatRoom={newChatRoom} 
+              aiModel={aiModel} 
+              modelId={params.id} 
+            />
+          </div>
+        </BaseLayout>
+      );
+    }
+
+    // Verify the AI model exists and is ready
+    if (!chatRoom.aiModel) {
+      console.error('AI Model not found for chat room:', chatRoom.id);
       redirect('/chat');
     }
 
-    const chatRoom = await getOrCreateChatRoom(params.id);
-
-    if (!chatRoom) {
-      console.error('Failed to get or create chat room');
+    if (chatRoom.aiModel.status === 'PENDING') {
+      console.error('AI Model is pending for room:', chatRoom.id);
       redirect('/chat');
     }
 
@@ -105,8 +164,8 @@ export default async function ChatPage({ params }: { params: { id: string } }) {
         <div className="h-[calc(100vh-4rem)]">
           <ChatRoomClient 
             chatRoom={chatRoom} 
-            aiModel={aiModel} 
-            modelId={params.id} 
+            aiModel={chatRoom.aiModel} 
+            modelId={chatRoom.aiModelId || params.id} 
           />
         </div>
       </BaseLayout>

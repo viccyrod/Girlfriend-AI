@@ -41,8 +41,11 @@ export function ChatRoomList({
   };
 
   const getLastMessageTime = (room: ExtendedChatRoom) => {
-    const lastMessage = room.messages?.[room.messages.length - 1];
-    if (!lastMessage) return null;
+    // Get messages in correct order
+    const messages = room.messages || [];
+    const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+    if (!lastMessage) return format(new Date(room.createdAt), 'MMM d');
+    
     const messageDate = new Date(lastMessage.createdAt);
     const now = new Date();
     const isToday = messageDate.toDateString() === now.toDateString();
@@ -50,32 +53,56 @@ export function ChatRoomList({
   };
 
   const getLastMessagePreview = (room: ExtendedChatRoom) => {
-    const lastMessage = room.messages?.[room.messages.length - 1];
-    if (!lastMessage) return 'No messages yet';
+    // Get messages in correct order
+    const messages = room.messages || [];
+    let messageToShow = messages.length > 0 ? messages[messages.length - 1] : null;
+    if (!messageToShow) return 'Start a conversation';
+
+    // Skip system messages
+    if (messageToShow.content.startsWith('[SYSTEM]')) {
+      // If this is the only message, return default text
+      if (messages.length === 1) return 'Start a conversation';
+      // Otherwise get the previous non-system message
+      for (let i = messages.length - 2; i >= 0; i--) {
+        if (!messages[i].content.startsWith('[SYSTEM]')) {
+          messageToShow = messages[i];
+          break;
+        }
+      }
+    }
 
     // Handle different message types
-    if (lastMessage.metadata?.type === 'image') {
-      return lastMessage.isAIMessage ? '📸 Sent an image' : 'You: 📸 Image';
+    if (messageToShow.metadata?.type === 'image') {
+      return messageToShow.isAIMessage ? '📸 Sent an image' : 'You: 📸 Image';
     }
-    if (lastMessage.metadata?.type === 'voice_message') {
-      return lastMessage.isAIMessage ? '🎤 Voice message' : 'You: 🎤 Voice';
+    if (messageToShow.metadata?.type === 'voice_message') {
+      return messageToShow.isAIMessage ? '🎤 Voice message' : 'You: 🎤 Voice';
     }
 
     const truncateText = (text: string) => {
-      if (text.length <= 12) return text;
-      return `${text.slice(0, 12)}...`;
+      if (text.length <= 25) return text;
+      return `${text.slice(0, 25)}...`;
     };
 
-    return lastMessage.isAIMessage 
-      ? truncateText(lastMessage.content)
-      : `You: ${truncateText(lastMessage.content)}`;
+    return messageToShow.isAIMessage 
+      ? truncateText(messageToShow.content)
+      : `You: ${truncateText(messageToShow.content)}`;
   };
 
-  // Sort rooms by last message time
+  // Sort rooms by last message time or creation time
   const sortedRooms = [...chatRooms].sort((a, b) => {
-    const aTime = a.messages?.[a.messages.length - 1]?.createdAt || a.createdAt;
-    const bTime = b.messages?.[b.messages.length - 1]?.createdAt || b.createdAt;
-    return new Date(bTime).getTime() - new Date(aTime).getTime();
+    const aMessages = a.messages || [];
+    const bMessages = b.messages || [];
+    
+    const aTime = aMessages.length > 0 
+      ? new Date(aMessages[aMessages.length - 1].createdAt).getTime()
+      : new Date(a.createdAt).getTime();
+      
+    const bTime = bMessages.length > 0
+      ? new Date(bMessages[bMessages.length - 1].createdAt).getTime()
+      : new Date(b.createdAt).getTime();
+    
+    return bTime - aTime;
   });
 
   return (
