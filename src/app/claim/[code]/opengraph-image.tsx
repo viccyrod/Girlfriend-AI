@@ -1,5 +1,4 @@
 import { ImageResponse } from 'next/og';
-import prisma from '@/lib/prisma';
 
 export const runtime = 'edge';
 export const alt = 'Claim your GOON tokens';
@@ -9,11 +8,8 @@ export const size = {
 };
 
 export default async function Image({ params }: { params: { code: string } }) {
-  const claim = await prisma.tokenClaim.findUnique({
-    where: { code: params.code }
-  });
-
-  const amount = claim?.amount || 1200;
+  const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/claim/${params.code}/info`);
+  const { amount } = await response.json();
 
   return new ImageResponse(
     (

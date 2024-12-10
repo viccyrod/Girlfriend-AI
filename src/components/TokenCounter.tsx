@@ -16,7 +16,9 @@ export function TokenCounter({ minimal = false }: { minimal?: boolean }) {
       const res = await fetch('/api/user/tokens');
       if (!res.ok) throw new Error('Failed to fetch tokens');
       return res.json();
-    }
+    },
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true
   });
 
   if (minimal) {
