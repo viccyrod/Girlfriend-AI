@@ -1,10 +1,11 @@
 "use client";
 
-import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { motion } from "framer-motion";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -12,6 +13,16 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const router = useRouter();
+
+  const handleAuth = (type: 'login' | 'register') => {
+    if (type === 'register') {
+      sessionStorage.setItem('isNewUser', 'true');
+    }
+    onClose();
+    router.push(`/auth/${type}`);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -45,13 +56,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
           {/* Auth Buttons */}
           <div className="space-y-6">
-            <RegisterLink>
-              <Button 
-                className="w-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 text-white font-medium py-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 border-0 text-lg"
-              >
-                Get Started
-              </Button>
-            </RegisterLink>
+            <Button 
+              onClick={() => handleAuth('register')}
+              className="w-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 text-white font-medium py-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 border-0 text-lg"
+            >
+              Get Started
+            </Button>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -62,25 +72,24 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </div>
             </div>
 
-            <LoginLink>
-              <Button 
-                variant="outline"
-                className="w-full py-6 rounded-xl text-lg hover:bg-primary/5"
-              >
-                Sign In
-              </Button>
-            </LoginLink>
+            <Button 
+              onClick={() => handleAuth('login')}
+              variant="outline"
+              className="w-full py-6 rounded-xl text-lg hover:bg-primary/5"
+            >
+              Sign In
+            </Button>
 
             {/* Terms and Privacy */}
             <p className="text-center text-sm text-muted-foreground pt-4">
               By continuing, you agree to our{" "}
-              <a href="/legal/terms" className="underline hover:text-primary">
+              <Link href="/legal/terms" className="underline hover:text-primary">
                 Terms of Service
-              </a>{" "}
+              </Link>{" "}
               and{" "}
-              <a href="/legal/privacy" className="underline hover:text-primary">
+              <Link href="/legal/privacy" className="underline hover:text-primary">
                 Privacy Policy
-              </a>
+              </Link>
             </p>
           </div>
 
@@ -107,11 +116,6 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <p className="text-sm text-muted-foreground">Mature themes and conversations (18+)</p>
             </div>
           </div>
-
-          {/* Age Verification */}
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            By signing up, you confirm that you are 18 years or older
-          </p>
         </motion.div>
       </DialogContent>
     </Dialog>

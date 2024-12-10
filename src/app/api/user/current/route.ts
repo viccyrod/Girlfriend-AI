@@ -1,18 +1,32 @@
 import { NextResponse } from 'next/server';
-import { getDbUser } from '@/lib/actions/server/auth';
-
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import prisma from "@/lib/clients/prisma";
 
 export async function GET() {
   try {
-    const user = await getDbUser();
-    if (!user) {
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
-    return NextResponse.json(user);
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        tokens: true,
+        imageCredits: true,
+        photoCredits: true,
+        characterCredits: true
+      }
+    });
+
+    return NextResponse.json(dbUser);
   } catch (error) {
-    console.error('Error fetching current user:', error);
-    return NextResponse.json({ error: 'Failed to fetch current user' }, { status: 500 });
+    console.error('Error fetching user:', error);
+    return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
   }
 }

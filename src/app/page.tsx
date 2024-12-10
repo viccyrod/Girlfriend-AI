@@ -1,8 +1,8 @@
-import React from "react";
+'use client';
+
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import BaseLayout from "@/components/BaseLayout";
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import prisma from "@/lib/clients/prisma";
 import Link from "next/link";
 import Image from "next/image";
 import { Users } from 'lucide-react';
@@ -10,53 +10,63 @@ import ChatButton from "@/components/ChatButton";
 import AuthWrapper from "@/components/ClientAuthWrapper";
 import CreateAIButton from "@/components/CreateAIButton";
 import HeroSection from "@/components/HeroSection";
+import { WelcomeDialog } from "@/components/WelcomeDialog";
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import { useQuery } from "@tanstack/react-query";
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
-async function getFeaturedModels() {
-  try {
-    const models = await prisma.aIModel.findMany({
-      where: {
-        isPrivate: false,
-        isAnime: false
-      },
-      select: {
-        id: true,
-        name: true,
-        personality: true,
-        imageUrl: true,
-        followerCount: true,
-        createdBy: {
-          select: {
-            name: true,
-            id: true,
-          }
-        }
-      },
-      orderBy: {
-        followerCount: 'desc'
-      },
-      take: 8,
-    });
-
-    return models;
-  } catch (error) {
-    console.error('Error fetching featured models:', error);
-    return [];
-  }
+interface AIModel {
+  id: string;
+  name: string;
+  personality: string;
+  imageUrl: string | null;
+  followerCount: number;
+  createdBy: {
+    name: string;
+    id: string;
+  };
 }
 
-export default async function Home() {
-  const { getUser } = getKindeServerSession();
-  const user = await getUser();
-  const featuredModels = await getFeaturedModels();
+export default function Home() {
+  const { user } = useKindeBrowserClient();
+  const [showWelcome, setShowWelcome] = useState(false);
+  
+  const { data: featuredModels = [] } = useQuery<AIModel[]>({
+    queryKey: ['featuredModels'],
+    queryFn: async () => {
+      const res = await fetch('/api/models/featured');
+      return res.json();
+    }
+  });
+
+  // Check if user has seen welcome dialog
+  const { data: userData } = useQuery({
+    queryKey: ['userData', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const res = await fetch('/api/user/current');
+      return res.json();
+    },
+    enabled: !!user?.id
+  });
+
+  useEffect(() => {
+    const isNewUser = sessionStorage.getItem('isNewUser') === 'true';
+    // Show dialog if it's a new signup or if user has never seen it
+    if ((user && isNewUser) || (user && userData?.tokens === 1000)) {
+      setShowWelcome(true);
+      sessionStorage.removeItem('isNewUser');
+    }
+  }, [user, userData]);
 
   return (
     <AuthWrapper isAuthenticated={!!user}>
       <BaseLayout>
-        {/* Hero Section */}
         <HeroSection />
+        
+        <WelcomeDialog 
+          isOpen={showWelcome} 
+          onClose={() => setShowWelcome(false)} 
+        />
 
         {/* Featured AI Characters Section */}
         <div className="container mx-auto py-16">
@@ -78,7 +88,7 @@ export default async function Home() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredModels.map((model) => (
+            {featuredModels.map((model: AIModel) => (
               <Link 
                 href={`/community/AIModelProfile/${model.id}`}
                 key={model.id}
