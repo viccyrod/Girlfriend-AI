@@ -1,12 +1,64 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import BaseLayout from '@/components/BaseLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { CreditCard, Zap, MessageCircle, Image as ImageIcon } from 'lucide-react';
+import { CreditCard, MessageCircle, Image as ImageIcon } from 'lucide-react';
+
+interface UsageStats {
+  currentPlan: string;
+  messages: {
+    used: number;
+    limit: number;
+    percentage: number;
+  };
+  images: {
+    used: number;
+    limit: number;
+    percentage: number;
+  };
+}
 
 export default function BillingSettings() {
+  const [stats, setStats] = useState<UsageStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch('/api/settings/usage');
+        if (!response.ok) {
+          throw new Error('Failed to fetch stats');
+        }
+        const data = await response.json();
+        setStats(data);
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <BaseLayout>
+        <div className="container max-w-4xl mx-auto py-8 px-4">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 w-48 bg-gray-800 rounded"></div>
+            <div className="h-40 bg-gray-800 rounded"></div>
+            <div className="h-60 bg-gray-800 rounded"></div>
+            <div className="h-40 bg-gray-800 rounded"></div>
+          </div>
+        </div>
+      </BaseLayout>
+    );
+  }
+
   return (
     <BaseLayout>
       <div className="container max-w-4xl mx-auto py-8 px-4">
@@ -24,12 +76,18 @@ export default function BillingSettings() {
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-semibold">Free Plan</h3>
-                  <p className="text-sm text-gray-400">Basic features and limited usage</p>
+                  <h3 className="text-xl font-semibold">{stats?.currentPlan || 'Free'} Plan</h3>
+                  <p className="text-sm text-gray-400">
+                    {stats?.currentPlan === 'Premium' 
+                      ? 'Full access to all features'
+                      : 'Basic features and limited usage'}
+                  </p>
                 </div>
-                <Button className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600">
-                  Upgrade Plan
-                </Button>
+                {stats?.currentPlan !== 'Premium' && (
+                  <Button className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600">
+                    Upgrade Plan
+                  </Button>
+                )}
               </div>
 
               <div className="pt-4 border-t border-gray-800">
@@ -58,10 +116,15 @@ export default function BillingSettings() {
                     <MessageCircle className="w-4 h-4 text-blue-400" />
                     <span className="text-sm font-medium">Messages</span>
                   </div>
-                  <span className="text-sm text-gray-400">150/200 messages</span>
+                  <span className="text-sm text-gray-400">
+                    {stats?.messages.used}/{stats?.messages.limit} messages
+                  </span>
                 </div>
-                <Progress value={75} className="h-2 bg-gray-800">
-                  <div className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" style={{ width: '75%' }} />
+                <Progress value={stats?.messages.percentage} className="h-2 bg-gray-800">
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" 
+                    style={{ width: `${stats?.messages.percentage}%` }} 
+                  />
                 </Progress>
               </div>
 
@@ -72,24 +135,15 @@ export default function BillingSettings() {
                     <ImageIcon className="w-4 h-4 text-purple-400" />
                     <span className="text-sm font-medium">Image Generation</span>
                   </div>
-                  <span className="text-sm text-gray-400">8/10 images</span>
+                  <span className="text-sm text-gray-400">
+                    {stats?.images.used}/{stats?.images.limit} images
+                  </span>
                 </div>
-                <Progress value={80} className="h-2 bg-gray-800">
-                  <div className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full" style={{ width: '80%' }} />
-                </Progress>
-              </div>
-
-              {/* API Usage */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-yellow-400" />
-                    <span className="text-sm font-medium">API Calls</span>
-                  </div>
-                  <span className="text-sm text-gray-400">450/500 calls</span>
-                </div>
-                <Progress value={90} className="h-2 bg-gray-800">
-                  <div className="h-full bg-gradient-to-r from-yellow-500 to-yellow-400 rounded-full" style={{ width: '90%' }} />
+                <Progress value={stats?.images.percentage} className="h-2 bg-gray-800">
+                  <div 
+                    className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full" 
+                    style={{ width: `${stats?.images.percentage}%` }} 
+                  />
                 </Progress>
               </div>
             </CardContent>

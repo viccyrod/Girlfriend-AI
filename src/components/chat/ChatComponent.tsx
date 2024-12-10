@@ -10,11 +10,12 @@ import { ExtendedChatRoom } from '@/types/chat';
 import { Message, MessageMetadata } from '@/types/message';
 import { ChatRoomList } from './ChatRoomList';
 import ModelProfile from './ModelProfile';
-import { ChevronRight, Loader2, ChevronLeft, UserCircle2, Image as LucideImage } from 'lucide-react';
+import { ChevronRight, Loader2, ChevronLeft, UserCircle2, Image as LucideImage, Mic, Heart, MessageSquare } from 'lucide-react';
 import ClientChatMessages from './ClientChatMessages';
 import { deleteChatRoom, getOrCreateChatRoom } from '@/lib/actions/chat';
 import { sendMessage } from '@/lib/actions/server/chat';
 import { getChatRooms } from '@/lib/chat-client';
+import { cn } from '@/lib/utils';
 
 interface ChatComponentProps {
   initialChatRoom?: ExtendedChatRoom;
@@ -32,6 +33,65 @@ const TypingIndicator = () => (
   </div>
 );
 
+const EmptyStateGuide = () => (
+  <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto p-8 text-center">
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="space-y-4">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 text-transparent bg-clip-text">
+          Welcome to Your AI Chat Experience
+        </h1>
+        <p className="text-muted-foreground text-lg">
+          Select a chat from the sidebar to start a meaningful conversation
+        </p>
+      </div>
+
+      {/* Tips Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Image Generation */}
+        <div className="group relative p-6 rounded-xl border border-pink-500/20 bg-gradient-to-br from-pink-500/5 to-purple-600/5 hover:border-pink-500/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
+          <LucideImage className="w-8 h-8 text-pink-500 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Image Generation</h3>
+          <p className="text-sm text-muted-foreground">
+            Ask your AI companion to create unique images. Just click the image icon or type "generate an image of..."
+          </p>
+        </div>
+
+        {/* Voice Messages */}
+        <div className="group relative p-6 rounded-xl border border-pink-500/20 bg-gradient-to-br from-pink-500/5 to-purple-600/5 hover:border-pink-500/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
+          <Mic className="w-8 h-8 text-pink-500 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Voice Messages</h3>
+          <p className="text-sm text-muted-foreground">
+            Send voice messages to your AI companion and receive natural responses. Click the microphone icon to start.
+          </p>
+        </div>
+
+        {/* Personality Insights */}
+        <div className="group relative p-6 rounded-xl border border-pink-500/20 bg-gradient-to-br from-pink-500/5 to-purple-600/5 hover:border-pink-500/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
+          <Heart className="w-8 h-8 text-pink-500 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Unique Personalities</h3>
+          <p className="text-sm text-muted-foreground">
+            Each AI has their own unique personality, interests, and backstory. Check their profile to learn more.
+          </p>
+        </div>
+
+        {/* Chat Tips */}
+        <div className="group relative p-6 rounded-xl border border-pink-500/20 bg-gradient-to-br from-pink-500/5 to-purple-600/5 hover:border-pink-500/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
+          <MessageSquare className="w-8 h-8 text-pink-500 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Chat Tips</h3>
+          <p className="text-sm text-muted-foreground">
+            Be yourself and engage naturally. Your AI companion will remember your conversations and adapt to your style.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const ChatComponent = ({
   initialChatRoom,
   modelId,
@@ -39,6 +99,7 @@ const ChatComponent = ({
 }: ChatComponentProps) => {
   const router = useRouter();
   const { toast } = useToast();
+  const isInitialMount = useRef(true);
 
   // State
   const [isInitialized, setIsInitialized] = useState(false);
@@ -53,7 +114,7 @@ const ChatComponent = ({
   const [messages, setMessages] = useState<Message[]>(
     initialChatRoom?.messages || []
   );
-  const [isProfileVisible, setIsProfileVisible] = useState(true);
+  const [isProfileVisible, setIsProfileVisible] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [isMessageSending, setIsMessageSending] = useState(false);
   const [messageError, setMessageError] = useState<string | null>(null);
@@ -65,11 +126,66 @@ const ChatComponent = ({
   const initAttempts = useRef(0);
   const maxInitAttempts = 3;
 
+  // Handle room selection with improved error handling
+  const handleRoomSelection = useCallback(async (room: ExtendedChatRoom) => {
+    try {
+      if (loadingRoomId || room.id === selectedRoom?.id) return;
+      
+      // Verify AI model exists and is ready
+      if (!room.aiModel) {
+        console.error('AI Model not found for room:', room.id);
+        toast({
+          title: "Error",
+          description: "AI Model not found",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (room.aiModel.status === 'PENDING') {
+        console.error('AI Model is pending for room:', room.id);
+        toast({
+          title: "Notice",
+          description: "AI Model is not ready yet. Please try again later.",
+          variant: "default"
+        });
+        return;
+      }
+      
+      setLoadingRoomId(room.id);
+      setSelectedRoom(room);
+      
+      // Update URL without page reload if we're not already on this room's page
+      const currentPath = window.location.pathname;
+      const targetPath = `/chat/${room.id}`;
+      if (currentPath !== targetPath) {
+        router.push(targetPath, { scroll: false });
+      }
+      
+      // Fetch messages for the selected room
+      const response = await fetch(`/api/chat/${room.id}`);
+      if (!response.ok) throw new Error('Failed to fetch messages');
+      const data = await response.json();
+      
+      setMessages(data.messages || []);
+      setIsProfileVisible(false);
+    } catch (error) {
+      console.error('Error selecting room:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load chat messages",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingRoomId(null);
+    }
+  }, [router, toast, selectedRoom, loadingRoomId]);
+
   // Initialize chat
   const initializeChat = useCallback(async (retry = false) => {
-    if (isInitialized && !retry) return;
-    if (initAttempts.current >= maxInitAttempts) {
-      setInitError('Failed to initialize chat after multiple attempts');
+    if ((isInitialized && !retry) || initAttempts.current >= maxInitAttempts) {
+      if (initAttempts.current >= maxInitAttempts) {
+        setInitError('Failed to initialize chat after multiple attempts');
+      }
       return;
     }
 
@@ -78,226 +194,142 @@ const ChatComponent = ({
       setIsLoading(true);
       initAttempts.current += 1;
 
+      // Only fetch rooms if we don't have any or if retrying
+      const allRooms = chatRooms.length === 0 || retry ? await getChatRooms() : chatRooms;
+      
       let activeRoom = initialChatRoom;
       let isNewRoom = false;
-      
-      // If modelId is provided but no initialChatRoom, create/get the room
+
+      // If we have a modelId but no initialChatRoom, find or create the room
       if (modelId && !initialChatRoom) {
-        console.log('Fetching/creating room for model:', modelId);
-        const rawRoom = await getOrCreateChatRoom(modelId);
-        console.log('Raw Room Data:', rawRoom);
+        // First check if we already have a room for this model
+        const existingRoom = allRooms.find(room => room.aiModelId === modelId);
         
-        if (!rawRoom) {
-          throw new Error('Failed to create or get chat room');
-        }
-
-        isNewRoom = !rawRoom.messages || rawRoom.messages.length === 0;
-        activeRoom = {
-          ...rawRoom,
-          aiModelId: rawRoom.aiModelId || modelId,
-          messages: (rawRoom.messages || []).map(msg => ({
-            ...msg,
-            role: msg.isAIMessage ? 'assistant' as const : 'user' as const,
-            metadata: (typeof msg.metadata === 'object' ? msg.metadata : { type: 'text' }) as MessageMetadata
-          })),
-          users: rawRoom.users?.map(user => ({
-            id: user.id,
-            name: user.name || '',
-            email: user.email || '',
-            image: user.image,
-            isSubscribed: false,
-            customerId: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            isAI: false,
-            bio: null
-          })) || [],
-          aiModelImageUrl: rawRoom.aiModel?.imageUrl || null,
-          createdBy: rawRoom.aiModel?.createdBy ? {
-            id: rawRoom.aiModel.createdBy.id,
-            name: rawRoom.aiModel.createdBy.name || '',
-            email: rawRoom.aiModel.createdBy.email || '',
-            imageUrl: rawRoom.aiModel.createdBy.image
-          } : null,
-          aiModel: rawRoom.aiModel ? {
-            ...rawRoom.aiModel,
-            createdAt: new Date(rawRoom.aiModel.createdAt),
-            updatedAt: new Date(rawRoom.aiModel.updatedAt),
-            voiceId: rawRoom.aiModel.voiceId || null,
-            isFollowing: false,
-            isAnime: false,
-            age: null,
-            isHumanX: rawRoom.aiModel.isHumanX || false,
-            createdBy: rawRoom.aiModel.createdBy ? {
-              id: rawRoom.aiModel.createdBy.id,
-              name: rawRoom.aiModel.createdBy.name || '',
-              email: rawRoom.aiModel.createdBy.email || '',
-              imageUrl: rawRoom.aiModel.createdBy.image
-            } : null
-          } : null
-        };
-      }
-
-      // Fetch all chat rooms with retry logic
-      const fetchRooms = async (retries = 3): Promise<ExtendedChatRoom[]> => {
-        try {
-          return await getChatRooms();
-        } catch (error) {
-          if (retries > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return fetchRooms(retries - 1);
+        if (existingRoom) {
+          // Verify the AI model exists and is ready
+          if (!existingRoom.aiModel) {
+            console.error('AI Model not found for existing room:', existingRoom.id);
+            setInitError('AI Model not found');
+            router.push('/chat');
+            return;
           }
-          console.error('Failed to fetch chat rooms:', error);
-          return [];
-        }
-      };
-
-      const allRooms = await fetchRooms();
-
-      // Combine rooms, ensuring no duplicates
-      const uniqueRooms = [...allRooms];
-      if (activeRoom && !uniqueRooms.some(room => room.id === activeRoom?.id)) {
-        uniqueRooms.unshift(activeRoom);
-      }
-
-      console.log('Final rooms:', uniqueRooms);
-      
-      setChatRooms(uniqueRooms);
-      
-      if (activeRoom) {
-        setSelectedRoom(activeRoom);
-        
-        // Send greeting for new rooms with retry logic
-        if (isNewRoom && activeRoom.id) {
-          console.log('Sending greeting for new room:', activeRoom.id);
-          setIsGeneratingResponse(true);
+          if (existingRoom.aiModel.status === 'PENDING') {
+            console.error('AI Model is pending for room:', existingRoom.id);
+            setInitError('AI Model is not ready yet');
+            router.push('/chat');
+            return;
+          }
+          activeRoom = existingRoom;
+        } else {
+          const rawRoom = await getOrCreateChatRoom(modelId);
+          if (!rawRoom) throw new Error('Failed to create or get chat room');
           
-          let greetingSuccess = false;
-          let greetingAttempts = 0;
-          const maxGreetingAttempts = 3;
+          // Ensure we have the AI model data and it's ready
+          if (!rawRoom.aiModel) {
+            console.error('AI Model not found for room:', rawRoom.id);
+            setInitError('AI Model not found');
+            router.push('/chat');
+            return;
+          }
+          if (rawRoom.aiModel.status === 'PENDING') {
+            console.error('AI Model is pending for room:', rawRoom.id);
+            setInitError('AI Model is not ready yet');
+            router.push('/chat');
+            return;
+          }
 
-          while (!greetingSuccess && greetingAttempts < maxGreetingAttempts) {
-            try {
-              const response = await fetch(`/api/chat/${activeRoom.id}/messages`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  content: "greeting"
-                })
-              });
-
-              if (response.ok) {
-                greetingSuccess = true;
-              } else if (response.status === 409) {
-                // Duplicate greeting, consider it a success
-                greetingSuccess = true;
-              } else {
-                throw new Error(`Failed to send greeting: ${response.statusText}`);
-              }
-            } catch (error) {
-              console.error(`Greeting attempt ${greetingAttempts + 1} failed:`, error);
-              greetingAttempts++;
-              if (greetingAttempts < maxGreetingAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-              }
+          activeRoom = {
+            ...rawRoom,
+            name: `Chat with ${rawRoom.aiModel.name}`,
+            aiModelId: rawRoom.aiModelId || modelId,
+            aiModelImageUrl: rawRoom.aiModel.imageUrl,
+            messages: [],
+            users: rawRoom.users || [],
+            aiModel: {
+              ...rawRoom.aiModel,
+              isFollowing: false,
+              status: rawRoom.aiModel.status as 'PENDING' | 'COMPLETED' | 'FAILED',
+              createdBy: rawRoom.aiModel.createdBy ? {
+                id: rawRoom.aiModel.createdBy.id,
+                name: rawRoom.aiModel.createdBy.name || '',
+                email: rawRoom.aiModel.createdBy.email || '',
+                imageUrl: rawRoom.aiModel.createdBy.image
+              } : null
             }
-          }
-          
-          setIsGeneratingResponse(false);
+          };
+          isNewRoom = true;
+        }
+      }
+
+      // Only update rooms if we fetched new ones
+      if (chatRooms.length === 0 || retry) {
+        const uniqueRooms = [...allRooms].map(room => ({
+          ...room,
+          name: room.aiModel ? `Chat with ${room.aiModel.name}` : 'AI Chat'
+        }));
+        if (activeRoom && !uniqueRooms.some(room => room.id === activeRoom?.id)) {
+          uniqueRooms.unshift(activeRoom);
+        }
+        setChatRooms(uniqueRooms);
+      }
+      
+      // Set active room if we have one and it's different from current
+      if (activeRoom && activeRoom.id !== selectedRoom?.id) {
+        // Verify AI model exists and is ready
+        if (!activeRoom.aiModel) {
+          console.error('AI Model not found for active room:', activeRoom.id);
+          setInitError('AI Model not found');
+          router.push('/chat');
+          return;
+        }
+        if (activeRoom.aiModel.status === 'PENDING') {
+          console.error('AI Model is pending for room:', activeRoom.id);
+          setInitError('AI Model is not ready yet');
+          router.push('/chat');
+          return;
+        }
+
+        setSelectedRoom(activeRoom);
+        setMessages(activeRoom.messages || []);
+        
+        // Only navigate if this is a new room and we're not already on a chat page
+        if (isNewRoom && !window.location.pathname.includes('/chat/')) {
+          router.push(`/chat/${activeRoom.id}`, { scroll: false });
         }
       }
       
       setIsInitialized(true);
-      setIsLoading(false);
     } catch (error) {
       console.error('Initialization error:', error);
       const typedError = error instanceof Error ? error : new Error('Failed to initialize chat');
       setInitError(typedError.message);
-      if (onError) onError(typedError);
       
-      // Retry initialization after a delay
       if (initAttempts.current < maxInitAttempts) {
-        setTimeout(() => {
-          initializeChat(true);
-        }, 1000);
+        setTimeout(() => initializeChat(true), 1000);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [initialChatRoom, modelId, onError]);
-
-  // Handle room selection with improved error handling
-  const handleRoomSelection = async (room: ExtendedChatRoom) => {
-    try {
-      if (!room?.id) {
-        throw new Error('Invalid room data');
-      }
-
-      setLoadingRoomId(room.id);
-      setMessages([]);
-      
-      // Verify room exists and is accessible
-      const response = await fetch(`/api/chat/${room.id}`);
-      if (!response.ok) {
-        throw new Error('Failed to access chat room');
-      }
-      
-      // Set selected room
-      setSelectedRoom(room);
-      
-      // Fetch initial messages with retry logic
-      let messagesData;
-      let attempts = 0;
-      const maxAttempts = 3;
-
-      while (attempts < maxAttempts) {
-        try {
-          const messagesResponse = await fetch(`/api/chat/${room.id}/messages?limit=30`);
-          if (!messagesResponse.ok) {
-            throw new Error('Failed to fetch messages');
-          }
-          
-          messagesData = await messagesResponse.json();
-          break;
-        } catch (error) {
-          attempts++;
-          if (attempts === maxAttempts) {
-            throw error;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-
-      console.log('Initial messages:', messagesData.messages);
-      setMessages(messagesData.messages || []);
-      
-    } catch (error) {
-      console.error('Error selecting room:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load chat room",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingRoomId(null);
-    }
-  };
+  }, [initialChatRoom, modelId, onError, router, chatRooms, selectedRoom]);
 
   // Effect to initialize chat
   useEffect(() => {
-    initializeChat();
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      initializeChat();
+    }
   }, [initializeChat]);
 
-  // Update SSE connection
+  // Effect for SSE connection
   useEffect(() => {
     if (!selectedRoom?.id) return;
 
     console.log('Setting up SSE connection for chat room:', selectedRoom.id);
-    const eventSource = new EventSource(`/api/chat/${selectedRoom.id}/subscribe`);
-    
+    const eventSource = new EventSource(`/api/chat/${selectedRoom.id}/sse`);
+    let isConnectionActive = true;
+
     eventSource.onmessage = (event) => {
+      if (!isConnectionActive) return;
       try {
         const data = JSON.parse(event.data);
         console.log('Received SSE message:', data);
@@ -332,10 +364,13 @@ const ChatComponent = ({
 
     eventSource.onerror = (error) => {
       console.error('SSE connection error:', error);
-      eventSource.close();
+      if (isConnectionActive) {
+        eventSource.close();
+      }
     };
 
     return () => {
+      isConnectionActive = false;
       console.log('Closing SSE connection for chat room:', selectedRoom.id);
       eventSource.close();
     };
@@ -535,25 +570,14 @@ const ChatComponent = ({
   }, [selectedRoom, toast]);
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden relative">
-      {/* Mobile back button */}
-      {selectedRoom && (
-        <button
-          onClick={() => setSelectedRoom(null)}
-          className="md:hidden fixed top-4 left-4 z-30 bg-[#1a1a1a] hover:bg-[#2a2a2a] p-2 rounded-md"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-      )}
-
-      {/* Chat rooms list */}
-      <div className={`
-        absolute md:relative w-full md:w-80 border-r border-[#1a1a1a] 
-        overflow-hidden bg-[#0a0a0a] h-full
-        transition-transform duration-200
-        ${selectedRoom ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}
-        z-20
-      `}>
+    <div className="flex h-screen">
+      {/* Chat room list */}
+      <div
+        className={cn(
+          "w-full md:w-80 border-r border-[#1a1a1a] bg-[#0a0a0a] h-full",
+          selectedRoom ? "hidden md:block" : "block"
+        )}
+      >
         <ChatRoomList
           chatRooms={chatRooms}
           selectedRoom={selectedRoom}
@@ -564,63 +588,66 @@ const ChatComponent = ({
         />
       </div>
 
-      {/* Chat messages container */}
-      <div className={`
-        flex-1 flex flex-col min-w-0
-        transition-all duration-300 ease-in-out
-        relative z-10
-        ${selectedRoom ? 'translate-x-0' : 'hidden md:flex'}
-        ${isProfileVisible ? 'md:mr-[400px]' : ''}
-      `}>
+      {/* Main chat area */}
+      <div className={cn(
+        "flex-1 h-full",
+        isProfileVisible && "md:mr-[400px]"
+      )}>
         {selectedRoom ? (
-          <ClientChatMessages
-            chatRoom={selectedRoom}
-            onSendMessage={(content: string) => handleSendMessage(content, selectedRoom)}
-            isLoading={isLoading}
-            isGeneratingResponse={isGeneratingResponse}
-          />
+          <>
+            {/* Profile toggle button */}
+            <button
+              onClick={() => setIsProfileVisible(!isProfileVisible)}
+              className="fixed md:absolute top-4 right-4 z-40 
+                p-2.5 rounded-full
+                bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500
+                hover:from-pink-600 hover:via-purple-600 hover:to-pink-600
+                transform transition-all duration-300 ease-in-out
+                hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25
+                border border-white/10 backdrop-blur-sm"
+            >
+              {isProfileVisible ? (
+                <ChevronRight className="w-5 h-5 text-white" />
+              ) : (
+                <ChevronLeft className="w-5 h-5 text-white" />
+              )}
+            </button>
+
+            <ClientChatMessages
+              chatRoom={selectedRoom}
+              onSendMessage={(content: string) => handleSendMessage(content, selectedRoom)}
+              isLoading={isLoading}
+              isGeneratingResponse={isGeneratingResponse}
+            />
+          </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground">
-              Select a chat room to start messaging
-            </p>
-          </div>
+          <EmptyStateGuide />
         )}
       </div>
 
       {/* Profile sidebar */}
       <div className={`
         fixed md:absolute inset-y-0 right-0
-        w-[85vw] md:w-[400px] border-l border-[#1a1a1a] 
-        flex-shrink-0 bg-[#0a0a0a] 
-        transition-transform duration-300 ease-in-out z-30
-        ${isProfileVisible ? "translate-x-0 shadow-2xl" : "translate-x-full"}
-        ${isProfileVisible && !selectedRoom ? "hidden md:block" : ""}
+        w-[80vw] md:w-[400px] border-l border-[#1a1a1a] 
+        bg-[#0a0a0a]/95 backdrop-blur-sm h-full
+        transform transition-all duration-300 ease-in-out z-30
+        ${isProfileVisible ? "translate-x-0" : "translate-x-full"}
       `}>
-        {/* Profile toggle button */}
-        <button
-          onClick={() => setIsProfileVisible(!isProfileVisible)}
-          className="absolute left-0 top-6 -translate-x-full bg-[#1a1a1a] hover:bg-[#2a2a2a] p-2 pl-3 pr-4 rounded-l-md transition-all duration-200 flex items-center gap-2 text-sm text-white/80 hover:text-white z-30"
-          aria-label={isProfileVisible ? "Hide profile" : "Show profile"}
-        >
-          <UserCircle2 className="w-4 h-4" />
-          <span className="hidden md:inline">
-            {isProfileVisible ? "Hide Profile" : "View Profile"}
-          </span>
-          <ChevronRight
-            className={`w-4 h-4 transform transition-transform duration-200 ${
-              isProfileVisible ? "rotate-180" : ""
-            }`}
-          />
-        </button>
-        
-        <div className="h-full overflow-y-auto scrollbar-pretty">
-          <ModelProfile
-            model={selectedRoom?.aiModel || null}
-            onClose={() => setIsProfileVisible(false)}
-          />
-        </div>
+        <ModelProfile
+          model={selectedRoom?.aiModel || null}
+          onClose={() => setIsProfileVisible(false)}
+        />
       </div>
+
+      {/* Mobile back button */}
+      {selectedRoom && (
+        <button
+          onClick={() => setSelectedRoom(null)}
+          className="md:hidden fixed top-4 left-4 z-30 bg-[#1a1a1a] hover:bg-[#2a2a2a] p-2 rounded-md"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      )}
     </div>
   );
 };

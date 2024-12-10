@@ -31,6 +31,7 @@ export type AiModel = {
   isHumanX: boolean;
   isAnime: boolean;
   age: number | null;
+  status?: string;
   createdBy?: {
     id: string;
     name: string;

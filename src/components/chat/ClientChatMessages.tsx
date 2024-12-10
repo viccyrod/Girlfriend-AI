@@ -10,6 +10,9 @@ import { VoiceMessage } from './VoiceMessage';
 import { MessageBubble } from './MessageBubble';
 import { Message, MessageMetadata } from '@/types/message';
 import { ExtendedChatRoom } from '@/types/chat';
+import { useSSEConnection } from '@/hooks/useSSEConnection';
+import { useMessageBatching } from '@/hooks/useMessageBatching';
+import { useVirtualMessages } from '@/hooks/useVirtualMessages';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -29,13 +32,17 @@ export default function ClientChatMessages({
 }: ClientChatMessagesProps) {
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [newMessage, setNewMessage] = useState('');
+  const [isLoadingResponse, setIsLoadingResponse] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [showImageMenu, setShowImageMenu] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
   const PAGE_SIZE = 30;
 
-  // State
+  // Initialize message state with chat room messages
   const [messages, setMessages] = useState<Message[]>(
     chatRoom.messages.map(msg => ({
       id: msg.id,
@@ -52,130 +59,42 @@ export default function ClientChatMessages({
         type: 'text',
         ...(typeof msg.metadata === 'object' ? msg.metadata : {})
       } as MessageMetadata
-    })) || []
+    }))
   );
-  const [newMessage, setNewMessage] = useState('');
-  const [isLoadingResponse, setIsLoadingResponse] = useState(false);
-  const [streamingMessage, setStreamingMessage] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [showImageMenu, setShowImageMenu] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
 
-  // Load initial messages
-  useEffect(() => {
-    const fetchInitialMessages = async () => {
-      try {
-        const response = await fetch(`/api/chat/${chatRoom.id}/messages?limit=${PAGE_SIZE}`);
-        if (!response.ok) throw new Error('Failed to fetch messages');
-        const data = await response.json();
-        
-        // Format and set messages
-        const formattedMessages = data.messages.map((msg: any) => ({
-          id: msg.id,
-          content: msg.content,
-          chatRoomId: msg.chatRoomId,
-          createdAt: msg.createdAt,
-          updatedAt: msg.updatedAt,
-          isAIMessage: msg.isAIMessage || false,
-          aiModelId: msg.aiModelId || null,
-          userId: msg.userId || null,
-          user: msg.user || null,
-          role: msg.role || 'user',
-          metadata: {
-            type: 'text',
-            ...(typeof msg.metadata === 'object' ? msg.metadata : {})
-          } as MessageMetadata
-        }));
-        
-        setMessages(formattedMessages);
-        setHasMoreMessages(data.hasMore);
-      } catch (error) {
-        console.error('Error fetching messages:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load messages",
-          variant: "destructive"
-        });
-      }
-    };
-
-    fetchInitialMessages();
-  }, [chatRoom.id, chatRoom.aiModel, toast]);
-
-  // Handle scroll
-  const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLDivElement;
-    if (target.scrollTop === 0 && hasMoreMessages && !isLoadingMore) {
-      loadMoreMessages();
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
     }
-  }, [hasMoreMessages, isLoadingMore]);
+  }, []);
 
-  // Load more messages
-  const loadMoreMessages = useCallback(async () => {
-    if (!hasMoreMessages || isLoadingMore) return;
-
-    try {
-      setIsLoadingMore(true);
-      const oldestMessageId = messages[0]?.id;
-      const response = await fetch(
-        `/api/chat/${chatRoom.id}/messages?before=${oldestMessageId}&limit=${PAGE_SIZE}`
-      );
-      if (!response.ok) throw new Error('Failed to fetch more messages');
-      
-      const data = await response.json();
-      const newMessages = data.messages.map((msg: any) => ({
-        id: msg.id,
-        content: msg.content,
-        chatRoomId: msg.chatRoomId,
-        createdAt: msg.createdAt,
-        updatedAt: msg.updatedAt,
-        isAIMessage: msg.isAIMessage || false,
-        aiModelId: msg.aiModelId || null,
-        userId: msg.userId || null,
-        user: msg.user || null,
-        role: msg.role || 'user',
-        metadata: {
-          type: 'text',
-          ...(typeof msg.metadata === 'object' ? msg.metadata : {})
-        } as MessageMetadata
-      }));
-
-      // Save scroll position
-      const scrollArea = scrollAreaRef.current;
-      const oldHeight = scrollArea?.scrollHeight || 0;
-
-      setMessages(prev => [...newMessages, ...prev]);
-      setHasMoreMessages(data.hasMore);
-
-      // Restore scroll position
-      if (scrollArea) {
-        const newHeight = scrollArea.scrollHeight;
-        scrollArea.scrollTop = newHeight - oldHeight;
+  // Use SSE for real-time updates
+  useSSEConnection({
+    url: `/api/chat/${chatRoom.id}/subscribe`,
+    onMessage: (data) => {
+      if (data.message) {
+        setMessages(prev => [...prev, data.message]);
+        setTimeout(() => scrollToBottom('smooth'), 100);
       }
-    } catch (error) {
-      console.error('Error loading more messages:', error);
+    },
+    onError: (error) => {
+      console.error('SSE error:', error);
       toast({
-        title: "Error",
-        description: "Failed to load more messages",
+        title: "Connection Error",
+        description: "Failed to receive real-time updates",
         variant: "destructive"
       });
-    } finally {
-      setIsLoadingMore(false);
     }
-  }, [chatRoom.id, hasMoreMessages, isLoadingMore, messages, toast]);
+  });
 
   // Scroll to bottom on new messages
   useEffect(() => {
-    const scrollArea = scrollAreaRef.current;
-    if (!scrollArea) return;
-
-    const shouldScrollToBottom = 
-      scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight < 100;
-
-    if (shouldScrollToBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, streamingMessage]);
+    // Add a small delay to ensure the DOM has updated
+    const timer = setTimeout(() => {
+      scrollToBottom('auto');
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [messages, scrollToBottom]);
 
   const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,48 +105,64 @@ export default function ClientChatMessages({
     setIsLoadingResponse(true);
 
     try {
-      // Create a temporary message object
-      const tempMessage: Message = {
-        id: Date.now().toString(),
+      // Create optimistic message
+      const optimisticMessage: Message = {
+        id: `temp-${Date.now()}`,
         content,
         isAIMessage: false,
         userId: null,
         chatRoomId: chatRoom.id,
         aiModelId: null,
-        metadata: {
-          type: 'text'
-        } as MessageMetadata,
+        metadata: { type: 'text' } as MessageMetadata,
         role: 'user',
         createdAt: new Date(),
         updatedAt: new Date(),
         user: null
       };
 
-      // Add the message to the UI immediately
-      setMessages(prev => [...prev, tempMessage]);
+      // Add message to UI
+      setMessages(prev => [...prev, optimisticMessage]);
+      scrollToBottom('smooth');
 
-      // Send the message
+      // Send message to server first
       await onSendMessage(content);
 
-      // Start streaming the AI response
+      // Then start streaming
       setIsStreaming(true);
-      const response = await fetch(`/api/chat/${chatRoom.id}/stream`, {
+      const streamResponse = await fetch(`/api/chat/${chatRoom.id}/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: messages.concat(tempMessage).map(msg => ({
+          messages: [...messages, optimisticMessage].map(msg => ({
             role: msg.isAIMessage ? 'assistant' : 'user',
             content: msg.content
           }))
         })
       });
 
-      if (!response.ok) throw new Error('Failed to get AI response');
+      if (!streamResponse.ok) throw new Error('Failed to get AI response');
 
-      const reader = response.body?.getReader();
+      const reader = streamResponse.body?.getReader();
       if (!reader) throw new Error('No response reader available');
 
+      // Create streaming message placeholder
+      const streamingMessagePlaceholder: Message = {
+        id: `stream-${Date.now()}`,
+        content: '',
+        isAIMessage: true,
+        userId: null,
+        chatRoomId: chatRoom.id,
+        aiModelId: chatRoom.aiModel?.id || null,
+        metadata: { type: 'text', streaming: true } as MessageMetadata,
+        role: 'assistant',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        user: null
+      };
+
+      setMessages(prev => [...prev, streamingMessagePlaceholder]);
       let streamedContent = '';
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -243,7 +178,15 @@ export default function ClientChatMessages({
               const parsed = JSON.parse(data);
               const content = parsed.choices[0]?.delta?.content || '';
               streamedContent += content;
-              setStreamingMessage(streamedContent);
+              
+              // Update streaming message in place
+              setMessages(prev => prev.map(msg => 
+                msg.id === streamingMessagePlaceholder.id
+                  ? { ...msg, content: streamedContent }
+                  : msg
+              ));
+              
+              scrollToBottom('auto');
             } catch (e) {
               console.error('Error parsing streaming response:', e);
             }
@@ -251,25 +194,11 @@ export default function ClientChatMessages({
         }
       }
 
-      // Create final AI message
-      const aiMessage: Message = {
-        id: `ai-${Date.now()}`,
-        content: streamedContent,
-        isAIMessage: true,
-        userId: null,
-        user: null,
-        chatRoomId: chatRoom.id,
-        aiModelId: chatRoom.aiModel?.id || null,
-        metadata: { type: 'text' },
-        role: 'assistant',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-      setStreamingMessage('');
+      // Keep the streamed message until the final SSE message arrives
+      // The SSE message will replace this one with the final version
       setIsStreaming(false);
     } catch (error) {
+      console.error('Send message error:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to send message",
@@ -278,13 +207,13 @@ export default function ClientChatMessages({
     } finally {
       setIsLoadingResponse(false);
     }
-  }, [newMessage, isLoadingResponse, messages, chatRoom.id, chatRoom.aiModel?.id, onSendMessage, toast]);
+  }, [messages, newMessage, isLoadingResponse, chatRoom.id, onSendMessage, scrollToBottom]);
 
   const handleImageGeneration = async (prompt: string) => {
     try {
       setIsGeneratingImage(true);
       
-      // Create an optimistic message
+      // Create optimistic message
       const optimisticMessage: Message = {
         id: `temp-${Date.now()}`,
         content: `🎨 Generating image: "${prompt}"...`,
@@ -299,18 +228,12 @@ export default function ClientChatMessages({
         user: null
       };
 
-      // Add optimistic message
       setMessages(prev => [...prev, optimisticMessage]);
+      scrollToBottom('smooth');
 
-      // Scroll to bottom
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-
-      // Make the API call
       const response = await fetch('/api/image', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt,
           chatRoomId: chatRoom.id,
@@ -329,12 +252,7 @@ export default function ClientChatMessages({
           if (!statusResponse.ok) throw new Error('Failed to check image status');
           
           const statusData = await statusResponse.json();
-          console.log('Status data:', statusData);
-          
-          // Check both message metadata and status
           if ((statusData.message?.metadata?.status === 'completed' || statusData.status === 'COMPLETED') && statusData.message) {
-            console.log('Image generation completed, stopping polling');
-            // Update message with completed image
             setMessages(prev => prev.map(msg => 
               msg.id === optimisticMessage.id ? statusData.message : msg
             ));
@@ -348,7 +266,6 @@ export default function ClientChatMessages({
           clearInterval(pollInterval);
           setIsGeneratingImage(false);
           
-          // Update the optimistic message to show error
           setMessages(prev => prev.map(msg => 
             msg.id === optimisticMessage.id 
               ? {
@@ -367,7 +284,6 @@ export default function ClientChatMessages({
         }
       }, 2000);
 
-      // Cleanup interval after 5 minutes (timeout)
       setTimeout(() => {
         clearInterval(pollInterval);
         setIsGeneratingImage(false);
@@ -385,56 +301,57 @@ export default function ClientChatMessages({
   };
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden">
-      <ScrollArea 
-        ref={scrollAreaRef as any}
-        className="flex-1 w-full"
-        onScroll={handleScroll}
-      >
-        <div className="p-4 space-y-4">
-          {isLoadingMore && (
-            <div className="text-center py-2 text-muted-foreground">
-              Loading more messages...
+    <div className="flex flex-col h-full">
+      <ScrollArea className="flex-1">
+        <div className="flex flex-col min-h-full p-4 space-y-4">
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-[calc(100vh-8rem)] text-muted-foreground">
+              Start a conversation
             </div>
+          ) : (
+            messages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                modelImage={chatRoom.aiModel?.imageUrl || null}
+                isRead={true}
+              />
+            ))
           )}
-          {messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              modelImage={chatRoom.aiModel?.imageUrl || null}
-              isRead={true}
-            />
-          ))}
-          {streamingMessage && (
+          {isStreaming && streamingMessage && (
             <MessageBubble
               message={{
                 id: 'streaming',
                 content: streamingMessage,
                 isAIMessage: true,
-                userId: null,
-                aiModelId: chatRoom.aiModel?.id || null,
                 chatRoomId: chatRoom.id,
+                aiModelId: chatRoom.aiModel?.id || null,
+                metadata: { type: 'text' },
+                role: 'assistant',
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                metadata: { type: 'text' } as MessageMetadata,
-                role: 'assistant',
+                userId: null,
                 user: null
               }}
               modelImage={chatRoom.aiModel?.imageUrl || null}
               isRead={true}
             />
           )}
-          <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} className="h-px w-full" />
         </div>
       </ScrollArea>
-      <div className="flex-shrink-0 border-t border-[#1a1a1a] bg-background p-4 sticky bottom-0 w-full">
+
+      <div className="flex-shrink-0 border-t border-[#1a1a1a] bg-background p-4">
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2 bg-[#1E1B2C] rounded-lg px-4 py-2 min-w-0">
-            <ImageGenerationMenu 
-              chatRoom={chatRoom}
-              onGenerate={handleImageGeneration}
-              isGenerating={isGeneratingImage}
-            />
+          <div className="flex-1 flex items-center gap-2 bg-[#1E1B2C] rounded-lg px-2 md:px-4 py-2 min-w-0">
+            <div className="flex-shrink-0">
+              <ImageGenerationMenu 
+                chatRoom={chatRoom}
+                onGenerate={handleImageGeneration}
+                isGenerating={isGeneratingImage}
+              />
+            </div>
+            
             <div className="flex-1 min-w-0">
               <TextareaAutosize
                 value={newMessage}
@@ -446,22 +363,19 @@ export default function ClientChatMessages({
                   }
                 }}
                 placeholder="Type a message..."
-                className="w-full bg-transparent border-none focus:outline-none resize-none text-base placeholder:text-muted-foreground"
+                className="w-full bg-transparent border-none focus:outline-none resize-none text-sm md:text-base placeholder:text-muted-foreground"
                 maxRows={5}
               />
             </div>
           </div>
+          
           <Button 
             type="submit" 
             size="icon"
             disabled={isLoading || !newMessage.trim()}
-            className={cn(
-              "bg-[#392C72] hover:bg-[#2D2259] transition-colors shrink-0",
-              isLoading && "opacity-50 cursor-not-allowed",
-              "h-10 w-10 rounded-full flex items-center justify-center"
-            )}
+            className="bg-[#392C72] hover:bg-[#2D2259] transition-colors flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center"
           >
-            <Send className="h-5 w-5 text-white" />
+            <Send className="h-4 w-4 md:h-5 md:w-5 text-white" />
           </Button>
         </form>
       </div>

@@ -18,6 +18,8 @@ model User {
   updatedAt              DateTime                @updatedAt
   isAI                   Boolean                 @default(false)
   bio                    String?
+  messageCount           Int                     @default(0)
+  imageCount             Int                     @default(0)
   AIModel                AIModel[]
   customizations         AIModelCustomization[]
   activityFeeds          ActivityFeed[]
@@ -188,8 +190,10 @@ model AIModel {
   dislikes              String
   age                   Int?
   imageUrl              String
-  voiceId               String?                 // ElevenLabs voice ID
+  voiceId               String? // ElevenLabs voice ID
   images                Image[]
+  messageCount          Int                     @default(0)
+  imageCount            Int                     @default(0)
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
   userId                String

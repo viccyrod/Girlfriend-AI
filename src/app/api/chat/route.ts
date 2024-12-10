@@ -205,7 +205,21 @@ export async function DELETE(request: Request) {
 
     const { roomId } = validatedData.data;
 
-    // Delete chat room with access check
+    // First delete all messages in the room
+    await prisma.message.deleteMany({
+      where: {
+        chatRoomId: roomId,
+        chatRoom: {
+          users: {
+            some: {
+              id: user.id
+            }
+          }
+        }
+      }
+    });
+
+    // Then delete the chat room
     const result = await prisma.chatRoom.deleteMany({
       where: {
         id: roomId,
