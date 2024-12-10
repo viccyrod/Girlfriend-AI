@@ -14,7 +14,7 @@ export default function ChatButton({ modelId }: { modelId: string }) {
     e.stopPropagation();
 
     if (!user) {
-      router.push('/api/auth/login?post_login_redirect_url=/chat');
+      router.push('/auth/login');
       return;
     }
 

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gradient Definitions -->
+  <defs>
+    <linearGradient id="primary-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#EC4899"/>
+      <stop offset="100%" style="stop-color:#9333EA"/>
+    </linearGradient>
+    
+    <!-- Soft glow effect -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 25 -15"/>
+      <feComposite in="SourceGraphic" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Main Logo Shape -->
+  <g filter="url(#glow)">
+    <!-- Heart shape base -->
+    <path d="M512 928c-12 0-24-4-34-12-7.27-5.45-180.15-136.4-303.85-285.85C71.25 501.2 32 389.4 32 290.95 32 155.2 141.2 46 276.95 46c74.55 0 144.85 33.45 193.05 91.75l41.95 50.35 41.95-50.35C602.2 79.45 672.5 46 747.05 46 882.8 46 992 155.2 992 290.95c0 98.45-39.25 210.25-142.15 339.2C726.15 779.6 553.27 910.55 546 916c-10 8-22 12-34 12z" 
+          fill="url(#primary-gradient)"/>
+    
+    <!-- AI text -->
+    <text x="512" y="600" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="200" fill="white">AI</text>
+  </g>
+
+  <!-- Light version - use fill="#000000" for dark mode -->
+  <g id="logo-light" opacity="0">
+    <use href="#logo" fill="#FFFFFF"/>
+  </g>
+
+  <!-- Dark version -->
+  <g id="logo-dark" opacity="0">
+    <use href="#logo" fill="#000000"/>
+  </g>
+</svg> 

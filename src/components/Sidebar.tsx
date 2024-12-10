@@ -131,9 +131,11 @@ const Sidebar = () => {
                         </div>
 
                         {/* Token Counter - Added here */}
-                        <div className="mb-4">
+                        {user && (
+                          <div className="mb-4">
                             <TokenCounter minimal />
-                        </div>
+                          </div>
+                        )}
 
                         {/* User Section */}
                         {user ? (
