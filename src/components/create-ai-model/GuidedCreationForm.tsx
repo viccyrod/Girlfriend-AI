@@ -343,17 +343,15 @@ export function GuidedCreationForm({ user, setParentLoading }: GuidedCreationFor
       const { status } = await statusResponse.json();
       
       if (status === 'COMPLETED') {
+        setIsSubmitting(false);
         router.push(`/community/AIModelProfile/${id}`);
-        return;
+        return true;
       } 
       
       if (status === 'FAILED') {
         throw new Error('Model generation failed. Please try again.');
       }
 
-      // Calculate next polling interval with exponential backoff
-      const nextInterval = Math.min(interval * 1.5, MAX_POLLING_INTERVAL);
-      
       // Show longer wait message after 30 seconds
       if (currentTime - startTime > 30000) {
         toast({
@@ -363,7 +361,7 @@ export function GuidedCreationForm({ user, setParentLoading }: GuidedCreationFor
       }
 
       setPollAttempt(prev => prev + 1);
-      setTimeout(() => pollModelStatus(id, startTime, nextInterval), interval);
+      return false;
     } catch (error) {
       throw error;
     }
@@ -375,7 +373,7 @@ export function GuidedCreationForm({ user, setParentLoading }: GuidedCreationFor
     setPollAttempt(0);
 
     try {
-      // Format the appearance string in a cleaner way
+      // Format the appearance string
       const appearanceStr = [
         `Ethnicity: ${formData.ethnicity}`,
         `Skin: ${formData.skinColor}`,
@@ -403,7 +401,7 @@ Dislikes: ${formData.dislikes || 'Not specified'}
 
 Please expand on these details and create a rich, engaging character profile.`;
 
-      const grokResponse = await fetch('/api/ai-models/magic', {
+      const response = await fetch('/api/ai-models/magic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -412,14 +410,33 @@ Please expand on these details and create a rich, engaging character profile.`;
         })
       });
 
-      if (!grokResponse.ok) {
+      if (!response.ok) {
         throw new Error('Failed to generate detailed profile');
       }
 
-      const { id } = await grokResponse.json();
+      const { id } = await response.json();
       
-      // Start polling with timestamp
-      await pollModelStatus(id, Date.now());
+      // Start polling with interval
+      const startTime = Date.now();
+      const pollInterval = setInterval(async () => {
+        try {
+          const isComplete = await pollModelStatus(id, startTime);
+          if (isComplete) {
+            clearInterval(pollInterval);
+          }
+        } catch (error) {
+          clearInterval(pollInterval);
+          setIsSubmitting(false);
+          toast({
+            title: 'Error',
+            description: error instanceof Error ? error.message : 'Failed to check model status',
+            variant: 'destructive'
+          });
+        }
+      }, INITIAL_POLLING_INTERVAL);
+
+      // Cleanup interval on unmount
+      return () => clearInterval(pollInterval);
     } catch (error) {
       console.error('Creation error:', error);
       toast({

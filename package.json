@@ -10,7 +10,8 @@
     "cleanup-chats": "tsx src/scripts/cleanup-duplicate-chats.tsx",
     "postinstall": "prisma generate",
     "upload-default-images": "tsx scripts/upload-default-images.ts",
-    "test": "jest"
+    "test": "jest",
+    "worker": "ts-node -r dotenv/config src/scripts/queue-worker.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

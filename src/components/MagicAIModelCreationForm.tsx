@@ -121,17 +121,15 @@ export function MagicAIModelCreationForm({ user, setParentLoading }: MagicAIMode
       const { status } = await statusResponse.json();
       
       if (status === 'COMPLETED') {
+        setIsSubmitting(false);
         router.push(`/community/AIModelProfile/${id}`);
-        return;
+        return true;
       } 
       
       if (status === 'FAILED') {
         throw new Error('Model generation failed. Please try again.');
       }
 
-      // Calculate next polling interval with exponential backoff
-      const nextInterval = Math.min(interval * 1.5, MAX_POLLING_INTERVAL);
-      
       // Show longer wait message after 30 seconds
       if (currentTime - startTime > 30000) {
         toast({
@@ -140,7 +138,7 @@ export function MagicAIModelCreationForm({ user, setParentLoading }: MagicAIMode
         });
       }
 
-      setTimeout(() => pollModelStatus(id, startTime, nextInterval), interval);
+      return false;
     } catch (error) {
       throw error;
     }
@@ -166,8 +164,27 @@ export function MagicAIModelCreationForm({ user, setParentLoading }: MagicAIMode
 
       const { id } = await response.json();
       
-      // Start polling with timestamp
-      await pollModelStatus(id, Date.now());
+      // Start polling with interval
+      const startTime = Date.now();
+      const pollInterval = setInterval(async () => {
+        try {
+          const isComplete = await pollModelStatus(id, startTime);
+          if (isComplete) {
+            clearInterval(pollInterval);
+          }
+        } catch (error) {
+          clearInterval(pollInterval);
+          setIsSubmitting(false);
+          toast({
+            title: 'Error',
+            description: error instanceof Error ? error.message : 'Failed to check model status',
+            variant: 'destructive'
+          });
+        }
+      }, INITIAL_POLLING_INTERVAL);
+
+      // Cleanup interval on unmount
+      return () => clearInterval(pollInterval);
     } catch (error) {
       console.error('Creation error:', error);
       toast({

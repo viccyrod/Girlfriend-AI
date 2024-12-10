@@ -1,53 +1,58 @@
 'use server'
 
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import prisma from '@/lib/clients/prisma';
-
-const INITIAL_TOKEN_AMOUNT = 1000;
+import prisma from "@/lib/clients/prisma";
 
 export async function getDbUser() {
   const { getUser } = getKindeServerSession();
-  const kindeUser = await getUser();
+  const user = await getUser();
   
-  if (!kindeUser?.id || !kindeUser.email) return null;
-  
-  // Find or create user in database
-  const dbUser = await prisma.user.upsert({
-    where: { id: kindeUser.id },
-    update: {
-      email: kindeUser.email,
-      name: kindeUser.given_name && kindeUser.family_name
-        ? `${kindeUser.given_name} ${kindeUser.family_name}`
-        : kindeUser.email.split('@')[0],
-      image: kindeUser.picture || null
-    },
-    create: {
-      id: kindeUser.id,
-      email: kindeUser.email,
-      name: kindeUser.given_name && kindeUser.family_name
-        ? `${kindeUser.given_name} ${kindeUser.family_name}`
-        : kindeUser.email.split('@')[0],
-      image: kindeUser.picture || null,
-      tokens: INITIAL_TOKEN_AMOUNT // Give initial tokens to new users
-    }
+  if (!user?.id) return null;
+
+  // Only update user info if it has changed
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id }
   });
 
-  // If this is a new user (tokens were just set), create a welcome claim
-  if (dbUser.tokens === INITIAL_TOKEN_AMOUNT) {
-    await prisma.tokenClaim.upsert({
-      where: { code: `WELCOME_${dbUser.id}` },
-      update: {
+  if (!dbUser) {
+    // New user - create with welcome tokens
+    const newUser = await prisma.user.create({
+      data: {
+        id: user.id,
+        email: user.email || "",
+        name: user.given_name || user.family_name || "",
+        image: user.picture || "",
+        tokens: 1000
+      }
+    });
+
+    // Create welcome token claim
+    await prisma.tokenClaim.create({
+      data: {
+        code: `WELCOME_${user.id}`,
+        amount: 1000,
         claimed: true,
-        claimedById: dbUser.id,
-        claimedAt: new Date()
-      },
-      create: {
-        code: `WELCOME_${dbUser.id}`,
-        amount: INITIAL_TOKEN_AMOUNT,
-        claimed: true,
-        claimedById: dbUser.id,
+        claimedById: user.id,
         claimedAt: new Date(),
-        createdById: dbUser.id
+        createdById: user.id
+      }
+    });
+
+    return newUser;
+  }
+
+  // Only update if user info has changed
+  if (
+    dbUser.email !== user.email ||
+    dbUser.name !== (user.given_name || user.family_name || "") ||
+    dbUser.image !== user.picture
+  ) {
+    return prisma.user.update({
+      where: { id: user.id },
+      data: {
+        email: user.email || dbUser.email,
+        name: user.given_name || user.family_name || dbUser.name,
+        image: user.picture || dbUser.image
       }
     });
   }
