@@ -52,22 +52,22 @@ export default function HeroSection() {
       <div className="container mx-auto flex items-center justify-between py-16 px-4 md:px-6">
         <div className="w-full z-10">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
-            Your Dream{' '}
-            <span className="inline-block min-w-[280px]">
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={currentIndex}
-                  className="inline-block bg-gradient-to-r from-pink-500 to-purple-600 text-transparent bg-clip-text"
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -20, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {relationshipTypes[currentIndex]}
-                </motion.span>
-              </AnimatePresence>
-            </span>
+            Your Dream
           </h1>
+          <div className="h-[60px] md:h-[72px] lg:h-[84px] mb-4">
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={currentIndex}
+                className="inline-block bg-gradient-to-r from-pink-500 to-purple-600 text-transparent bg-clip-text text-4xl md:text-5xl lg:text-6xl font-bold"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -20, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                {relationshipTypes[currentIndex]}
+              </motion.span>
+            </AnimatePresence>
+          </div>
           <p className="text-lg text-gray-300 mb-8 max-w-xl">
             Your dream companion awaits! Create your AI Companion, shape their look, personality, and bring them to life in one click.
           </p>
