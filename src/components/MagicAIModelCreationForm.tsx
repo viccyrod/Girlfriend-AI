@@ -122,6 +122,11 @@ export function MagicAIModelCreationForm({ user, setParentLoading }: MagicAIMode
       
       if (status === 'COMPLETED') {
         setIsSubmitting(false);
+        // Refresh the current page to update any lists/feeds
+        router.refresh();
+        // Short delay to allow refresh to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+        // Redirect to the new model's profile
         router.push(`/community/AIModelProfile/${id}`);
         return true;
       } 
