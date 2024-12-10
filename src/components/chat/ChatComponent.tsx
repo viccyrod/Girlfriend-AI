@@ -131,38 +131,19 @@ const ChatComponent = ({
     try {
       if (loadingRoomId || room.id === selectedRoom?.id) return;
       
-      // Verify AI model exists and is ready
-      if (!room.aiModel) {
-        console.error('AI Model not found for room:', room.id);
-        toast({
-          title: "Error",
-          description: "AI Model not found",
-          variant: "destructive"
-        });
-        return;
-      }
-      if (room.aiModel.status === 'PENDING') {
-        console.error('AI Model is pending for room:', room.id);
-        toast({
-          title: "Notice",
-          description: "AI Model is not ready yet. Please try again later.",
-          variant: "default"
-        });
-        return;
-      }
-      
       setLoadingRoomId(room.id);
       setSelectedRoom(room);
+      setMessages([]); // Clear messages while loading
       
-      // Update URL without page reload if we're not already on this room's page
+      // Update URL without page reload
       const currentPath = window.location.pathname;
       const targetPath = `/chat/${room.id}`;
       if (currentPath !== targetPath) {
-        router.push(targetPath, { scroll: false });
+        router.push(targetPath);
       }
       
       // Fetch messages for the selected room
-      const response = await fetch(`/api/chat/${room.id}`);
+      const response = await fetch(`/api/chat/${room.id}/messages`);
       if (!response.ok) throw new Error('Failed to fetch messages');
       const data = await response.json();
       
@@ -175,6 +156,8 @@ const ChatComponent = ({
         description: "Failed to load chat messages",
         variant: "destructive"
       });
+      // Revert selection on error
+      setSelectedRoom(null);
     } finally {
       setLoadingRoomId(null);
     }

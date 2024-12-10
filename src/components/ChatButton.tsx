@@ -22,6 +22,7 @@ export default function ChatButton({ modelId }: { modelId: string }) {
       const chatRoom = await getOrCreateChatRoom(modelId);
       if (chatRoom) {
         router.push(`/chat/${modelId}`);
+        router.refresh();
       }
     } catch (error) {
       console.error('Failed to create chat room:', error);
