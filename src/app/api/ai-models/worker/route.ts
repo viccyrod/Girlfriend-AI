@@ -68,7 +68,7 @@ async function processJob(jobId: string) {
     const cleanContent = aiResponse.content
       .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
       .replace(/```json\s*|\s*```/g, '') // Remove code blocks
-      .replace(/^.*?(\{.*\}).*$/s, '$1'); // Extract JSON object
+      .replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1'); // Extract JSON object using [\s\S] instead of dot
 
     let modelDetails;
     try {
