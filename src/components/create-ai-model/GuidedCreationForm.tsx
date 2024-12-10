@@ -129,31 +129,31 @@ const CREATION_STEPS: Step[] = [
   {
     id: 'basic',
     title: 'Basic Information',
-    description: 'Let&apos;s start with the essentials',
+    description: "Let's start with the essentials",
     illustration: '/illustrations/personality.svg'
   },
   {
     id: 'appearance',
     title: 'Physical Appearance',
-    description: 'Let&apos;s design how your companion looks',
+    description: "Let's design how your companion looks",
     illustration: '/illustrations/appearance.svg'
   },
   {
     id: 'personality',
     title: 'Personality Traits',
-    description: 'Define their character and behavior',
+    description: "Define their character and behavior",
     illustration: '/illustrations/personality.svg'
   },
   {
     id: 'background',
     title: 'Background Story',
-    description: 'Create their history and memories',
+    description: "Create their history and memories",
     illustration: '/illustrations/background.svg'
   },
   {
     id: 'interests',
     title: 'Interests & Preferences',
-    description: 'What makes them unique?',
+    description: "What makes them unique?",
     illustration: '/illustrations/interests.svg'
   }
 ];
