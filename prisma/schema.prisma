@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum GenerationType {
+  IMAGE
+  PHOTO
+  CHARACTER
+}
+
 model User {
   id                     String                  @id @default(cuid())
   email                  String                  @unique
@@ -40,6 +46,10 @@ model User {
   chatRooms              ChatRoom[]              @relation("ChatRoomToUser")
   createdChatRooms       ChatRoom[]              @relation("ChatRoomCreator")
   likedPosts             Post[]                  @relation("LikedPosts")
+  generations            Generation[]
+  imageCredits           Int                     @default(0)
+  photoCredits           Int                     @default(0)
+  characterCredits       Int                     @default(0)
 }
 
 model Follow {
@@ -356,4 +366,21 @@ model ModelTraining {
   status              String
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+model Generation {
+  id        String         @id @default(cuid())
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  type      GenerationType
+  userId    String
+  user      User           @relation(fields: [userId], references: [id])
+  prompt    String
+  result    String // URL or response data
+  cost      Float // Track cost per generation
+  status    String         @default("completed") // For tracking failed generations
+  metadata  Json? // For additional generation-specific data
+
+  @@index([userId])
+  @@index([type])
 }

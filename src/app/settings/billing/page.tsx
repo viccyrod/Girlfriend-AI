@@ -5,9 +5,13 @@ import BaseLayout from '@/components/BaseLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { CreditCard, MessageCircle, Image as ImageIcon } from 'lucide-react';
+import { CreditCard, MessageCircle, Image as ImageIcon, UserCircle, Plus, Calculator } from 'lucide-react';
 import { SolanaPaymentButton } from '@/components/SolanaPaymentButton';
 import { SolanaProvider } from '@/providers/SolanaProvider';
+import { CREDIT_PACKAGES, CREDIT_COSTS } from '@/lib/constants';
+import { TokenIcon } from '@/components/TokenIcon';
+import { TokenTooltip } from '@/components/TokenTooltip';
+import { Input } from '@/components/ui/input';
 
 interface UsageStats {
   currentPlan: string;
@@ -26,6 +30,8 @@ interface UsageStats {
 export default function BillingSettings() {
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [customAmount, setCustomAmount] = useState<number>(1000);
+  const [showCustomForm, setShowCustomForm] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -46,11 +52,218 @@ export default function BillingSettings() {
     fetchStats();
   }, []);
 
+  // Calculate tokens based on amount with bonus tiers
+  const calculateTokens = (amount: number) => {
+    let bonus = 0;
+    // Calculate bonus percentage based on amount
+    if (amount >= 100000) {
+      bonus = 1.00; // 100% bonus
+    } else if (amount >= 50000) {
+      bonus = 0.75; // 75% bonus
+    } else if (amount >= 10000) {
+      bonus = 0.65; // 65% bonus
+    } else if (amount >= 5000) {
+      bonus = 0.55; // 55% bonus
+    } else if (amount >= 1000) {
+      bonus = 0.45; // 45% bonus
+    }
+
+    const baseTokens = amount * 200; // Base rate: $1 = 200 tokens ($5 = 1,000 tokens)
+    const bonusTokens = baseTokens * bonus;
+    return Math.floor(baseTokens + bonusTokens);
+  };
+
   const content = (
     <div className="container max-w-4xl mx-auto py-8 px-4">
       <h1 className="text-3xl font-bold mb-8 bg-gradient-to-r from-pink-500 to-purple-500 text-transparent bg-clip-text">
         Billing & Usage
       </h1>
+
+      {/* Token System Explanation */}
+      <div className="mb-8 p-4 rounded-lg bg-gray-900/50 border border-gray-800">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Token System</h2>
+          <TokenTooltip />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-3 rounded-md bg-gray-800/50">
+            <div className="flex items-center gap-2 mb-2">
+              <MessageCircle className="w-4 h-4" />
+              <span className="font-medium">Messages</span>
+            </div>
+            <p className="text-sm text-gray-400">{CREDIT_COSTS.MESSAGE} token per message</p>
+          </div>
+          <div className="p-3 rounded-md bg-gray-800/50">
+            <div className="flex items-center gap-2 mb-2">
+              <ImageIcon className="w-4 h-4" />
+              <span className="font-medium">Photos</span>
+            </div>
+            <p className="text-sm text-gray-400">{CREDIT_COSTS.PHOTO} tokens per photo</p>
+          </div>
+          <div className="p-3 rounded-md bg-gray-800/50">
+            <div className="flex items-center gap-2 mb-2">
+              <UserCircle className="w-4 h-4" />
+              <span className="font-medium">Characters</span>
+            </div>
+            <p className="text-sm text-gray-400">{CREDIT_COSTS.CHARACTER} tokens per character</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Token Packages Section */}
+      <div className="mb-12">
+        <div className="flex items-center gap-2 mb-6">
+          <TokenIcon className="w-8 h-8" animate />
+          <h2 className="text-2xl font-bold">Buy Tokens</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          {CREDIT_PACKAGES.map((pkg) => (
+            <div 
+              key={pkg.id}
+              className={`
+                relative p-6 rounded-lg border bg-gray-900/50
+                ${pkg.featured ? 'ring-2 ring-primary' : 'border-gray-800'}
+              `}
+            >
+              {pkg.featured && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-xs rounded-full">
+                  Most Popular
+                </span>
+              )}
+              
+              {pkg.savings && (
+                <span className="absolute top-4 right-4 text-sm font-medium text-green-500">
+                  {pkg.savings}
+                </span>
+              )}
+
+              <div className="flex items-baseline gap-2 mb-4">
+                <span className="text-3xl font-bold">${pkg.price}</span>
+                <span className="text-gray-400">USD</span>
+              </div>
+
+              <div className="flex items-center gap-2 mb-2">
+                <TokenIcon className="w-5 h-5" />
+                <span className="font-medium">{pkg.tokens.toLocaleString()} tokens</span>
+              </div>
+
+              <p className="text-sm text-gray-400 mb-6">
+                {pkg.description}
+              </p>
+
+              <SolanaPaymentButton 
+                amount={pkg.price}
+                label={`Buy ${pkg.tokens.toLocaleString()} Tokens`}
+                onSuccess={async () => {
+                  const response = await fetch('/api/settings/usage');
+                  const data = await response.json();
+                  setStats(data);
+                }}
+              />
+            </div>
+          ))}
+
+          {/* Custom Amount Card */}
+          <div className="relative p-6 rounded-lg bg-gray-900/50 border-gray-800 border">
+            <div className="absolute top-4 right-4 text-sm font-medium text-green-500">
+              Up to 100% off
+            </div>
+
+            {!showCustomForm ? (
+              <div 
+                onClick={() => setShowCustomForm(true)}
+                className="cursor-pointer space-y-4"
+              >
+                <div className="flex items-baseline gap-2 mb-4">
+                  <span className="text-3xl font-bold">Custom</span>
+                  <span className="text-gray-400">USD</span>
+                </div>
+
+                <div className="flex items-center gap-2 mb-2">
+                  <TokenIcon className="w-5 h-5" />
+                  <span className="font-medium">Calculate your tokens</span>
+                </div>
+
+                <p className="text-sm text-gray-400 mb-6">
+                  For the most elite gooners: Get up to 100% bonus tokens with larger purchases
+                </p>
+
+                <Button 
+                  variant="outline" 
+                  className="w-full border-dashed"
+                >
+                  <Calculator className="mr-2 h-4 w-4" />
+                  Calculate Custom Amount
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-bold">
+                    ${customAmount.toLocaleString()}
+                  </span>
+                  <span className="text-gray-400">USD</span>
+                </div>
+
+                <div className="flex items-center gap-2 mb-2">
+                  <TokenIcon className="w-5 h-5" />
+                  <span className="font-medium">
+                    {calculateTokens(customAmount).toLocaleString()} tokens
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <Input
+                    type="number"
+                    min={1000}
+                    max={1000000}
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(Number(e.target.value))}
+                    className="bg-background/50 border-gray-800"
+                    placeholder="Enter amount ($1,000 - $1,000,000)"
+                  />
+
+                  <div className="text-sm text-gray-400">
+                    <div className="font-medium mb-2">Bonus tiers:</div>
+                    <ul className="space-y-2">
+                      <li className="flex items-center gap-2">
+                        <span className="w-24">$1,000+:</span>
+                        <span className="text-green-500 font-medium">45% bonus</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-24">$5,000+:</span>
+                        <span className="text-green-500 font-medium">55% bonus</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-24">$10,000+:</span>
+                        <span className="text-green-500 font-medium">65% bonus</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-24">$50,000+:</span>
+                        <span className="text-green-500 font-medium">75% bonus</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-24">$100,000+:</span>
+                        <span className="text-green-500 font-medium">100% bonus</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <SolanaPaymentButton 
+                  amount={customAmount}
+                  label={`Buy ${calculateTokens(customAmount).toLocaleString()} Tokens`}
+                  onSuccess={async () => {
+                    // Refresh user's token balance
+                    setShowCustomForm(false);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div className="space-y-6">
         {/* Current Plan Card */}
@@ -72,6 +285,7 @@ export default function BillingSettings() {
               {stats?.currentPlan !== 'Premium' && (
                 <SolanaPaymentButton 
                   amount={49.99} 
+                  label="Buy Tokens"
                   onSuccess={async () => {
                     const response = await fetch('/api/settings/usage');
                     const data = await response.json();

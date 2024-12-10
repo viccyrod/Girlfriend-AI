@@ -79,6 +79,7 @@ module.exports = {
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.5s ease-out",
         "pulse-scale": "pulse-scale 2s infinite",
+        'spin-slow': 'spin 3s linear infinite',
       },
     },
   },
