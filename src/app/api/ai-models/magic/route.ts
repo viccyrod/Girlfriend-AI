@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // 5 minute timeout
 
 // Configure Cloudinary
 cloudinary.config({
