@@ -65,17 +65,38 @@ async function processJob(jobId: string) {
     if (!aiResponse || !aiResponse.content) throw new Error('Failed to generate AI model details');
     
     // Clean and parse JSON response
-    const cleanContent = aiResponse.content
+    let cleanContent = aiResponse.content
       .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
       .replace(/```json\s*|\s*```/g, '') // Remove code blocks
-      .replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1'); // Extract JSON object using [\s\S] instead of dot
+      .trim();
+
+    // Try to extract JSON object if it's wrapped in other text
+    const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanContent = jsonMatch[0];
+    }
 
     let modelDetails;
     try {
       modelDetails = JSON.parse(cleanContent);
-    } catch (error) {
-      console.error('Failed to parse AI response:', cleanContent);
-      throw new Error('Invalid AI model details format');
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', {
+        original: aiResponse.content,
+        cleaned: cleanContent,
+        error: parseError
+      });
+      
+      // Attempt recovery by creating a basic model
+      modelDetails = {
+        name: "AI Model",
+        personality: job.customPrompt,
+        appearance: "A beautiful and friendly person",
+        backstory: "",
+        hobbies: "",
+        likes: "",
+        dislikes: ""
+      };
+      console.log('Using fallback model details:', modelDetails);
     }
 
     if (!modelDetails || typeof modelDetails !== 'object') {

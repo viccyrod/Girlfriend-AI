@@ -91,7 +91,10 @@ export async function POST(request: Request) {
 
     // If using queue system (default), redirect to queue endpoint
     if (useQueue) {
-      const queueResponse = await fetch(new URL('/api/ai-models/queue', request.url), {
+      const queueUrl = new URL(request.url);
+      queueUrl.pathname = '/api/ai-models/queue';
+      
+      const queueResponse = await fetch(queueUrl, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -102,7 +105,9 @@ export async function POST(request: Request) {
       });
 
       if (!queueResponse.ok) {
-        throw new Error(`Queue error: ${await queueResponse.text()}`);
+        const errorText = await queueResponse.text();
+        console.error('Queue error:', errorText);
+        throw new Error(`Queue error: ${errorText}`);
       }
 
       const queueData = await queueResponse.json();
