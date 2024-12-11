@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import BaseLayout from "@/components/BaseLayout";
 import Link from "next/link";
 import Image from "next/image";
-import { Users } from 'lucide-react';
+import { Users, ArrowRight, Sparkles } from 'lucide-react';
 import ChatButton from "@/components/ChatButton";
 import AuthWrapper from "@/components/ClientAuthWrapper";
 import CreateAIButton from "@/components/CreateAIButton";
@@ -13,6 +13,7 @@ import HeroSection from "@/components/HeroSection";
 import { WelcomeDialog } from "@/components/WelcomeDialog";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from 'framer-motion';
 
 interface AIModel {
   id: string;
@@ -37,6 +38,17 @@ export default function Home() {
       return res.json();
     }
   });
+
+  // Fetch total model count
+  const { data: modelStats } = useQuery({
+    queryKey: ['modelStats'],
+    queryFn: async () => {
+      const res = await fetch('/api/models/stats');
+      return res.json();
+    }
+  });
+
+  const totalModels = modelStats?.totalModels || 0;
 
   // Check if user has seen welcome dialog
   const { data: userData } = useQuery({
@@ -135,6 +147,50 @@ export default function Home() {
               </Link>
             ))}
           </div>
+
+          {/* View More Models Section */}
+          <motion.div 
+            className="mt-12 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+          >
+            <motion.div
+              className="inline-block"
+              animate={{ 
+                scale: [1, 1.02, 1],
+                rotate: [0, 1, 0] 
+              }}
+              transition={{ 
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            >
+              <Link href="/community" className="inline-block">
+                <Button
+                  size="lg"
+                  className="group relative px-8 py-6 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-xl shadow-xl shadow-pink-500/20 transition-all duration-300 hover:shadow-2xl hover:shadow-pink-500/30"
+                >
+                  <div className="absolute inset-0 bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <span className="relative flex items-center gap-3 text-lg font-semibold">
+                    <Sparkles className="w-5 h-5" />
+                    Discover {totalModels.toLocaleString()}+ AI Companions
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
+                  </span>
+                </Button>
+              </Link>
+            </motion.div>
+            
+            <motion.p 
+              className="mt-4 text-white/60"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8 }}
+            >
+              Join our growing community of AI enthusiasts
+            </motion.p>
+          </motion.div>
         </div>
       </BaseLayout>
     </AuthWrapper>

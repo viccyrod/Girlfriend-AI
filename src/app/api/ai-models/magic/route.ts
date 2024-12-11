@@ -8,6 +8,9 @@ import type { AIResponse } from '@/lib/ai-client';
 import { MAGIC_AI_PROMPT } from './prompts';
 import { uploadBase64Image } from '@/lib/cloudinary';
 import { z } from 'zod';
+import { checkTokenBalance, deductTokens } from '@/lib/tokens';
+import { GenerationType } from '@prisma/client';
+import { TOKEN_COSTS } from '@/lib/constants';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -89,6 +92,43 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check token balance first
+    const hasTokens = await checkTokenBalance(currentUser.id, GenerationType.CHARACTER);
+    if (!hasTokens) {
+      return NextResponse.json({ 
+        error: 'Insufficient tokens',
+        action: 'PURCHASE_TOKENS',
+        redirect: '/settings/billing',
+        title: '✨ Create Your Perfect AI Companion',
+        message: `Creating a unique AI companion requires ${TOKEN_COSTS.CHARACTER} tokens`,
+        details: {
+          required: TOKEN_COSTS.CHARACTER,
+          actionLabel: 'Get Tokens',
+          description: 'Get tokens now to bring your dream companion to life! Your customization will be saved.',
+          benefits: [
+            'Fully customized personality',
+            'Unique appearance & backstory',
+            'Professional profile photo',
+            'Private or public profile options',
+            'Unlimited chat messages'
+          ],
+          packages: [
+            {
+              tokens: 1000,
+              price: '$5',
+              description: 'Perfect for getting started'
+            },
+            {
+              tokens: 5000,
+              price: '$20',
+              description: 'Most popular choice',
+              featured: true
+            }
+          ]
+        }
+      }, { status: 402 });
+    }
+
     // If using queue system (default), redirect to queue endpoint
     if (useQueue) {
       const queueUrl = new URL(request.url);
@@ -116,6 +156,12 @@ export async function POST(request: Request) {
 
     // Legacy direct processing path
     try {
+      // Deduct tokens before processing
+      const deducted = await deductTokens(currentUser.id, GenerationType.CHARACTER, customPrompt);
+      if (!deducted) {
+        return NextResponse.json({ error: 'Failed to deduct tokens' }, { status: 402 });
+      }
+
       const aiResponse = await Promise.race([
         generateAIModelDetails(MAGIC_AI_PROMPT.replace(/\{\{CUSTOM_PROMPT\}\}/g, customPrompt)) as Promise<AIResponse>,
         timeout(AI_TIMEOUT)
