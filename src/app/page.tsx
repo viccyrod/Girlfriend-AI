@@ -14,6 +14,7 @@ import { WelcomeDialog } from "@/components/WelcomeDialog";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from 'framer-motion';
+import { Metadata } from "next";
 
 interface AIModel {
   id: string;
@@ -26,6 +27,27 @@ interface AIModel {
     id: string;
   };
 }
+
+const AnnouncementBar = () => {
+  return (
+    <div className="bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 text-white py-2 px-4 text-center relative overflow-hidden">
+      <div className="animate-gradient-x absolute inset-0 bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 opacity-50"></div>
+      <div className="relative flex items-center justify-center gap-2 text-sm sm:text-base">
+        <Sparkles className="w-4 h-4" />
+        <span>
+          We are now in Beta! For feedback and support:{" "}
+          <a 
+            href="mailto:papi@girlfriend.cx" 
+            className="font-semibold hover:underline decoration-white/50 underline-offset-2"
+          >
+            papi@girlfriend.cx
+          </a>
+        </span>
+        <Sparkles className="w-4 h-4" />
+      </div>
+    </div>
+  );
+};
 
 export default function Home() {
   const { user } = useKindeBrowserClient();
@@ -73,6 +95,7 @@ export default function Home() {
   return (
     <AuthWrapper isAuthenticated={!!user}>
       <BaseLayout>
+        <AnnouncementBar />
         <HeroSection />
         
         <WelcomeDialog 
