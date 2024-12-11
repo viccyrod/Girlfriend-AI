@@ -184,16 +184,16 @@ export default function ChatComponent({
   const sidebarContent = useMemo(() => (
     <div className={cn(
       "h-full w-[280px] bg-[#0f0f0f] border-r border-white/5",
-      "fixed inset-y-0 left-0 z-20 md:relative md:translate-x-0",
+      "fixed inset-y-0 left-0 z-30 md:relative md:translate-x-0",
       "transition-transform duration-300 ease-in-out",
       isSidebarOpen ? "translate-x-0" : "-translate-x-full",
-      "md:shadow-none"
+      "flex flex-col"
     )}>
-      <div className="flex flex-col h-full">
-        <div className="shrink-0 p-4 border-b border-white/5">
+      <div className="flex-1 flex flex-col h-full">
+        <div className="shrink-0 p-4 border-b border-white/5 hidden md:block">
           <h2 className="font-medium text-white/70">Your Chats</h2>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-hidden">
           <ChatRoomList
             rooms={chatRooms}
             selectedRoom={selectedRoom}
@@ -201,6 +201,7 @@ export default function ChatComponent({
             onDeleteRoom={handleDeleteRoom}
             loadingRoomId={loadingRoomId}
             isDeletingRoom={isDeletingRoom}
+            onClose={() => setIsSidebarOpen(false)}
           />
         </div>
       </div>
@@ -210,7 +211,7 @@ export default function ChatComponent({
   const backdropOverlay = useMemo(() => (
     <div 
       className={cn(
-        "fixed inset-0 bg-black/50 z-10 md:hidden",
+        "fixed inset-0 bg-black/50 z-20 md:hidden",
         "transition-opacity duration-300",
         isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
       )}
