@@ -4,6 +4,8 @@ import prisma from '@/lib/prisma';
 import { storeMemory, retrieveMemories } from '@/utils/memory';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { shouldGenerateImage } from '@/lib/chat-client';
+import { checkTokenBalance, deductTokens } from '@/lib/tokens';
+import { GenerationType } from '@prisma/client';
 
 export const runtime = 'nodejs';
 
@@ -30,6 +32,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
     
     if (!user) {
       return new Response('Unauthorized', { status: 401 });
+    }
+
+    // Check token balance first
+    const hasTokens = await checkTokenBalance(user.id, GenerationType.CHAT);
+    if (!hasTokens) {
+      return new Response('Insufficient tokens', { status: 402 });
     }
 
     const { content } = await request.json();
@@ -108,6 +116,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
       response.headers.set('Connection', 'keep-alive');
 
       return response;
+    }
+
+    // Deduct token for chat message
+    const deducted = await deductTokens(user.id, GenerationType.CHAT, content);
+    if (!deducted) {
+      return new Response('Failed to deduct tokens', { status: 402 });
     }
 
     // Get previous messages for context

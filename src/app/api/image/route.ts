@@ -5,6 +5,8 @@ import { v2 as cloudinary } from 'cloudinary';
 import { RunPodClient } from '@/lib/clients/runpod';
 import { messageEmitter } from '@/lib/messageEmitter';
 import { addImageToAIModel } from '@/lib/utils/image';
+import { checkTokenBalance, deductTokens } from '@/lib/tokens';
+import { GenerationType } from '@prisma/client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +23,12 @@ export async function POST(request: Request) {
     const currentUser = await getDbUser();
     if (!currentUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check token balance first
+    const hasTokens = await checkTokenBalance(currentUser.id, GenerationType.IMAGE);
+    if (!hasTokens) {
+      return NextResponse.json({ error: 'Insufficient tokens' }, { status: 402 });
     }
 
     // Verify RunPod API key is set
@@ -46,6 +54,12 @@ export async function POST(request: Request) {
 
     if (!chatRoom?.aiModel) {
       return NextResponse.json({ error: 'Chat room or AI model not found' }, { status: 404 });
+    }
+
+    // Deduct tokens for image generation
+    const deducted = await deductTokens(currentUser.id, GenerationType.IMAGE, prompt);
+    if (!deducted) {
+      return NextResponse.json({ error: 'Failed to deduct tokens' }, { status: 402 });
     }
 
     console.log('🎨 Creating image generation message...');
@@ -367,7 +381,7 @@ export async function GET(request: Request) {
             status.output.image,
             false
           );
-          console.log('💾 Image saved to Image table');
+          console.log('���� Image saved to Image table');
         }
 
         console.log('📝 Message updated with image URL');
