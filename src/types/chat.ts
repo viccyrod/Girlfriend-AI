@@ -23,11 +23,11 @@ export type AiModel = {
   backstory: string;
   hobbies: string;
   dislikes: string;
-  imageUrl: string;
+  imageUrl: string | null;
   voiceId: string | null;
   isPrivate: boolean;
   followerCount: number;
-  isFollowing: boolean;
+  isFollowing?: boolean;
   isHumanX: boolean;
   isAnime: boolean;
   age: number | null;

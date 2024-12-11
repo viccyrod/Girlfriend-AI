@@ -1,28 +1,20 @@
-import { ExtendedChatRoom } from '@/types/chat';
-import { Button } from '@/components/ui/button';
-import { Trash2, Loader2, MessageSquare } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { ScrollArea } from '@/components/ui/scroll-area';
+'use client';
 
-export interface ChatRoomListProps {
+import React from 'react';
+import { ExtendedChatRoom } from '@/types/chat';
+import { cn } from '@/lib/utils';
+import { Loader2, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import Image from 'next/image';
+
+interface ChatRoomListProps {
   rooms: ExtendedChatRoom[];
   selectedRoom: ExtendedChatRoom | null;
-  onRoomSelect: (room: ExtendedChatRoom) => Promise<void>;
-  onDeleteRoom: (roomId: string) => Promise<void>;
-  loadingRoomId: string | null;
-  isDeletingRoom: string | null;
-  isLoading?: boolean;
+  onRoomSelect: (room: ExtendedChatRoom) => void;
+  onDeleteRoom?: (roomId: string) => void;
+  loadingRoomId?: string | null;
+  isDeletingRoom?: string | null;
 }
-
-const getLastMessagePreview = (room: ExtendedChatRoom): string => {
-  if (!room.messages || room.messages.length === 0) {
-    return 'No messages yet';
-  }
-  const lastMessage = room.messages[0];
-  return lastMessage.content || 'Empty message';
-};
 
 export function ChatRoomList({
   rooms,
@@ -30,108 +22,102 @@ export function ChatRoomList({
   onRoomSelect,
   onDeleteRoom,
   loadingRoomId,
-  isDeletingRoom,
-  isLoading = false
+  isDeletingRoom
 }: ChatRoomListProps) {
-  console.log('🏠 ChatRoomList: Rendering with rooms:', rooms.length);
-  
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto">
-        {isLoading ? (
-          <div className="p-8 flex flex-col items-center justify-center text-center space-y-4">
-            <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
-            <p className="text-sm text-muted-foreground">Loading chats...</p>
-          </div>
-        ) : rooms.length === 0 ? (
-          <div className="p-8 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center">
-              <MessageSquare className="w-6 h-6 text-white" />
-            </div>
-            <div className="space-y-2">
-              <p className="font-medium">No chat rooms available</p>
-              <p className="text-sm text-muted-foreground">
-                Start a new conversation with an AI companion
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="p-2 space-y-1">
-            {rooms.map((room) => {
-              console.log('🏠 ChatRoomList: Rendering room:', room.id, room.aiModel?.name);
-              return (
-                <div
-                  key={room.id}
-                  onClick={() => onRoomSelect(room)}
-                  role="button"
-                  tabIndex={0}
-                  aria-disabled={isDeletingRoom === room.id}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onRoomSelect(room);
-                    }
-                  }}
-                  className={cn(
-                    "w-full p-3 rounded-xl flex items-center gap-3 relative group transition-all duration-200",
-                    "hover:bg-pink-500/10",
-                    "focus:outline-none focus:ring-2 focus:ring-pink-500/50",
-                    isDeletingRoom === room.id && "opacity-50 cursor-not-allowed pointer-events-none",
-                    selectedRoom?.id === room.id && "bg-pink-500/10",
-                    "cursor-pointer"
-                  )}
-                >
-                  {/* AI Avatar */}
-                  <Avatar className="w-10 h-10 ring-2 ring-pink-500/20 transition-all duration-300 group-hover:ring-pink-500/40">
-                    <AvatarImage 
-                      src={room.aiModel?.imageUrl || ''} 
-                      className="object-cover"
-                    />
-                    <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white">
-                      {room.aiModel?.name?.[0]}
-                    </AvatarFallback>
-                  </Avatar>
+    <div className="h-[calc(100vh-10rem)] overflow-y-auto scrollbar-pretty">
+      {rooms.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-full text-center p-4">
+          <p className="text-sm text-white/50">No chats yet</p>
+          <p className="text-xs text-white/30 mt-1">Start a new conversation to begin</p>
+        </div>
+      ) : (
+        <div className="py-1 px-2">
+          {rooms.map((room) => (
+            <button
+              key={room.id}
+              onClick={() => onRoomSelect(room)}
+              disabled={loadingRoomId === room.id}
+              className={cn(
+                "w-full text-left p-2.5 rounded-lg mb-1",
+                "flex items-center gap-3",
+                "transition-all duration-200",
+                "group relative",
+                selectedRoom?.id === room.id
+                  ? "bg-pink-500/10 hover:bg-pink-500/20"
+                  : "hover:bg-white/5",
+                loadingRoomId === room.id && "opacity-50 cursor-wait"
+              )}
+            >
+              {/* AI Avatar */}
+              <div className="shrink-0 w-9 h-9 rounded-full overflow-hidden border border-white/10">
+                {room.aiModel?.imageUrl ? (
+                  <Image
+                    src={room.aiModel.imageUrl}
+                    alt={room.aiModel.name || 'AI Avatar'}
+                    width={36}
+                    height={36}
+                    className="object-cover"
+                    sizes="36px"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-pink-500/20 to-purple-500/20" />
+                )}
+              </div>
 
-                  {/* Chat Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium truncate">
-                        {room.aiModel?.name || 'AI Chat'}
-                      </h3>
-                      <time className="text-xs text-muted-foreground">
-                        {format(new Date(room.updatedAt), 'HH:mm')}
-                      </time>
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {room.messages?.[0]?.content || 'Start a conversation...'}
-                    </p>
-                  </div>
-
-                  {/* Delete Button */}
-                  {selectedRoom?.id === room.id && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteRoom(room.id);
-                      }}
-                      disabled={isDeletingRoom === room.id}
-                      className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 hover:bg-pink-500/10 text-pink-500/80 hover:text-pink-500 transition-all duration-200"
-                    >
-                      {isDeletingRoom === room.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </Button>
+              {/* Room Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-white truncate">
+                    {room.aiModel?.name || 'AI Assistant'}
+                  </p>
+                  {room.messages && room.messages.length > 0 && (
+                    <span className="text-xs text-white/30">
+                      {new Date(room.messages[0].createdAt).toLocaleDateString()}
+                    </span>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                <p className="text-xs text-white/50 truncate">
+                  {room.messages && room.messages.length > 0
+                    ? room.messages[0].content
+                    : 'No messages yet'}
+                </p>
+              </div>
+
+              {/* Loading State */}
+              {loadingRoomId === room.id && (
+                <Loader2 className="shrink-0 w-4 h-4 animate-spin text-white/30" />
+              )}
+
+              {/* Delete Button */}
+              {onDeleteRoom && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteRoom(room.id);
+                  }}
+                  disabled={isDeletingRoom === room.id}
+                  className={cn(
+                    "shrink-0 h-7 w-7 rounded-full",
+                    "opacity-0 group-hover:opacity-100",
+                    "transition-opacity duration-200",
+                    "hover:bg-red-500/10 hover:text-red-500",
+                    isDeletingRoom === room.id && "opacity-50 cursor-wait"
+                  )}
+                >
+                  {isDeletingRoom === room.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                </Button>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
