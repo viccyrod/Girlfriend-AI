@@ -199,13 +199,13 @@ export function ClientChatMessages({
 
   return (
     <div className={cn(
-      "flex flex-col h-[calc(100vh-4rem)]",
-      "bg-[#0a0a0a]",
-      "relative",
-      "md:h-[calc(100vh-3.5rem)]"
+      "flex flex-col",
+      "h-[calc(100vh-6rem)]",
+      "md:h-[calc(100vh-3rem)]",
+      "bg-[#0a0a0a]"
     )}>
-      {/* Chat Info Bar - Fixed at top */}
-      <div className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-white/5">
+      {/* Chat Info Bar */}
+      <div className="shrink-0 border-b border-white/5">
         <ChatInfoBar
           modelImage={model?.imageUrl || selectedRoom?.aiModel?.imageUrl}
           modelName={model?.name || selectedRoom?.aiModel?.name || 'AI Assistant'}
@@ -213,7 +213,7 @@ export function ClientChatMessages({
         />
       </div>
 
-      {/* Message List - Flexible height */}
+      {/* Message List */}
       <div className="flex-1 overflow-hidden">
         <ChatMessageList
           messageGroups={messageGroups}
@@ -224,12 +224,8 @@ export function ClientChatMessages({
         />
       </div>
 
-      {/* Chat Input - Fixed at bottom with safe area padding on mobile */}
-      <div className={cn(
-        "sticky bottom-0 z-10",
-        "bg-[#0a0a0a]",
-        "pb-safe" // Add safe area padding for mobile
-      )}>
+      {/* Chat Input */}
+      <div className="shrink-0 bg-[#0a0a0a] border-t border-white/5">
         <ChatInput
           value={state.newMessage}
           onChange={(e) => dispatch({ type: 'SET_NEW_MESSAGE', payload: e.target.value })}

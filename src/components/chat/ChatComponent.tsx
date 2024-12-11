@@ -230,23 +230,25 @@ export default function ChatComponent({
       {backdropOverlay}
       {sidebarContent}
       
-      <div className="flex-1 flex flex-col">
-        <div className="flex items-center justify-between p-4 md:justify-end">
+      <div className="flex-1 flex flex-col h-full">
+        <div className="h-12 flex items-center px-4 md:hidden">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="md:hidden"
+            className="h-8 w-8 -ml-2"
           >
-            {isSidebarOpen ? <ChevronLeft /> : <ChevronRight />}
+            {isSidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
           </Button>
         </div>
 
-        <ClientChatMessages
-          messages={messages}
-          setMessages={setMessages}
-          selectedRoom={selectedRoom}
-        />
+        <div className="flex-1">
+          <ClientChatMessages
+            messages={messages}
+            setMessages={setMessages}
+            selectedRoom={selectedRoom}
+          />
+        </div>
       </div>
     </div>
   );

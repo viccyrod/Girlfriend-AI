@@ -75,10 +75,10 @@ export function ChatMessageList({
   });
 
   return (
-    <div className="relative flex-1 min-h-0">
+    <div className="relative flex-1 h-full">
       <div 
         ref={parentRef}
-        className="h-full overflow-y-auto scrollbar-pretty"
+        className="h-full overflow-y-auto scrollbar-pretty pb-4"
       >
         {error && (
           <div className="px-4 pt-4">
@@ -114,7 +114,7 @@ export function ChatMessageList({
                 data-index={virtualRow.index}
                 ref={rowVirtualizer.measureElement}
                 className={cn(
-                  "absolute top-0 left-0 w-full px-4",
+                  "absolute top-0 left-0 w-full",
                   "transform transition-all duration-200"
                 )}
                 style={{
@@ -129,7 +129,7 @@ export function ChatMessageList({
                 </div>
 
                 {/* Message Group */}
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {group.messages.map((message, index) => (
                     <MemoizedMessageBubble
                       key={message.id}
