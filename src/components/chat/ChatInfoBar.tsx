@@ -5,12 +5,13 @@ import { User, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 interface ChatInfoBarProps {
   modelImage?: string | null;
   modelName: string;
   modelPersonality: string;
-  onViewProfile?: () => void;
+  modelId: string;
 }
 
 const truncateDescription = (text: string, limit: number = 30) => {
@@ -22,7 +23,7 @@ export function ChatInfoBar({
   modelImage,
   modelName,
   modelPersonality,
-  onViewProfile
+  modelId
 }: ChatInfoBarProps) {
   return (
     <div className="shrink-0 border-b border-white/5 bg-[#0f0f0f]">
@@ -71,10 +72,9 @@ export function ChatInfoBar({
         </div>
 
         {/* View Profile Button */}
-        {onViewProfile && (
+        <Link href={`/community/AIModelProfile/${modelId}`} className="block">
           <Button
             variant="ghost"
-            onClick={onViewProfile}
             className={cn(
               "h-8 px-3 rounded-full",
               "bg-gradient-to-r from-pink-500/10 to-purple-500/10",
@@ -89,7 +89,7 @@ export function ChatInfoBar({
             <span className="text-white/70 group-hover:text-white">View Profile</span>
             <ExternalLink className="w-3.5 h-3.5 text-pink-500/70 group-hover:text-pink-500" />
           </Button>
-        )}
+        </Link>
       </div>
     </div>
   );

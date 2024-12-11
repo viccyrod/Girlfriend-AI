@@ -12,6 +12,7 @@ import { ChevronRight, Loader2, ChevronLeft } from 'lucide-react';
 import { ClientChatMessages } from './ClientChatMessages';
 import { deleteChatRoom, getOrCreateChatRoom } from '@/lib/actions/chat';
 import { cn } from '@/lib/utils';
+import { ChatInfoBar } from './ChatInfoBar';
 
 interface ChatComponentProps {
   initialChatRoom?: ExtendedChatRoom;
@@ -248,6 +249,14 @@ export default function ChatComponent({
             setMessages={setMessages}
             selectedRoom={selectedRoom}
           />
+          {selectedRoom?.aiModel && (
+            <ChatInfoBar
+              modelImage={selectedRoom.aiModel.imageUrl}
+              modelName={selectedRoom.aiModel.name}
+              modelPersonality={selectedRoom.aiModel.personality}
+              modelId={selectedRoom.aiModel.id}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -88,6 +88,7 @@ export function ClientChatMessages({
     newMessage: '',
     isLoading: false
   });
+  const [sseConnected, setSseConnected] = useState(false);
 
   // Memoize message groups
   const messageGroups = useMemo(() => groupMessagesByDate(messages), [messages]);
@@ -251,6 +252,11 @@ export function ClientChatMessages({
     console.log('🔌 Setting up SSE connection...');
     const eventSource = new EventSource(`/api/chat/${selectedRoom.id}/stream`);
 
+    eventSource.onopen = () => {
+      console.log('📡 SSE connection opened');
+      setSseConnected(true);
+    };
+
     eventSource.addEventListener('message', (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -297,19 +303,6 @@ export function ClientChatMessages({
             });
             return [...prev, data.message];
           });
-        } else if (data.type === 'chunk') {
-          setMessages(prev => {
-            const lastMessage = prev[prev.length - 1];
-            if (lastMessage?.isAIMessage && lastMessage.metadata?.type === 'text') {
-              const newMessages = [...prev];
-              newMessages[prev.length - 1] = {
-                ...lastMessage,
-                content: lastMessage.content + data.content
-              };
-              return newMessages;
-            }
-            return prev;
-          });
         }
       } catch (error) {
         console.error('❌ Error processing SSE message:', error);
@@ -318,11 +311,19 @@ export function ClientChatMessages({
 
     eventSource.addEventListener('error', (error) => {
       console.error('❌ SSE connection error:', error);
-      eventSource.close();
+      setSseConnected(false);
+      // Try to reconnect after a delay
+      setTimeout(() => {
+        console.log('🔄 Attempting to reconnect SSE...');
+        eventSource.close();
+        const newEventSource = new EventSource(`/api/chat/${selectedRoom.id}/stream`);
+        eventSource.onopen = () => setSseConnected(true);
+      }, 1000);
     });
 
     return () => {
       console.log('🔌 Closing SSE connection');
+      setSseConnected(false);
       eventSource.close();
     };
   }, [selectedRoom?.id]);
@@ -350,7 +351,7 @@ export function ClientChatMessages({
           modelImage={model?.imageUrl || selectedRoom?.aiModel?.imageUrl}
           modelName={model?.name || selectedRoom?.aiModel?.name || 'AI Assistant'}
           modelPersonality={model?.personality || selectedRoom?.aiModel?.personality || 'Online'}
-          onViewProfile={() => window.open(`/models/${selectedRoom?.aiModelId}`, '_blank')}
+          modelId={selectedRoom?.aiModelId || ''}
         />
       </div>
 

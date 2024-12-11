@@ -181,16 +181,37 @@ async function pollImageStatus(jobId: string, messageId: string, chatRoomId: str
 
             console.log('📝 Message updated with image URL');
 
-            // Emit the updated message without spreading metadata
-            messageEmitter.emit(`chat:${chatRoomId}`, {
-              type: 'image_generation',
+            // Emit the updated message with retry logic
+            let emitSuccess = false;
+            for (let i = 0; i < 3 && !emitSuccess; i++) {
+              try {
+                messageEmitter.emit(`chat:${chatRoomId}`, {
+                  type: 'image_generation',
+                  message: updatedMessage
+                });
+                emitSuccess = true;
+                console.log('📢 Image update emitted to chat successfully');
+              } catch (error) {
+                console.error(`❌ Failed to emit message update (attempt ${i + 1}):`, error);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+              }
+            }
+
+            if (!emitSuccess) {
+              console.error('❌ Failed to emit message update after all retries');
+            }
+
+            return NextResponse.json({ 
+              success: true,
+              status: 'completed',
               message: updatedMessage
             });
-
-            console.log('📢 Image update emitted to chat');
           } catch (error) {
             console.error('❌ Error processing completed image:', error);
-            throw error;
+            return NextResponse.json({ 
+              error: 'Failed to process completed image',
+              details: error instanceof Error ? error.message : 'Unknown error'
+            }, { status: 500 });
           }
         } else if (status.status === 'FAILED') {
           clearInterval(pollInterval);

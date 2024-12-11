@@ -144,4 +144,5 @@ export type MessageMetadata = {
   imageUrl?: string;
   prompt?: string;
   style?: string;
+  status?: 'generating' | 'completed' | 'error';
 }
