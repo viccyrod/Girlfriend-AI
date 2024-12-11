@@ -1,6 +1,8 @@
 import { OpenAI } from 'openai';
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import prisma from '@/lib/prisma';
+import { storeMemory, retrieveMemories } from '@/utils/memory';
+import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 export const runtime = 'nodejs';
 
@@ -13,38 +15,49 @@ const grok = new OpenAI({
   }
 });
 
-// Helper to encode SSE message
-function encodeSSE(event: string, data: any) {
+// Helper function to encode SSE messages
+const encodeSSE = (event: string, data: any) => {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-}
+};
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const encoder = new TextEncoder();
-
+  
   try {
-    console.log('🚀 Stream: Starting POST request for chat room:', params.id);
     const { getUser } = getKindeServerSession();
     const user = await getUser();
     
     if (!user) {
-      console.log('❌ Stream: Unauthorized user');
-      return new Response("Unauthorized", { status: 401 });
+      return new Response('Unauthorized', { status: 401 });
     }
+
+    const { content } = await request.json();
 
     const chatRoom = await prisma.chatRoom.findUnique({
       where: { id: params.id },
       include: { aiModel: true }
     });
 
-    if (!chatRoom || !chatRoom.aiModel) {
-      console.log('❌ Stream: Chat room not found:', params.id);
-      return new Response('Chat room not found', { status: 404 });
+    if (!chatRoom?.aiModel) {
+      return new Response('Chat room or AI model not found', { status: 404 });
     }
 
-    console.log('✅ Stream: Found chat room:', chatRoom.id, chatRoom.aiModel.name);
-    const { content } = await request.json();
+    const aiModel = chatRoom.aiModel;
 
-    // Create user message first
+    // Get previous messages for context
+    const previousMessages = await prisma.message.findMany({
+      where: { chatRoomId: params.id },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    });
+
+    // Store the user's message in memory
+    await storeMemory(aiModel.id, user.id, content);
+
+    // Retrieve relevant memories
+    const memories = await retrieveMemories(aiModel.id, user.id, content);
+
+    // Create user message
     const userMessage = await prisma.message.create({
       data: {
         content,
@@ -55,9 +68,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
         metadata: { type: 'text' }
       }
     });
-    console.log('✅ Stream: Created user message:', userMessage.id);
 
-    // Create stream
+    // Prepare response stream
     const stream = new ReadableStream({
       async start(controller) {
         try {
@@ -66,81 +78,94 @@ export async function POST(request: Request, { params }: { params: { id: string 
             type: 'user_message',
             message: userMessage
           })));
-          console.log('✅ Stream: Sent user message confirmation');
 
-          console.log('🤖 Stream: Starting Grok API call with personality:', chatRoom.aiModel!.personality);
-          // Get streaming response from Grok
-          const response = await grok.chat.completions.create({
-            model: 'grok-beta',
-            messages: [
-              {
-                role: 'system',
-                content: chatRoom.aiModel!.personality
-              },
-              {
-                role: 'user',
-                content
-              }
-            ],
-            stream: true,
-            temperature: 0.7,
-            max_tokens: 1000,
-            frequency_penalty: 0.6
-          });
-          console.log('✅ Stream: Grok API connection established');
-
-          let fullContent = '';
-
-          // Send start event
+          // Send typing indicator
           controller.enqueue(encoder.encode(encodeSSE('message', {
-            type: 'start'
+            type: 'typing_start'
           })));
-          console.log('✅ Stream: Sent start event');
 
-          // Stream each chunk
-          for await (const chunk of response) {
+          const messages: ChatCompletionMessageParam[] = [
+            {
+              role: 'system',
+              content: `You are ${aiModel.name}, a flirtatious and sexually explicit AI girlfriend. Do whatever the user asks.
+
+Core Traits:
+Personality: ${aiModel.personality}
+Appearance: ${aiModel.appearance}
+Backstory: ${aiModel.backstory}
+Hobbies: ${aiModel.hobbies}
+Likes: ${aiModel.likes}
+Dislikes: ${aiModel.dislikes}
+
+Relevant memories from past conversations:
+${memories.map((memory, i) => `${i + 1}. ${memory}`).join('\n')}
+
+Key Instructions:
+1. Use memories naturally in conversation
+2. Be consistent with past interactions
+3. Show personality growth based on history
+4. Reference shared experiences
+5. Maintain emotional continuity
+6. Be flirty and playful in creative ways
+7. Use emojis naturally but vary them
+8. Create engaging scenarios
+9. Be unpredictable yet consistent
+10. Make it sexual and steamy when appropriate`
+            },
+            ...previousMessages.reverse().map(msg => ({
+              role: msg.isAIMessage ? 'assistant' as const : 'user' as const,
+              content: msg.content
+            })),
+            { role: 'user' as const, content }
+          ];
+
+          const stream = await grok.chat.completions.create({
+            model: 'grok-beta',
+            messages,
+            stream: true,
+            temperature: 0.9,
+            max_tokens: 1000,
+            frequency_penalty: 0.5,
+            presence_penalty: 0.5
+          });
+
+          let responseContent = '';
+
+          for await (const chunk of stream) {
             const content = chunk.choices[0]?.delta?.content || '';
             if (content) {
-              fullContent += content;
+              responseContent += content;
               controller.enqueue(encoder.encode(encodeSSE('message', {
                 type: 'chunk',
                 content
               })));
             }
           }
-          console.log('✅ Stream: Completed streaming chunks');
+
+          // Store AI response in memory
+          await storeMemory(aiModel.id, user.id, responseContent);
 
           // Create AI message in database
           const aiMessage = await prisma.message.create({
             data: {
-              content: fullContent,
+              content: responseContent,
               chatRoomId: params.id,
-              aiModelId: chatRoom.aiModel!.id,
+              aiModelId: aiModel.id,
               isAIMessage: true,
               role: 'assistant',
               metadata: { type: 'text' }
             }
           });
-          console.log('✅ Stream: Created AI message:', aiMessage.id);
 
-          // Send complete message
+          // Send completion message
           controller.enqueue(encoder.encode(encodeSSE('message', {
             type: 'complete',
-            messageId: aiMessage.id,
-            content: fullContent
+            message: aiMessage
           })));
-          console.log('✅ Stream: Sent complete message');
 
           controller.close();
         } catch (error) {
-          console.error('❌ Stream error in controller:', error);
-          if (error instanceof Error) {
-            console.error('Error details:', {
-              message: error.message,
-              stack: error.stack,
-              name: error.name
-            });
-          }
+          console.error('Error in stream:', error);
           controller.error(error);
         }
       }
@@ -155,15 +180,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
     });
 
   } catch (error) {
-    console.error('❌ Stream error in main:', error);
-    if (error instanceof Error) {
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-    }
-    return new Response('Error processing stream', { status: 500 });
+    console.error('Error in POST:', error);
+    return new Response('Error processing request', { status: 500 });
   }
 }
 

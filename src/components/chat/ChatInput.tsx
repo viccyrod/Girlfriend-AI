@@ -44,7 +44,7 @@ export function ChatInput({
 
   return (
     <div className="shrink-0 border-t border-white/5 bg-[#0f0f0f]">
-      <form onSubmit={onSubmit} className="px-4 py-3 flex gap-2 items-end">
+      <form onSubmit={onSubmit} className="p-2 md:p-3 flex gap-2 items-end">
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
@@ -55,31 +55,37 @@ export function ChatInput({
             rows={1}
             className={cn(
               "w-full resize-none",
-              "px-4 py-3 rounded-xl",
+              "px-3 py-2.5 md:px-4 md:py-3",
+              "rounded-xl",
               "bg-[#1a1a1a] border border-white/10",
               "focus:outline-none focus:ring-2 focus:ring-pink-500/20",
               "placeholder:text-white/20",
-              "text-white",
-              "min-h-[44px] max-h-[120px]",
+              "text-white text-[15px]",
+              "min-h-[44px] max-h-[160px]",
               "transition-all duration-200",
               "scrollbar-pretty",
+              "touch-manipulation",
               isLoading && "opacity-50"
             )}
             disabled={isLoading}
             maxLength={maxLength}
           />
           {/* Character Count */}
-          <div className="absolute right-3 bottom-3 text-xs text-white/30">
+          <div className="absolute right-2 bottom-2 md:right-3 md:bottom-3 text-xs text-white/30">
             {value.length}/{maxLength}
           </div>
         </div>
 
-        {/* Emoji Button */}
+        {/* Emoji Button - Hidden on narrow mobile */}
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-11 w-11 rounded-xl hover:bg-white/5"
+          className={cn(
+            "hidden sm:flex h-11 w-11 rounded-xl",
+            "hover:bg-white/5",
+            "items-center justify-center"
+          )}
         >
           <Smile className="w-5 h-5 text-white/50" />
         </Button>
@@ -89,13 +95,15 @@ export function ChatInput({
           type="submit"
           disabled={!value.trim() || isLoading || value.length > maxLength}
           className={cn(
-            "h-11 px-4 rounded-xl",
+            "h-11 aspect-square md:px-4 md:aspect-auto rounded-xl",
             "bg-gradient-to-r from-pink-500 to-purple-600",
             "text-white font-medium",
             "transition-all duration-200",
             "disabled:opacity-50",
             "relative overflow-hidden",
             "hover:shadow-lg hover:shadow-pink-500/20",
+            "active:scale-95",
+            "touch-manipulation",
             "group"
           )}
         >
@@ -103,7 +111,8 @@ export function ChatInput({
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
             <>
-              <Send className="w-5 h-5 relative z-10" />
+              <Send className="w-5 h-5 relative z-10 md:mr-2" />
+              <span className="hidden md:inline relative z-10">Send</span>
               <div className="absolute inset-0 bg-gradient-to-r from-pink-600 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </>
           )}
