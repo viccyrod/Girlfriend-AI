@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ExtendedChatRoom, Message, MessageMetadata } from '@/types/chat';
 import { ChatRoomList } from './ChatRoomList';
 import { ChevronRight, Loader2, ChevronLeft } from 'lucide-react';
-import ClientChatMessages from './ClientChatMessages';
+import { ClientChatMessages } from './ClientChatMessages';
 import { deleteChatRoom, getOrCreateChatRoom } from '@/lib/actions/chat';
 import { cn } from '@/lib/utils';
 
@@ -94,6 +94,9 @@ export default function ChatComponent({
       const data = await response.json();
       setMessages(data.messages?.map(transformMessage) || []);
       setSelectedRoom(room);
+      if (window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      }
     } catch (error) {
       console.error('Error selecting room:', error);
       toast({
@@ -181,7 +184,9 @@ export default function ChatComponent({
     <div className={cn(
       "h-full w-[280px] bg-[#0f0f0f] border-r border-white/5",
       "fixed inset-y-0 left-0 z-20 md:relative md:translate-x-0",
-      isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      "transition-transform duration-300 ease-in-out",
+      isSidebarOpen ? "translate-x-0" : "-translate-x-full",
+      "md:shadow-none"
     )}>
       <div className="flex flex-col h-full">
         <div className="shrink-0 p-4 border-b border-white/5">
@@ -201,6 +206,17 @@ export default function ChatComponent({
     </div>
   ), [chatRooms, selectedRoom, isSidebarOpen, loadingRoomId, isDeletingRoom, handleRoomSelection, handleDeleteRoom]);
 
+  const backdropOverlay = useMemo(() => (
+    <div 
+      className={cn(
+        "fixed inset-0 bg-black/50 z-10 md:hidden",
+        "transition-opacity duration-300",
+        isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+      )}
+      onClick={() => setIsSidebarOpen(false)}
+    />
+  ), [isSidebarOpen]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -211,6 +227,7 @@ export default function ChatComponent({
 
   return (
     <div className="flex h-full">
+      {backdropOverlay}
       {sidebarContent}
       
       <div className="flex-1 flex flex-col">

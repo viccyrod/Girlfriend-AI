@@ -25,22 +25,22 @@ export function ChatRoomList({
   isDeletingRoom
 }: ChatRoomListProps) {
   return (
-    <div className="h-[calc(100vh-10rem)] overflow-y-auto scrollbar-pretty">
+    <div className="h-[calc(100vh-7rem)] overflow-y-auto scrollbar-pretty">
       {rooms.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full text-center p-4">
           <p className="text-sm text-white/50">No chats yet</p>
           <p className="text-xs text-white/30 mt-1">Start a new conversation to begin</p>
         </div>
       ) : (
-        <div className="py-1 px-2">
+        <div className="py-2 px-3">
           {rooms.map((room) => (
             <button
               key={room.id}
               onClick={() => onRoomSelect(room)}
               disabled={loadingRoomId === room.id}
               className={cn(
-                "w-full text-left p-2.5 rounded-lg mb-1",
-                "flex items-center gap-3",
+                "w-full text-left p-3.5 rounded-lg mb-2",
+                "flex items-center gap-4",
                 "transition-all duration-200",
                 "group relative",
                 selectedRoom?.id === room.id
@@ -50,15 +50,15 @@ export function ChatRoomList({
               )}
             >
               {/* AI Avatar */}
-              <div className="shrink-0 w-9 h-9 rounded-full overflow-hidden border border-white/10">
+              <div className="shrink-0 w-12 h-12 rounded-full overflow-hidden border border-white/10">
                 {room.aiModel?.imageUrl ? (
                   <Image
                     src={room.aiModel.imageUrl}
                     alt={room.aiModel.name || 'AI Avatar'}
-                    width={36}
-                    height={36}
+                    width={48}
+                    height={48}
                     className="object-cover"
-                    sizes="36px"
+                    sizes="48px"
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-pink-500/20 to-purple-500/20" />
@@ -68,7 +68,7 @@ export function ChatRoomList({
               {/* Room Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-white truncate">
+                  <p className="text-[15px] font-medium text-white truncate">
                     {room.aiModel?.name || 'AI Assistant'}
                   </p>
                   {room.messages && room.messages.length > 0 && (
@@ -77,7 +77,7 @@ export function ChatRoomList({
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-white/50 truncate">
+                <p className="text-sm text-white/50 truncate mt-0.5">
                   {room.messages && room.messages.length > 0
                     ? room.messages[0].content
                     : 'No messages yet'}
@@ -86,7 +86,7 @@ export function ChatRoomList({
 
               {/* Loading State */}
               {loadingRoomId === room.id && (
-                <Loader2 className="shrink-0 w-4 h-4 animate-spin text-white/30" />
+                <Loader2 className="shrink-0 w-5 h-5 animate-spin text-white/30" />
               )}
 
               {/* Delete Button */}
@@ -100,7 +100,7 @@ export function ChatRoomList({
                   }}
                   disabled={isDeletingRoom === room.id}
                   className={cn(
-                    "shrink-0 h-7 w-7 rounded-full",
+                    "shrink-0 h-8 w-8 rounded-full",
                     "opacity-0 group-hover:opacity-100",
                     "transition-opacity duration-200",
                     "hover:bg-red-500/10 hover:text-red-500",
@@ -108,9 +108,9 @@ export function ChatRoomList({
                   )}
                 >
                   {isDeletingRoom === room.id ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   )}
                 </Button>
               )}
