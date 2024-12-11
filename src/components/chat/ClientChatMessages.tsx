@@ -221,6 +221,7 @@ export function ClientChatMessages({
           error={state.error}
           onDismissError={() => dispatch({ type: 'CLEAR_ERROR' })}
           modelImage={model?.imageUrl || selectedRoom?.aiModel?.imageUrl}
+          modelName={model?.name || selectedRoom?.aiModel?.name || 'AI'}
         />
       </div>
 
