@@ -46,10 +46,10 @@ export const MessageBubble = React.memo(function MessageBubble({
         </div>
       )}
 
-      <div className={cn("group relative max-w-[80%] break-words", isAI ? "order-2" : "order-1")}>
+      <div className={cn("group relative max-w-[85%] sm:max-w-[80%] break-words", isAI ? "order-2" : "order-1")}>
         <div
           className={cn(
-            "px-4 py-2 rounded-2xl",
+            "px-3 sm:px-4 py-2 rounded-2xl text-sm sm:text-base",
             isAI ? "bg-[#1a1a1a] text-white" : "bg-pink-500 text-white",
             isLastInGroup ? "rounded-bl-2xl" : "rounded-bl-lg",
           )}
@@ -61,7 +61,7 @@ export const MessageBubble = React.memo(function MessageBubble({
         {showTimestamp && (
           <div 
             className={cn(
-              "text-xs text-white/30 mt-1",
+              "text-[10px] sm:text-xs text-white/30 mt-0.5 sm:mt-1",
               isAI ? "text-left" : "text-right"
             )}
           >
@@ -71,8 +71,8 @@ export const MessageBubble = React.memo(function MessageBubble({
       </div>
 
       {!isAI && (
-        <div className="shrink-0 w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center order-3">
-          <span className="text-xs text-pink-500">You</span>
+        <div className="shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-pink-500/10 flex items-center justify-center order-3">
+          <span className="text-[10px] sm:text-xs text-pink-500">You</span>
         </div>
       )}
     </motion.div>

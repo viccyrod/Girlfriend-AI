@@ -53,18 +53,18 @@ export function ChatMessageList({ messages, modelImage }: ChatMessageListProps) 
           message.isAIMessage ? "justify-start" : "justify-end"
         )}>
           {message.isAIMessage && modelImage && (
-            <div className="shrink-0 w-8 h-8 rounded-full overflow-hidden">
+            <div className="shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden">
               <Image
                 src={modelImage}
                 alt="AI Avatar"
                 width={32}
                 height={32}
                 className="object-cover"
-                sizes="32px"
+                sizes="(max-width: 640px) 24px, 32px"
               />
             </div>
           )}
-          <div className="max-w-[80%] w-full">
+          <div className="max-w-[85%] sm:max-w-[80%] w-full">
             <ChatImageMessage message={message} />
           </div>
         </div>
@@ -88,9 +88,9 @@ export function ChatMessageList({ messages, modelImage }: ChatMessageListProps) 
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       <div 
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto scrollbar-pretty px-4"
+        className="flex-1 overflow-y-auto scrollbar-pretty px-2 sm:px-4"
       >
-        <div className="max-w-3xl mx-auto py-4 space-y-4">
+        <div className="max-w-3xl mx-auto py-2 sm:py-4 space-y-3 sm:space-y-4">
           {sortedMessages.map((message) => (
             <div key={message.id} className="message-container">
               {renderMessage(message)}
