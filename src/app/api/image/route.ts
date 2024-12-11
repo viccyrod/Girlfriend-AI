@@ -48,14 +48,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Chat room or AI model not found' }, { status: 404 });
     }
 
-    // Create a pending message first
+    console.log('🎨 Creating image generation message...');
+
+    // Create a pending message with server-side ID
     const pendingMessage = await prisma.message.create({
       data: {
+        id: `server-${Date.now()}`,
         content: prompt,
         chatRoomId: chatRoomId,
         isAIMessage: true,
         userId: currentUser.id,
         aiModelId: chatRoom.aiModel.id,
+        role: 'assistant',
         metadata: {
           type: 'image',
           status: 'generating',
@@ -74,8 +78,13 @@ export async function POST(request: Request) {
       }
     });
 
-    // Emit the pending message
-    messageEmitter.emit(`chat:${chatRoomId}`, { message: pendingMessage });
+    console.log('📝 Created pending message:', pendingMessage.id);
+
+    // Emit the pending message immediately
+    messageEmitter.emit(`chat:${chatRoomId}`, { 
+      type: 'image_generation',
+      message: pendingMessage 
+    });
 
     // Start the async image generation process
     const enhancedPrompt = `${prompt}. 
@@ -84,10 +93,15 @@ export async function POST(request: Request) {
       Setting: Elegant and sophisticated
       Quality: 8k resolution, highly detailed`;
 
-    console.log('Starting image generation with prompt:', enhancedPrompt);
+    console.log('🎨 Starting image generation with prompt:', enhancedPrompt);
 
     // Start the RunPod job
     const jobId = await RunPodClient.startImageGeneration(enhancedPrompt);
+
+    console.log('🚀 RunPod job started:', jobId);
+
+    // Start polling for status in the background
+    pollImageStatus(jobId, pendingMessage.id, chatRoomId, prompt);
 
     return NextResponse.json({ 
       success: true,
@@ -96,11 +110,118 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('Error starting image generation:', error);
+    console.error('❌ Error starting image generation:', error);
     return NextResponse.json({ 
       error: 'Failed to start image generation',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
+  }
+}
+
+// Helper function to poll image status
+async function pollImageStatus(jobId: string, messageId: string, chatRoomId: string, originalPrompt: string) {
+  try {
+    let retries = 0;
+    const maxRetries = 30;
+    const pollInterval = setInterval(async () => {
+      try {
+        if (retries >= maxRetries) {
+          clearInterval(pollInterval);
+          throw new Error('Image generation timed out');
+        }
+
+        const status = await RunPodClient.checkJobStatus(jobId);
+        console.log(`🔍 Checking job status (attempt ${retries + 1}):`, status.status);
+
+        if (status.status === 'COMPLETED' && status.output?.image) {
+          clearInterval(pollInterval);
+          
+          console.log('🖼️ Image generation completed, uploading to Cloudinary...');
+          
+          try {
+            // Upload to Cloudinary
+            const uploadResponse = await fetch(new URL('/api/upload', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').toString(), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                base64Image: status.output.image,
+                folder: 'chat-images',
+                publicId: `chat-${chatRoomId}-${Date.now()}`
+              })
+            });
+
+            if (!uploadResponse.ok) {
+              throw new Error('Failed to upload image');
+            }
+
+            const { url } = await uploadResponse.json();
+            console.log('📸 Image uploaded successfully:', url);
+
+            // Update message with image URL
+            const updatedMessage = await prisma.message.update({
+              where: { id: messageId },
+              data: {
+                metadata: {
+                  type: 'image',
+                  status: 'completed',
+                  imageUrl: url,
+                  prompt: originalPrompt
+                }
+              },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    image: true
+                  }
+                }
+              }
+            });
+
+            console.log('📝 Message updated with image URL');
+
+            // Emit the updated message without spreading metadata
+            messageEmitter.emit(`chat:${chatRoomId}`, {
+              type: 'image_generation',
+              message: updatedMessage
+            });
+
+            console.log('📢 Image update emitted to chat');
+          } catch (error) {
+            console.error('❌ Error processing completed image:', error);
+            throw error;
+          }
+        } else if (status.status === 'FAILED') {
+          clearInterval(pollInterval);
+          throw new Error('Image generation failed');
+        }
+
+        retries++;
+      } catch (error) {
+        clearInterval(pollInterval);
+        console.error('❌ Error in status polling:', error);
+        
+        // Update message with error status
+        const errorMessage = await prisma.message.update({
+          where: { id: messageId },
+          data: {
+            metadata: {
+              type: 'image',
+              status: 'error',
+              error: error instanceof Error ? error.message : 'Unknown error'
+            }
+          }
+        });
+
+        messageEmitter.emit(`chat:${chatRoomId}`, {
+          type: 'image_generation',
+          message: errorMessage
+        });
+      }
+    }, 2000);
+  } catch (error) {
+    console.error('❌ Failed to start polling:', error);
   }
 }
 

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
+import { Message } from '@/types/message';
 
 interface ChatRoomListProps {
   rooms: ExtendedChatRoom[];
@@ -15,6 +16,16 @@ interface ChatRoomListProps {
   loadingRoomId?: string | null;
   isDeletingRoom?: string | null;
 }
+
+const getLastMessagePreview = (message: Message | null) => {
+  if (!message) return '';
+  
+  if (message.metadata?.type === 'image') {
+    return '🖼️ Image' + (message.metadata.status === 'generating' ? ' (Generating...)' : '');
+  }
+  
+  return message.content || '';
+};
 
 export function ChatRoomList({
   rooms,
@@ -79,7 +90,7 @@ export function ChatRoomList({
                 </div>
                 <p className="text-sm text-white/50 truncate mt-0.5">
                   {room.messages && room.messages.length > 0
-                    ? room.messages[0].content
+                    ? getLastMessagePreview(room.messages[0])
                     : 'No messages yet'}
                 </p>
               </div>

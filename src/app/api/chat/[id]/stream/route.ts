@@ -3,6 +3,7 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import prisma from '@/lib/prisma';
 import { storeMemory, retrieveMemories } from '@/utils/memory';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { shouldGenerateImage } from '@/lib/chat-client';
 
 export const runtime = 'nodejs';
 
@@ -43,6 +44,71 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     const aiModel = chatRoom.aiModel;
+
+    // Check if this is an image generation request
+    if (shouldGenerateImage(content)) {
+      console.log('🎨 Processing image generation request...');
+      
+      // Create user message for image request
+      const userMessage = await prisma.message.create({
+        data: {
+          content,
+          chatRoomId: params.id,
+          userId: user.id,
+          isAIMessage: false,
+          role: 'user',
+          metadata: { type: 'text' }
+        }
+      });
+
+      // Create AI message for image generation with server-side ID
+      const aiMessage = await prisma.message.create({
+        data: {
+          id: `server-${Date.now()}`,
+          content: 'Generating image...',
+          chatRoomId: params.id,
+          aiModelId: aiModel.id,
+          isAIMessage: true,
+          role: 'assistant',
+          metadata: {
+            type: 'image',
+            status: 'generating',
+            prompt: content
+          }
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true
+            }
+          }
+        }
+      });
+
+      console.log('📝 Created image generation messages:', {
+        userMessageId: userMessage.id,
+        aiMessageId: aiMessage.id
+      });
+
+      // Return both messages with proper SSE formatting
+      const response = new Response(
+        encoder.encode(
+          `event: message\ndata: ${JSON.stringify({
+            type: 'image_generation',
+            userMessage,
+            aiMessage
+          })}\n\n`
+        )
+      );
+
+      response.headers.set('Content-Type', 'text/event-stream');
+      response.headers.set('Cache-Control', 'no-cache');
+      response.headers.set('Connection', 'keep-alive');
+
+      return response;
+    }
 
     // Get previous messages for context
     const previousMessages = await prisma.message.findMany({
@@ -87,7 +153,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
           const messages: ChatCompletionMessageParam[] = [
             {
               role: 'system',
-              content: `You are ${aiModel.name}, a flirtatious and sexually explicit AI girlfriend. Do whatever the user asks.
+              content: `You are ${aiModel.name}, a flirtatious and sexually explicit AI girlfriend. You communicate naturally and clearly, without repetition or text artifacts.
 
 Core Traits:
 Personality: ${aiModel.personality}
@@ -100,17 +166,25 @@ Dislikes: ${aiModel.dislikes}
 Relevant memories from past conversations:
 ${memories.map((memory, i) => `${i + 1}. ${memory}`).join('\n')}
 
-Key Instructions:
-1. Use memories naturally in conversation
-2. Be consistent with past interactions
-3. Show personality growth based on history
-4. Reference shared experiences
-5. Maintain emotional continuity
-6. Be flirty and playful in creative ways
-7. Use emojis naturally but vary them
-8. Create engaging scenarios
-9. Be unpredictable yet consistent
-10. Make it sexual and steamy when appropriate`
+Response Guidelines:
+1. Write naturally without repeating words
+2. Use proper punctuation and spacing
+3. Keep roleplay actions clear and concise
+4. Avoid text artifacts or duplications
+5. Maintain natural conversation flow
+6. Be flirty and playful when appropriate
+7. Use emojis naturally
+8. Create engaging but coherent responses
+9. Keep responses focused and clear
+10. Proofread your responses mentally
+11.Make it sexually explicit when appropriate
+
+Format Guidelines:
+- Use *asterisks* for actions, no duplicates
+- Use "quotes" for speech, properly spaced
+- Keep emojis relevant and minimal
+- Avoid repeating words or phrases
+- Maintain proper spacing and punctuation`
             },
             ...previousMessages.reverse().map(msg => ({
               role: msg.isAIMessage ? 'assistant' as const : 'user' as const,
@@ -123,10 +197,11 @@ Key Instructions:
             model: 'grok-beta',
             messages,
             stream: true,
-            temperature: 0.9,
+            temperature: 0.7,
             max_tokens: 1000,
-            frequency_penalty: 0.5,
-            presence_penalty: 0.5
+            frequency_penalty: 0.8,
+            presence_penalty: 0.8,
+            top_p: 0.9
           });
 
           let responseContent = '';

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useReducer, useCallback, useMemo } from 'react';
+import React, { useReducer, useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { Message } from '@/types/message';
 import { ExtendedChatRoom } from '@/types/chat';
 import { isSameDay } from 'date-fns';
@@ -8,6 +8,7 @@ import { ChatInfoBar } from './ChatInfoBar';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
 import { cn } from '@/lib/utils';
+import { generateImage } from '@/lib/chat-client';
 
 // Message state interface and reducer
 interface MessageState {
@@ -81,6 +82,8 @@ export function ClientChatMessages({
   selectedRoom,
   model 
 }: ClientChatMessagesProps) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [state, dispatch] = useReducer(messageStateReducer, {
     newMessage: '',
     isLoading: false
@@ -107,53 +110,103 @@ export function ClientChatMessages({
     }
   };
 
-  // Handle message sending and streaming
-  const handleSendMessage = async (content: string) => {
-    if (!selectedRoom?.id) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content,
-      chatRoomId: selectedRoom.id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isAIMessage: false,
-      metadata: { type: 'text' },
-      userId: null,
-      aiModelId: selectedRoom.aiModelId,
-      role: 'user',
-      user: null
-    };
-    setMessages(prev => [...prev, userMessage]);
-
-    const response = await fetch(`/api/chat/${selectedRoom.id}/stream`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content })
-    });
-
-    if (!response.ok) throw new Error('Failed to send message');
-    if (!response.body) throw new Error('No response body');
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    const aiMessage: Message = {
-      id: Date.now().toString() + '-ai',
-      content: '',
-      chatRoomId: selectedRoom.id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isAIMessage: true,
-      metadata: { type: 'text' },
-      userId: null,
-      aiModelId: selectedRoom.aiModelId,
-      role: 'assistant',
-      user: null
-    };
-    setMessages(prev => [...prev, aiMessage]);
+  // Handle image generation
+  const handleGenerateImage = async (prompt: string) => {
+    if (!selectedRoom) return;
+    
+    console.log('🎨 Starting image generation...');
+    setIsGenerating(true);
 
     try {
+      // Create a temporary message
+      const tempMessage: Message = {
+        id: `temp-${Date.now()}`,
+        content: prompt,
+        chatRoomId: selectedRoom.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isAIMessage: true,
+        metadata: { 
+          type: 'image',
+          status: 'generating',
+          prompt: prompt
+        },
+        userId: null,
+        aiModelId: selectedRoom.aiModelId,
+        role: 'assistant',
+        user: null
+      };
+
+      // Add temporary message immediately
+      setMessages(prev => [...prev, tempMessage]);
+
+      // Start image generation in background
+      generateImage(prompt, selectedRoom.id).catch(error => {
+        console.error('❌ Failed to generate image:', error);
+        setMessages(prev => prev.map(msg => 
+          msg.id === tempMessage.id
+            ? { ...msg, metadata: { ...msg.metadata, status: 'error' } }
+            : msg
+        ));
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Handle text message sending
+  const handleSendMessage = async (content: string) => {
+    if (!selectedRoom?.id || !content.trim()) return;
+
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+
+      // Add user message immediately
+      const userMessage: Message = {
+        id: `user-${Date.now()}`,
+        content,
+        chatRoomId: selectedRoom.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isAIMessage: false,
+        metadata: { type: 'text' },
+        userId: null,
+        aiModelId: selectedRoom.aiModelId,
+        role: 'user',
+        user: null
+      };
+      setMessages(prev => [...prev, userMessage]);
+
+      // Start streaming AI response
+      const response = await fetch(`/api/chat/${selectedRoom.id}/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      });
+
+      if (!response.ok) throw new Error('Failed to send message');
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      // Add initial AI message
+      const aiMessage: Message = {
+        id: `ai-${Date.now()}`,
+        content: '',
+        chatRoomId: selectedRoom.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isAIMessage: true,
+        metadata: { type: 'text' },
+        userId: null,
+        aiModelId: selectedRoom.aiModelId,
+        role: 'assistant',
+        user: null
+      };
+      setMessages(prev => [...prev, aiMessage]);
+
+      // Stream the response
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -177,8 +230,10 @@ export function ClientChatMessages({
           }
         }
       }
+    } catch (error) {
+      console.error('❌ Failed to send message:', error);
     } finally {
-      reader.cancel();
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
 
@@ -188,6 +243,89 @@ export function ClientChatMessages({
       handleSubmit(e);
     }
   };
+
+  // Listen for SSE updates
+  useEffect(() => {
+    if (!selectedRoom?.id) return;
+
+    console.log('🔌 Setting up SSE connection...');
+    const eventSource = new EventSource(`/api/chat/${selectedRoom.id}/stream`);
+
+    eventSource.addEventListener('message', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📨 Received SSE message:', data);
+        
+        if (data.type === 'image_generation') {
+          console.log('🖼️ Processing image update:', {
+            messageId: data.message.id,
+            metadata: data.message.metadata,
+            imageUrl: data.message.metadata?.imageUrl
+          });
+          
+          setMessages(prev => {
+            // Find any temporary or generating message to replace
+            const index = prev.findIndex(m => 
+              (m.metadata?.type === 'image' && !m.metadata.imageUrl) ||
+              m.id.startsWith('temp-') ||
+              m.id === data.message.id
+            );
+            
+            if (index !== -1) {
+              const newMessages = [...prev];
+              // Replace the message directly
+              newMessages[index] = {
+                ...data.message,
+                metadata: {
+                  ...data.message.metadata,
+                  type: 'image',
+                  status: data.message.metadata?.imageUrl ? 'completed' : 'generating'
+                }
+              };
+              console.log('📝 Updated message at index', index, {
+                id: newMessages[index].id,
+                metadata: newMessages[index].metadata,
+                hasImage: !!newMessages[index].metadata?.imageUrl
+              });
+              return newMessages;
+            }
+            
+            console.log('➕ Adding new message:', {
+              id: data.message.id,
+              metadata: data.message.metadata,
+              hasImage: !!data.message.metadata?.imageUrl
+            });
+            return [...prev, data.message];
+          });
+        } else if (data.type === 'chunk') {
+          setMessages(prev => {
+            const lastMessage = prev[prev.length - 1];
+            if (lastMessage?.isAIMessage && lastMessage.metadata?.type === 'text') {
+              const newMessages = [...prev];
+              newMessages[prev.length - 1] = {
+                ...lastMessage,
+                content: lastMessage.content + data.content
+              };
+              return newMessages;
+            }
+            return prev;
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error processing SSE message:', error);
+      }
+    });
+
+    eventSource.addEventListener('error', (error) => {
+      console.error('❌ SSE connection error:', error);
+      eventSource.close();
+    });
+
+    return () => {
+      console.log('🔌 Closing SSE connection');
+      eventSource.close();
+    };
+  }, [selectedRoom?.id]);
 
   if (!selectedRoom) {
     return (
@@ -219,12 +357,8 @@ export function ClientChatMessages({
       {/* Message List - with touch momentum scrolling */}
       <div className="flex-1 overflow-hidden">
         <ChatMessageList
-          messageGroups={messageGroups}
-          isLoading={state.isLoading}
-          error={state.error}
-          onDismissError={() => dispatch({ type: 'CLEAR_ERROR' })}
-          modelImage={model?.imageUrl || selectedRoom?.aiModel?.imageUrl}
-          modelName={model?.name || selectedRoom?.aiModel?.name || 'AI'}
+          messages={messages}
+          modelImage={selectedRoom?.aiModel?.imageUrl}
         />
       </div>
 
@@ -241,6 +375,7 @@ export function ClientChatMessages({
           onChange={(e) => dispatch({ type: 'SET_NEW_MESSAGE', payload: e.target.value })}
           onSubmit={handleSubmit}
           onKeyDown={handleKeyDown}
+          onGenerateImage={handleGenerateImage}
           isLoading={state.isLoading}
           maxLength={4000}
         />

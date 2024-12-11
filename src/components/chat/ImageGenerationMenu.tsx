@@ -4,10 +4,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export interface ImageGenerationMenuProps {
   isOpen: boolean;
@@ -44,43 +46,89 @@ export function ImageGenerationMenu({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a]">
+      <DialogContent className="bg-[#0a0a0a] border-white/5 sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-transparent bg-clip-text">
+          <DialogTitle className="flex items-center gap-2 text-xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
+            <ImageIcon className="w-5 h-5 text-pink-500" />
             Generate Image
           </DialogTitle>
+          <DialogDescription className="text-white/60">
+            Describe what you want to see, and I'll create it for you.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
           <Textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe the image you want to generate..."
-            className="bg-[#1a1a1a] border-[#2a2a2a] focus:ring-pink-500 h-32"
+            placeholder="A beautiful sunset on a beach, with waves crashing against the shore..."
+            className="bg-[#1a1a1a] border-white/10 focus:ring-pink-500/20 focus:border-pink-500/20 h-32 resize-none text-white placeholder:text-white/20"
           />
           
           <div className="flex justify-end gap-2">
             <Button
-              variant="outline"
+              variant="ghost"
               onClick={onClose}
-              className="border-[#2a2a2a] hover:bg-[#1a1a1a]"
+              className="border-white/10 hover:bg-white/5 text-white/70 hover:text-white"
             >
               Cancel
             </Button>
             <Button
               onClick={handleGenerate}
               disabled={!prompt.trim() || isGenerating}
-              className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
+              className={cn(
+                "relative group",
+                "bg-gradient-to-r from-pink-500 to-purple-600",
+                "hover:from-pink-600 hover:to-purple-700",
+                "text-white font-medium",
+                "transition-all duration-200",
+                "disabled:opacity-50",
+                "px-4 py-2 rounded-lg"
+              )}
             >
               {isGenerating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
+                  Creating Magic...
                 </>
               ) : (
-                'Generate'
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate
+                </>
               )}
             </Button>
+          </div>
+
+          {/* Quick Suggestions */}
+          <div className="pt-4 border-t border-white/5">
+            <h4 className="text-sm font-medium text-white/40 mb-2">Quick Ideas:</h4>
+            <div className="flex flex-wrap gap-2">
+              {[
+                "Portrait photo",
+                "Full body shot",
+                "Casual outfit",
+                "Elegant dress",
+                "Beach day",
+                "City lights"
+              ].map((suggestion) => (
+                <button
+                  key={suggestion}
+                  onClick={() => setPrompt(prev => 
+                    prev ? `${prev}, ${suggestion.toLowerCase()}` : suggestion
+                  )}
+                  className={cn(
+                    "px-3 py-1.5 text-sm rounded-lg",
+                    "bg-white/5 hover:bg-white/10",
+                    "text-white/60 hover:text-white",
+                    "transition-colors duration-200",
+                    "border border-white/10"
+                  )}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </DialogContent>
