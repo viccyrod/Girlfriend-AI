@@ -1,162 +1,120 @@
 'use strict';
 
-import { NextResponse } from 'next/server';
-import { getDbUser } from '@/lib/actions/server/auth';
-import prisma from '@/lib/clients/prisma';
-import { OpenAIStream } from '@/lib/openai-stream';
-import { streamText } from 'ai';
+import { OpenAI } from 'openai';
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import prisma from '@/lib/prisma';
 
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const user = await getDbUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export const runtime = 'nodejs';
 
-    const { content } = await req.json();
-
-    // Get chat room and verify access
-    const chatRoom = await prisma.chatRoom.findFirst({
-      where: {
-        id: params.id,
-        users: {
-          some: {
-            id: user.id
-          }
-        }
-      },
-      include: {
-        aiModel: true,
-        messages: {
-          orderBy: {
-            createdAt: 'asc'
-          },
-          take: 50 // Get last 50 messages for context
-        }
-      }
-    });
-
-    if (!chatRoom?.aiModel) {
-      return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
-    }
-
-    // Create system message with AI model's personality
-    const systemMessage = {
-      role: 'system',
-      content: `You are ${chatRoom.aiModel.name}, an AI character with the following traits:
-      Personality: ${chatRoom.aiModel.personality}
-      Appearance: ${chatRoom.aiModel.appearance}
-      Backstory: ${chatRoom.aiModel.backstory}
-      Hobbies: ${chatRoom.aiModel.hobbies}
-      Likes: ${chatRoom.aiModel.likes}
-      Dislikes: ${chatRoom.aiModel.dislikes}
-      
-      ${content === 'greeting' 
-        ? 'Generate a flirty greeting message to welcome the user back. Be excited to see them again!'
-        : 'Please respond in character, maintaining these traits consistently.'}`
-    };
-
-    // For greetings, don't save a user message
-    if (content !== 'greeting') {
-      // Save user message
-      await prisma.message.create({
-        data: {
-          content,
-          chatRoomId: params.id,
-          userId: user.id,
-          isAIMessage: false,
-          role: 'user'
-        }
-      });
-    }
-
-    // Format messages for OpenAI
-    const messages = [
-      systemMessage,
-      ...chatRoom.messages.map(msg => ({
-        role: msg.isAIMessage ? 'assistant' : 'user',
-        content: msg.content
-      })),
-      ...(content !== 'greeting' ? [{ role: 'user', content }] : [])
-    ];
-
-    // Create stream
-    const stream = await OpenAIStream({
-      model: 'grok-beta',
-      messages,
-      temperature: 1.0,
-      max_tokens: 150,
-      presence_penalty: 0.9,
-      frequency_penalty: 0.9,
-      top_p: 0.9
-    });
-
-    return new Response(stream);
-  } catch (error) {
-    console.error('Error in chat messages:', error);
-    return NextResponse.json(
-      { error: 'Failed to process message' },
-      { status: 500 }
-    );
+// Initialize Grok client
+const grok = new OpenAI({
+  baseURL: 'https://api.x.ai/v1',
+  apiKey: process.env.XAI_API_KEY || '',
+  defaultHeaders: {
+    'Authorization': `Bearer ${process.env.XAI_API_KEY || ''}`
   }
-}
+});
 
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+// GET handler for fetching messages
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const user = await getDbUser();
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const before = searchParams.get('before');
-    const limit = parseInt(searchParams.get('limit') || '30');
+    const url = new URL(request.url);
+    const before = url.searchParams.get('before');
+    const limit = parseInt(url.searchParams.get('limit') || '30');
 
     const messages = await prisma.message.findMany({
       where: {
         chatRoomId: params.id,
-        ...(before ? { id: { lt: before } } : {}),
-        chatRoom: {
-          users: {
-            some: {
-              id: user.id
-            }
-          }
-        }
+        ...(before ? { createdAt: { lt: new Date(before) } } : {})
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            image: true
-          }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: limit + 1 // Take one extra to check if there are more
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+      take: limit + 1
     });
 
     const hasMore = messages.length > limit;
-    const messagesToReturn = hasMore ? messages.slice(0, -1) : messages;
+    if (hasMore) messages.pop();
 
-    return NextResponse.json({
-      messages: messagesToReturn.reverse(), // Reverse to get chronological order
-      hasMore
-    });
+    return Response.json({ messages, hasMore });
+
   } catch (error) {
     console.error('Error fetching messages:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch messages' },
-      { status: 500 }
-    );
+    return Response.json({ error: 'Failed to fetch messages' }, { status: 500 });
+  }
+}
+
+// POST handler for sending messages
+export async function POST(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { content } = await request.json();
+
+    const chatRoom = await prisma.chatRoom.findUnique({
+      where: { id: params.id },
+      include: { aiModel: true }
+    });
+
+    if (!chatRoom || !chatRoom.aiModel) {
+      return Response.json({ error: 'Chat room not found' }, { status: 404 });
+    }
+
+    // Create user message
+    const userMessage = await prisma.message.create({
+      data: {
+        content,
+        chatRoomId: params.id,
+        userId: user.id,
+        isAIMessage: false,
+        role: 'user'
+      }
+    });
+
+    // Get AI response
+    const response = await grok.chat.completions.create({
+      model: 'grok-beta',
+      messages: [
+        {
+          role: 'system',
+          content: chatRoom.aiModel.personality
+        },
+        {
+          role: 'user',
+          content
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000,
+      frequency_penalty: 0.6
+    });
+
+    // Create AI message
+    const aiMessage = await prisma.message.create({
+      data: {
+        content: response.choices[0]?.message?.content || '',
+        chatRoomId: params.id,
+        aiModelId: chatRoom.aiModel.id,
+        isAIMessage: true,
+        role: 'assistant'
+      }
+    });
+
+    return Response.json({ userMessage, aiMessage });
+
+  } catch (error) {
+    console.error('Error sending message:', error);
+    return Response.json({ error: 'Failed to send message' }, { status: 500 });
   }
 }

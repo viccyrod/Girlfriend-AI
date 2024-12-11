@@ -222,6 +222,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
                   src={aiModelState.imageUrl || ''} 
                   className="object-cover" 
                   alt={`${aiModelState.name} avatar`} 
+                  sizes="(max-width: 768px) 100vw, 384px"
                 />
                 <AvatarFallback>{aiModelState.name ? aiModelState.name[0] : 'A'}</AvatarFallback>
               </Avatar>
@@ -339,6 +340,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
                                 src={aiModelState.imageUrl || ''} 
                                 className="object-cover" 
                                 alt={aiModelState.name} 
+                                sizes="(max-width: 768px) 100vw, 384px"
                               />
                               <AvatarFallback>{aiModelState.name[0]}</AvatarFallback>
                             </Avatar>

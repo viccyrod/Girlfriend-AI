@@ -8,6 +8,7 @@ const CoverImage = () => {
             src ="/girlfriend-1.jpeg"
             className= "h-full w-full center object-cover select-none pointer-events-none"
             fill
+            sizes="100vw"
             alt= "Cover Image"
             />
             <div 

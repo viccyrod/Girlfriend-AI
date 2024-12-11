@@ -61,8 +61,8 @@ export function ChatImageMessage({ message, className }: ChatImageMessageProps) 
             src={imageUrl}
             alt={prompt || "Generated image"}
             fill
-            className="object-cover rounded-lg"
             sizes="(max-width: 512px) 100vw, 512px"
+            className="object-cover rounded-lg"
             priority
           />
         </div>

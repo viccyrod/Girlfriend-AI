@@ -88,6 +88,7 @@ export default function HeroSection() {
             src="/banner-models.jpeg"
             alt="AI Companions"
             fill
+            sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover object-center rounded-2xl"
             priority
           />

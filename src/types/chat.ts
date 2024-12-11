@@ -43,15 +43,47 @@ export type AiModel = {
 export interface ExtendedChatRoom {
   id: string;
   name: string;
-  aiModel: AiModel | null;
-  aiModelId: string;
-  aiModelImageUrl: string | null;
-  users: User[];
-  messages: Message[];
   createdAt: Date;
   updatedAt: Date;
-  createdBy: CreatedBy | null;
-  voiceId?: string | null;
+  aiModelId: string;
+  createdById: string | null;
+  aiModel: {
+    id: string;
+    name: string;
+    personality: string;
+    appearance: string;
+    backstory: string;
+    hobbies: string;
+    likes: string;
+    dislikes: string;
+    age: number | null;
+    imageUrl: string | null;
+    voiceId: string | null;
+    messageCount: number;
+    imageCount: number;
+    createdAt: Date;
+    updatedAt: Date;
+    userId: string;
+    followerCount: number;
+    isPrivate: boolean;
+    isAnime: boolean;
+    isHumanX: boolean;
+    isFollowing?: boolean;
+    status: 'PENDING' | 'COMPLETED' | 'FAILED';
+    createdBy: {
+      id: string;
+      name: string | null;
+      email: string | null;
+      image: string | null;
+    } | null;
+  } | null;
+  users: Array<{
+    id: string;
+    name: string | null;
+    email: string | null;
+    image: string | null;
+  }>;
+  messages: Message[];
 }
 
 // Component Props and Function Types

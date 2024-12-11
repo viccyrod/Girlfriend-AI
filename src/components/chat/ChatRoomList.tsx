@@ -1,188 +1,138 @@
-import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ExtendedChatRoom } from "@/types/chat";
-import { Loader2, Trash2 } from "lucide-react";
-import { format } from "date-fns";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ExtendedChatRoom } from '@/types/chat';
+import { Button } from '@/components/ui/button';
+import { Trash2, Loader2, MessageSquare } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
-interface ChatRoomListProps {
-  chatRooms: ExtendedChatRoom[];
+export interface ChatRoomListProps {
+  rooms: ExtendedChatRoom[];
   selectedRoom: ExtendedChatRoom | null;
-  onSelectRoom: (room: ExtendedChatRoom) => void;
+  onRoomSelect: (room: ExtendedChatRoom) => Promise<void>;
   onDeleteRoom: (roomId: string) => Promise<void>;
-  isLoading: boolean;
   loadingRoomId: string | null;
+  isDeletingRoom: string | null;
+  isLoading?: boolean;
 }
 
-const ChatRoomSkeleton = () => (
-  <div className="flex items-center gap-3 p-4 animate-pulse">
-    <div className="w-12 h-12 rounded-full bg-muted" />
-    <div className="space-y-2 flex-1">
-      <div className="h-4 bg-muted rounded w-3/4" />
-      <div className="h-3 bg-muted rounded w-1/2" />
-    </div>
-  </div>
-);
+const getLastMessagePreview = (room: ExtendedChatRoom): string => {
+  if (!room.messages || room.messages.length === 0) {
+    return 'No messages yet';
+  }
+  const lastMessage = room.messages[0];
+  return lastMessage.content || 'Empty message';
+};
 
 export function ChatRoomList({
-  chatRooms,
+  rooms,
   selectedRoom,
-  onSelectRoom,
+  onRoomSelect,
   onDeleteRoom,
-  isLoading,
   loadingRoomId,
+  isDeletingRoom,
+  isLoading = false
 }: ChatRoomListProps) {
-  const handleDeleteRoom = async (roomId: string) => {
-    try {
-      await onDeleteRoom(roomId);
-    } catch (error) {
-      console.error('Failed to delete room:', error);
-    }
-  };
-
-  const getLastMessageTime = (room: ExtendedChatRoom) => {
-    // Get messages in correct order
-    const messages = room.messages || [];
-    const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-    if (!lastMessage) return format(new Date(room.createdAt), 'MMM d');
-    
-    const messageDate = new Date(lastMessage.createdAt);
-    const now = new Date();
-    const isToday = messageDate.toDateString() === now.toDateString();
-    return isToday ? format(messageDate, 'HH:mm') : format(messageDate, 'MMM d');
-  };
-
-  const getLastMessagePreview = (room: ExtendedChatRoom) => {
-    // Get messages in correct order
-    const messages = room.messages || [];
-    let messageToShow = messages.length > 0 ? messages[messages.length - 1] : null;
-    if (!messageToShow) return 'Start a conversation';
-
-    // Skip system messages
-    if (messageToShow.content.startsWith('[SYSTEM]')) {
-      // If this is the only message, return default text
-      if (messages.length === 1) return 'Start a conversation';
-      // Otherwise get the previous non-system message
-      for (let i = messages.length - 2; i >= 0; i--) {
-        if (!messages[i].content.startsWith('[SYSTEM]')) {
-          messageToShow = messages[i];
-          break;
-        }
-      }
-    }
-
-    // Handle different message types
-    if (messageToShow.metadata?.type === 'image') {
-      return messageToShow.isAIMessage ? '📸 Sent an image' : 'You: 📸 Image';
-    }
-    if (messageToShow.metadata?.type === 'voice_message') {
-      return messageToShow.isAIMessage ? '🎤 Voice message' : 'You: 🎤 Voice';
-    }
-
-    const truncateText = (text: string) => {
-      if (text.length <= 25) return text;
-      return `${text.slice(0, 25)}...`;
-    };
-
-    return messageToShow.isAIMessage 
-      ? truncateText(messageToShow.content)
-      : `You: ${truncateText(messageToShow.content)}`;
-  };
-
-  // Sort rooms by last message time or creation time
-  const sortedRooms = [...chatRooms].sort((a, b) => {
-    const aMessages = a.messages || [];
-    const bMessages = b.messages || [];
-    
-    const aTime = aMessages.length > 0 
-      ? new Date(aMessages[aMessages.length - 1].createdAt).getTime()
-      : new Date(a.createdAt).getTime();
-      
-    const bTime = bMessages.length > 0
-      ? new Date(bMessages[bMessages.length - 1].createdAt).getTime()
-      : new Date(b.createdAt).getTime();
-    
-    return bTime - aTime;
-  });
-
+  console.log('🏠 ChatRoomList: Rendering with rooms:', rooms.length);
+  
   return (
-    <div className="flex flex-col h-full bg-background/80 backdrop-blur-md">
-      <div className="p-4 border-b">
-        <h2 className="text-lg font-semibold">Messages</h2>
-      </div>
-      
-      <ScrollArea className="flex-1">
-        <div className="flex flex-col gap-2 p-4">
-          {isLoading ? (
-            Array(3).fill(0).map((_, i) => <ChatRoomSkeleton key={i} />)
-          ) : sortedRooms.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[200px] text-center space-y-2">
-              <p className="text-sm text-muted-foreground">No conversations yet</p>
-              <p className="text-xs text-muted-foreground">Start chatting with an AI companion</p>
+    <div className="h-full flex flex-col">
+      <div className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="p-8 flex flex-col items-center justify-center text-center space-y-4">
+            <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+            <p className="text-sm text-muted-foreground">Loading chats...</p>
+          </div>
+        ) : rooms.length === 0 ? (
+          <div className="p-8 flex flex-col items-center justify-center text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center">
+              <MessageSquare className="w-6 h-6 text-white" />
             </div>
-          ) : (
-            sortedRooms.map((room) => (
-              <div
-                key={room.id}
-                onClick={(e) => {
-                  e.preventDefault();
-                  onSelectRoom(room);
-                }}
-                className={cn(
-                  "group flex items-center gap-3 p-3 rounded-lg cursor-pointer relative w-full text-left",
-                  "hover:bg-primary/5 transition-all duration-200",
-                  selectedRoom?.id === room.id && "bg-primary/10"
-                )}
-              >
-                <Avatar className="w-12 h-12 border-2 border-primary/20 flex-shrink-0">
-                  <AvatarImage 
-                    src={room.aiModel?.imageUrl || ''} 
-                    alt={room.aiModel?.name || 'AI'}
-                    className="object-cover"
-                  />
-                  <AvatarFallback>AI</AvatarFallback>
-                </Avatar>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between w-full">
-                    <div className="font-medium truncate max-w-[70%]">
-                      {room.aiModel?.name || 'AI Chat'}
-                    </div>
-                    <div className="text-xs text-muted-foreground flex-shrink-0">
-                      {getLastMessageTime(room)}
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground truncate mt-0.5">
-                    {getLastMessagePreview(room)}
-                  </div>
-                </div>
-
+            <div className="space-y-2">
+              <p className="font-medium">No chat rooms available</p>
+              <p className="text-sm text-muted-foreground">
+                Start a new conversation with an AI companion
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-2 space-y-1">
+            {rooms.map((room) => {
+              console.log('🏠 ChatRoomList: Rendering room:', room.id, room.aiModel?.name);
+              return (
                 <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteRoom(room.id);
+                  key={room.id}
+                  onClick={() => onRoomSelect(room)}
+                  role="button"
+                  tabIndex={0}
+                  aria-disabled={isDeletingRoom === room.id}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onRoomSelect(room);
+                    }
                   }}
                   className={cn(
-                    "absolute right-2 p-2 rounded-full transition-all duration-200 cursor-pointer",
-                    "opacity-0 group-hover:opacity-100",
-                    "hover:bg-destructive/10",
-                    loadingRoomId === room.id && "pointer-events-none"
+                    "w-full p-3 rounded-xl flex items-center gap-3 relative group transition-all duration-200",
+                    "hover:bg-pink-500/10",
+                    "focus:outline-none focus:ring-2 focus:ring-pink-500/50",
+                    isDeletingRoom === room.id && "opacity-50 cursor-not-allowed pointer-events-none",
+                    selectedRoom?.id === room.id && "bg-pink-500/10",
+                    "cursor-pointer"
                   )}
                 >
-                  {loadingRoomId === room.id ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                  ) : (
-                    <Trash2 className="w-4 h-4 text-destructive" />
+                  {/* AI Avatar */}
+                  <Avatar className="w-10 h-10 ring-2 ring-pink-500/20 transition-all duration-300 group-hover:ring-pink-500/40">
+                    <AvatarImage 
+                      src={room.aiModel?.imageUrl || ''} 
+                      className="object-cover"
+                    />
+                    <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white">
+                      {room.aiModel?.name?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  {/* Chat Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium truncate">
+                        {room.aiModel?.name || 'AI Chat'}
+                      </h3>
+                      <time className="text-xs text-muted-foreground">
+                        {format(new Date(room.updatedAt), 'HH:mm')}
+                      </time>
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {room.messages?.[0]?.content || 'Start a conversation...'}
+                    </p>
+                  </div>
+
+                  {/* Delete Button */}
+                  {selectedRoom?.id === room.id && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteRoom(room.id);
+                      }}
+                      disabled={isDeletingRoom === room.id}
+                      className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 hover:bg-pink-500/10 text-pink-500/80 hover:text-pink-500 transition-all duration-200"
+                    >
+                      {isDeletingRoom === room.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </Button>
                   )}
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      </ScrollArea>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-
-export type { ExtendedChatRoom };
 

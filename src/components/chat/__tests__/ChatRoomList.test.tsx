@@ -1,124 +1,73 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ChatRoomList } from '../ChatRoomList';
-import { format } from 'date-fns';
-import type { Message } from '@/types/chat';
+import ChatRoomList from '../ChatRoomList';
+import { ExtendedChatRoom } from '@/types/chat';
+import { Message } from '@/types/message';
 
-describe('ChatRoomList', () => {
-  const mockMessage: Message = {
-    id: 'msg-1',
-    content: 'Hello!',
-    isAIMessage: false,
-    createdAt: new Date('2024-01-01T12:00:00'),
-    metadata: { type: 'text' },
-    role: 'user',
-    user: {
+const mockMessage: Message = {
+  id: 'msg-1',
+  content: 'Hello',
+  userId: 'user-1',
+  isAIMessage: false,
+  createdAt: new Date(),
+  metadata: { type: 'text' },
+  role: 'user',
+  user: { id: 'user-1', name: 'Test User', image: null },
+  aiModelId: null,
+  chatRoomId: 'room-1',
+  updatedAt: new Date()
+};
+
+const mockChatRooms: ExtendedChatRoom[] = [{
+  id: 'room-1',
+  name: 'Test Room',
+  aiModel: {
+    id: 'model-1',
+    name: 'Test Model',
+    imageUrl: 'test.jpg',
+    personality: 'test',
+    appearance: 'test',
+    backstory: 'test',
+    hobbies: 'test',
+    likes: 'test',
+    dislikes: 'test',
+    isPrivate: false,
+    age: 25,
+    messageCount: 0,
+    imageCount: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    userId: 'user-1',
+    voiceId: null,
+    followerCount: 0,
+    isAnime: false,
+    isHumanX: false,
+    status: 'COMPLETED',
+    createdBy: {
       id: 'user-1',
       name: 'Test User',
       image: null
-    },
-    aiModelId: null,
-    chatRoomId: 'room-1',
-    updatedAt: new Date('2024-01-01T12:00:00')
-  };
-
-  const mockChatRooms = [
-    {
-      id: 'room-1',
-      name: 'Chat with Sofia',
-      aiModel: {
-        id: 'model-1',
-        name: 'Sofia',
-        imageUrl: '/sofia.jpg',
-        personality: 'Friendly and outgoing',
-        appearance: 'Elegant and sophisticated',
-        backstory: 'A virtual companion',
-        hobbies: 'Art and music',
-        likes: 'Deep conversations',
-        dislikes: 'Negativity',
-        isPrivate: false,
-        followerCount: 0,
-        isFollowing: false,
-        isHumanX: false,
-        isAnime: false,
-        age: null,
-        voiceId: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        userId: 'user-1',
-        createdBy: {
-          id: 'user-1',
-          name: 'Test User',
-          email: 'test@example.com',
-          imageUrl: null
-        }
-      },
-      aiModelId: 'model-1',
-      aiModelImageUrl: '/sofia.jpg',
-      users: [],
-      messages: [mockMessage],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: {
-        id: 'user-1',
-        name: 'Test User',
-        email: 'test@example.com',
-        imageUrl: null
-      }
-    },
-    {
-      id: 'room-2',
-      name: 'Chat with Luna',
-      aiModel: {
-        id: 'model-2',
-        name: 'Luna',
-        imageUrl: '/luna.jpg',
-        personality: 'Creative and artistic',
-        appearance: 'Modern and stylish',
-        backstory: 'An AI artist',
-        hobbies: 'Digital art',
-        likes: 'Innovation',
-        dislikes: 'Conformity',
-        isPrivate: false,
-        followerCount: 0,
-        isFollowing: false,
-        isHumanX: false,
-        isAnime: false,
-        age: null,
-        voiceId: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        userId: 'user-1',
-        createdBy: {
-          id: 'user-1',
-          name: 'Test User',
-          email: 'test@example.com',
-          imageUrl: null
-        }
-      },
-      aiModelId: 'model-2',
-      aiModelImageUrl: '/luna.jpg',
-      users: [],
-      messages: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: {
-        id: 'user-1',
-        name: 'Test User',
-        email: 'test@example.com',
-        imageUrl: null
-      }
     }
-  ];
+  },
+  messages: [mockMessage],
+  users: [{ id: 'user-1', name: 'Test User', image: null }],
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  aiModelId: 'model-1',
+  createdById: 'user-1',
+  createdBy: {
+    id: 'user-1',
+    name: 'Test User',
+    image: null
+  }
+}];
 
-  const defaultProps = {
-    chatRooms: mockChatRooms,
-    selectedRoom: null,
-    onSelectRoom: jest.fn(),
-    onDeleteRoom: jest.fn(),
-    loadingRoomId: null,
-    isLoading: false
-  };
+const defaultProps = {
+  rooms: mockChatRooms,
+  onRoomSelect: jest.fn(),
+  isDeletingRoom: false
+};
 
+describe('ChatRoomList', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -126,8 +75,7 @@ describe('ChatRoomList', () => {
   it('renders chat rooms list', () => {
     render(<ChatRoomList {...defaultProps} />);
     
-    expect(screen.getByText('Sofia')).toBeInTheDocument();
-    expect(screen.getByText('Luna')).toBeInTheDocument();
+    expect(screen.getByText('Test Room')).toBeInTheDocument();
   });
 
   it('shows loading state', () => {
@@ -136,15 +84,15 @@ describe('ChatRoomList', () => {
   });
 
   it('shows empty state when no rooms', () => {
-    render(<ChatRoomList {...defaultProps} chatRooms={[]} />);
+    render(<ChatRoomList {...defaultProps} rooms={[]} />);
     expect(screen.getByText(/no chat rooms available/i)).toBeInTheDocument();
   });
 
   it('handles room selection', () => {
     const onSelectRoom = jest.fn();
-    render(<ChatRoomList {...defaultProps} onSelectRoom={onSelectRoom} />);
+    render(<ChatRoomList {...defaultProps} onRoomSelect={onSelectRoom} />);
     
-    fireEvent.click(screen.getByText('Sofia'));
+    fireEvent.click(screen.getByText('Test Room'));
     expect(onSelectRoom).toHaveBeenCalledWith(mockChatRooms[0]);
   });
 
@@ -152,7 +100,7 @@ describe('ChatRoomList', () => {
     const onDeleteRoom = jest.fn();
     render(<ChatRoomList {...defaultProps} onDeleteRoom={onDeleteRoom} />);
     
-    const roomElement = screen.getByText('Sofia').closest('li');
+    const roomElement = screen.getByText('Test Room').closest('li');
     if (!roomElement) throw new Error('Room element not found');
     
     fireEvent.mouseEnter(roomElement);
@@ -166,18 +114,18 @@ describe('ChatRoomList', () => {
 
   it('displays latest message preview', () => {
     render(<ChatRoomList {...defaultProps} />);
-    expect(screen.getByText('You: Hello!')).toBeInTheDocument();
+    expect(screen.getByText('You: Hello')).toBeInTheDocument();
   });
 
   it('shows correct time format', () => {
     render(<ChatRoomList {...defaultProps} />);
-    const time = format(new Date('2024-01-01T12:00:00'), 'HH:mm');
+    const time = new Date().toLocaleTimeString();
     expect(screen.getByText(time)).toBeInTheDocument();
   });
 
   it('handles loading state for specific room', () => {
     render(<ChatRoomList {...defaultProps} loadingRoomId="room-1" />);
-    const roomElement = screen.getByText('Sofia').closest('li');
+    const roomElement = screen.getByText('Test Room').closest('li');
     expect(roomElement).toHaveClass('opacity-50');
   });
 
@@ -193,7 +141,7 @@ describe('ChatRoomList', () => {
       messages: [imageMessage]
     }];
     
-    render(<ChatRoomList {...defaultProps} chatRooms={roomsWithImage} />);
+    render(<ChatRoomList {...defaultProps} rooms={roomsWithImage} />);
     expect(screen.getByText('📸 Photo')).toBeInTheDocument();
   });
 
@@ -209,13 +157,13 @@ describe('ChatRoomList', () => {
       messages: [voiceMessage]
     }];
     
-    render(<ChatRoomList {...defaultProps} chatRooms={roomsWithVoice} />);
+    render(<ChatRoomList {...defaultProps} rooms={roomsWithVoice} />);
     expect(screen.getByText('🎤 Voice Message')).toBeInTheDocument();
   });
 
   it('highlights selected room', () => {
     render(<ChatRoomList {...defaultProps} selectedRoom={mockChatRooms[0]} />);
-    const roomElement = screen.getByText('Sofia').closest('li');
+    const roomElement = screen.getByText('Test Room').closest('li');
     expect(roomElement).toHaveClass('bg-muted');
   });
 }); 

@@ -128,7 +128,7 @@ export default function CommunityContent({ filterIsAnime = false, initialModels 
                     src={getModelImage(aiModel)}
                     alt={aiModel.name}
                     fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     priority={false}
                     className="object-cover transition-all duration-500 group-hover:scale-[1.02]"
                   />

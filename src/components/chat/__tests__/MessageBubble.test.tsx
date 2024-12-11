@@ -54,6 +54,7 @@ describe('MessageBubble', () => {
         message={mockUserMessage} 
         modelImage={null}
         isRead={false}
+        isLastMessage={false}
       />
     )
     
@@ -67,6 +68,7 @@ describe('MessageBubble', () => {
         message={mockAIMessage}
         modelImage="/test-image.jpg"
         isRead={true}
+        isLastMessage={true}
       />
     )
     
@@ -79,6 +81,7 @@ describe('MessageBubble', () => {
         message={mockUserMessage}
         modelImage={null}
         isRead={false}
+        isLastMessage={false}
       />
     )
     
@@ -100,6 +103,7 @@ describe('MessageBubble', () => {
         message={messageWithImage}
         modelImage="/test-image.jpg"
         isRead={true}
+        isLastMessage={true}
       />
     )
     
@@ -120,6 +124,7 @@ describe('MessageBubble', () => {
         message={messageWithVoice}
         modelImage="/test-image.jpg"
         isRead={true}
+        isLastMessage={true}
       />
     )
     
@@ -132,6 +137,7 @@ describe('MessageBubble', () => {
         message={mockUserMessage}
         modelImage={null}
         isRead={false}
+        isLastMessage={false}
       />
     )
     
@@ -145,6 +151,7 @@ describe('MessageBubble', () => {
         message={mockAIMessage}
         modelImage="/test-image.jpg"
         isRead={true}
+        isLastMessage={true}
       />
     )
     
@@ -163,6 +170,7 @@ describe('MessageBubble', () => {
         message={longMessage}
         modelImage={null}
         isRead={false}
+        isLastMessage={false}
       />
     )
     

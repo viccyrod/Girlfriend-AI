@@ -48,16 +48,48 @@ const mockCreatedBy = {
 }
 
 const mockChatRoom: ExtendedChatRoom = {
-  id: '1',
-  name: 'Test Chat',
+  id: 'test-room',
+  name: 'Test Room',
   createdAt: new Date(),
   updatedAt: new Date(),
-  aiModel: mockAiModel,
-  aiModelId: 'model-1',
-  aiModelImageUrl: 'test.jpg',
-  users: [],
-  messages: [],
-  createdBy: mockCreatedBy
+  aiModelId: 'test-model',
+  createdById: 'user-1',
+  aiModel: {
+    id: 'test-model',
+    name: 'Test Model',
+    personality: 'Friendly',
+    appearance: 'Modern',
+    backstory: 'Test backstory',
+    hobbies: 'Reading',
+    likes: 'Books',
+    dislikes: 'Noise',
+    age: 25,
+    imageUrl: '/test-image.jpg',
+    voiceId: null,
+    messageCount: 0,
+    imageCount: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    userId: 'user-1',
+    followerCount: 0,
+    isPrivate: false,
+    isAnime: false,
+    isHumanX: false,
+    status: 'COMPLETED',
+    createdBy: {
+      id: 'user-1',
+      name: 'Test User',
+      email: 'test@example.com',
+      image: null
+    }
+  },
+  users: [{
+    id: 'user-1',
+    name: 'Test User',
+    email: 'test@example.com',
+    image: null
+  }],
+  messages: []
 }
 
 // Add at the top after imports

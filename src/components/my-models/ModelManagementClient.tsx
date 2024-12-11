@@ -122,6 +122,7 @@ export default function ModelManagementClient({ model, user }: ModelManagementCl
                 src={formData.imageUrl}
                 alt={formData.name}
                 fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 className="object-cover"
                 onError={(e) => {
                   const img = e.target as HTMLImageElement;

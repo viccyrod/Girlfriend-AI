@@ -102,6 +102,7 @@ const HeroSection = () => {
           src="/girlfriend-1.jpeg" 
           alt="AI Companion"
           fill
+          sizes="(max-width: 768px) 0vw, 50vw"
           className="object-cover opacity-90 pointer-events-none select-none"
           priority
         />

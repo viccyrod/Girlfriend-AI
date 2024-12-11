@@ -67,7 +67,10 @@ describe('ImageGenerationMenu', () => {
   const defaultProps = {
     chatRoom: mockChatRoom,
     onClose: jest.fn(),
-    setIsLoadingResponse: jest.fn()
+    setIsLoading: jest.fn(),
+    isOpen: false,
+    onGenerate: jest.fn(),
+    setIsLoading: jest.fn()
   };
 
   beforeEach(() => {
