@@ -65,18 +65,25 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
   useEffect(() => {
     const fetchImages = async () => {
       try {
+        console.log('🖼️ Fetching images for model:', aiModelState.id);
         const response = await fetch(`/api/ai-models/${aiModelState.id}/images`);
         if (!response.ok) throw new Error('Failed to fetch images');
         const data = await response.json();
+        console.log('📦 Received image data:', data);
         
         if (data.images && Array.isArray(data.images)) {
-          setImages(data.images);
+          // Sort images by creation date, newest first
+          const sortedImages = data.images.sort((a: Image, b: Image) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          console.log('🎯 Sorted images:', sortedImages);
+          setImages(sortedImages);
         } else {
-          console.error('Unexpected image data structure:', data);
+          console.error('❌ Unexpected image data structure:', data);
           setImages([]);
         }
       } catch (error) {
-        console.error('Error fetching images:', error);
+        console.error('❌ Error fetching images:', error);
         toast({
           title: "Error",
           description: "Failed to load images. Please try again later.",
@@ -93,8 +100,23 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
   }, [aiModelState?.id, toast]);
 
   // Get displayed images based on showAllImages state
-  const displayedImages = showAllImages ? images : images.slice(0, 3);
-  const hasMoreImages = images.length > 3;
+  const displayedImages = showAllImages ? images : images.slice(0, 6);
+  const hasMoreImages = images.length > 6;
+
+  // Add profile image to the beginning if it exists and isn't already included
+  useEffect(() => {
+    if (aiModelState?.imageUrl && !images.some(img => img.imageUrl === aiModelState.imageUrl)) {
+      setImages(prevImages => {
+        const profileImage = {
+          id: 'profile',
+          imageUrl: aiModelState.imageUrl!,
+          createdAt: aiModelState.createdAt || new Date(),
+          aiModelId: aiModelState.id
+        };
+        return [profileImage, ...prevImages];
+      });
+    }
+  }, [aiModelState?.imageUrl, aiModelState?.id, images]);
 
   const handleImageClick = (image: Image) => {
     setSelectedImage(image);
@@ -309,25 +331,28 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
 
             <TabsContent value="feed" className="mt-0">
               {isLoading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-gray-800/30 rounded-xl overflow-hidden backdrop-blur-sm">
-                      <div className="p-4 border-b border-gray-700/50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div 
+                      key={i}
+                      className="bg-gray-800/40 rounded-xl overflow-hidden backdrop-blur-md border border-white/5"
+                    >
+                      <div className="px-4 py-3 border-b border-white/5">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gray-700/50 animate-pulse" />
+                          <div className="w-8 h-8 rounded-full bg-gray-700/50 animate-pulse" />
                           <div>
                             <div className="h-4 w-32 bg-gray-700/50 rounded animate-pulse mb-2" />
                             <div className="h-3 w-24 bg-gray-700/50 rounded animate-pulse" />
                           </div>
                         </div>
                       </div>
-                      <div className="aspect-video bg-gray-700/50 animate-pulse" />
+                      <div className="aspect-square bg-gray-700/50 animate-pulse" />
                     </div>
                   ))}
                 </div>
               ) : displayedImages.length > 0 ? (
                 <>
-                  <div className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {displayedImages.map((image) => (
                       <div 
                         key={image.id}
@@ -355,16 +380,40 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
 
                         <div 
                           onClick={() => handleImageClick(image)}
-                          className="cursor-pointer p-4 transition-transform duration-300 group-hover:scale-[0.99]"
+                          className="cursor-pointer relative aspect-square overflow-hidden group"
                         >
-                          <div className="relative rounded-lg overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={image.imageUrl}
-                              alt={`Generated by ${aiModelState.name}`}
-                              className="w-full max-w-[600px] mx-auto rounded-lg"
-                            />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={image.imageUrl}
+                            alt={`Generated by ${aiModelState.name}`}
+                            className="w-full h-full object-cover transform transition-transform duration-300 group-hover:scale-105"
+                          />
+                          <div className="absolute bottom-0 inset-x-0 p-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="bg-white/20 backdrop-blur-sm hover:bg-white/30"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownload(image.imageUrl);
+                                }}
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="bg-white/20 backdrop-blur-sm hover:bg-white/30"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(image.imageUrl, '_blank');
+                                }}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -380,7 +429,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
                       >
                         <div className="absolute inset-0 rounded-full bg-gradient-to-r from-pink-500/20 to-purple-500/20 animate-pulse" />
                         <span className="relative flex items-center gap-2">
-                          Show {images.length - 3} More Images
+                          Show {images.length - 6} More Images
                           <svg 
                             xmlns="http://www.w3.org/2000/svg" 
                             className="h-4 w-4 transition-transform duration-300 group-hover:translate-y-0.5" 
@@ -451,13 +500,13 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
             {/* Close button */}
             <button
               onClick={() => setSelectedImage(null)}
-              className="absolute top-2 right-2 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors border border-white/10"
+              className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors border border-white/10"
             >
               <X className="w-5 h-5 text-white" />
             </button>
 
             {/* Image */}
-            <div className="relative aspect-square sm:aspect-[4/3] md:aspect-[16/9] w-full overflow-hidden">
+            <div className="relative aspect-[4/3] w-full overflow-hidden bg-black/50">
               {selectedImage && (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
@@ -472,13 +521,24 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
             {selectedImage && (
               <div className="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-black/95 via-black/70 to-transparent backdrop-blur-sm">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-white font-medium text-lg">
-                      Generated by {aiModelState.name}
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      {format(new Date(selectedImage.createdAt), 'MMMM d, yyyy')}
-                    </p>
+                  <div className="flex items-center gap-4">
+                    <Avatar className="w-10 h-10 ring-2 ring-purple-500/20">
+                      <AvatarImage 
+                        src={aiModelState.imageUrl || ''} 
+                        className="object-cover" 
+                        alt={aiModelState.name} 
+                        sizes="(max-width: 768px) 100vw, 384px"
+                      />
+                      <AvatarFallback>{aiModelState.name[0]}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="text-white font-medium text-lg">
+                        Generated by {aiModelState.name}
+                      </h3>
+                      <p className="text-sm text-gray-400">
+                        {format(new Date(selectedImage.createdAt), 'MMMM d, yyyy')}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex gap-3">
                     <Button

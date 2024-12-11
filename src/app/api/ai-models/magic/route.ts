@@ -163,6 +163,25 @@ export async function POST(request: Request) {
             }
           });
 
+          // Save the profile image to the Image table
+          await prisma.image.create({
+            data: {
+              imageUrl,
+              aiModelId: aiModel.id,
+              isNSFW: false
+            }
+          });
+
+          // Update image count
+          await prisma.aIModel.update({
+            where: { id: aiModel.id },
+            data: {
+              imageCount: {
+                increment: 1
+              }
+            }
+          });
+
           return NextResponse.json(aiModel);
         }
 

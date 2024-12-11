@@ -249,14 +249,6 @@ export default function ChatComponent({
             setMessages={setMessages}
             selectedRoom={selectedRoom}
           />
-          {selectedRoom?.aiModel && (
-            <ChatInfoBar
-              modelImage={selectedRoom.aiModel.imageUrl}
-              modelName={selectedRoom.aiModel.name}
-              modelPersonality={selectedRoom.aiModel.personality}
-              modelId={selectedRoom.aiModel.id}
-            />
-          )}
         </div>
       </div>
     </div>
