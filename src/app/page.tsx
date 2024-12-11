@@ -81,9 +81,9 @@ export default function Home() {
         />
 
         {/* Featured AI Characters Section */}
-        <div className="container mx-auto py-16">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold">
+        <div className="container mx-auto py-8 md:py-16 px-4 md:px-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
+            <h2 className="text-2xl md:text-3xl font-bold">
               Most Popular{' '}
               <span className="bg-gradient-to-r from-pink-500 to-purple-600 text-transparent bg-clip-text">
                 AI Companions
@@ -92,14 +92,14 @@ export default function Home() {
             <Link href="/community">
               <Button 
                 variant="outline" 
-                className="border-pink-500/20 hover:bg-gradient-to-r from-pink-500/10 to-purple-600/10 transition-all duration-300"
+                className="w-full sm:w-auto border-pink-500/20 hover:bg-gradient-to-r from-pink-500/10 to-purple-600/10 transition-all duration-300"
               >
                 View All Models
               </Button>
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {featuredModels.map((model: AIModel) => (
               <Link 
                 href={`/community/AIModelProfile/${model.id}`}
@@ -150,7 +150,7 @@ export default function Home() {
 
           {/* View More Models Section */}
           <motion.div 
-            className="mt-12 text-center"
+            className="mt-8 md:mt-12 text-center px-4 md:px-0"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.5 }}
@@ -170,13 +170,13 @@ export default function Home() {
               <Link href="/community" className="inline-block">
                 <Button
                   size="lg"
-                  className="group relative px-8 py-6 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-xl shadow-xl shadow-pink-500/20 transition-all duration-300 hover:shadow-2xl hover:shadow-pink-500/30"
+                  className="group relative px-4 md:px-8 py-4 md:py-6 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-xl shadow-xl shadow-pink-500/20 transition-all duration-300 hover:shadow-2xl hover:shadow-pink-500/30"
                 >
                   <div className="absolute inset-0 bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <span className="relative flex items-center gap-3 text-lg font-semibold">
-                    <Sparkles className="w-5 h-5" />
+                  <span className="relative flex items-center gap-2 md:gap-3 text-base md:text-lg font-semibold">
+                    <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
                     Discover {totalModels.toLocaleString()}+ AI Companions
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
+                    <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform duration-300" />
                   </span>
                 </Button>
               </Link>
