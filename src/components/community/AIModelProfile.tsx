@@ -19,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Image from 'next/image';
 
 interface AIModelProfileProps {
   aiModel: AIModel;
@@ -44,6 +45,19 @@ interface Image {
 interface ImageWithLoadingState extends Image {
   isLoading?: boolean;
 }
+
+const ImageLoadingFallback = () => (
+  <div className="absolute inset-0 bg-gray-800/50 animate-pulse flex items-center justify-center">
+    <div className="w-8 h-8 border-2 border-pink-500/30 border-t-pink-500 rounded-full animate-spin" />
+  </div>
+);
+
+const ImageErrorFallback = () => (
+  <div className="absolute inset-0 bg-gray-800/50 flex flex-col items-center justify-center text-white/50">
+    <ImageIcon className="w-8 h-8 mb-2" />
+    <span className="text-sm">Failed to load image</span>
+  </div>
+);
 
 const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({ 
   aiModel, 
@@ -228,15 +242,15 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
   return (
     <>
       <div className="w-full h-full overflow-auto bg-gradient-to-b from-gray-900 via-purple-900/20 to-gray-900 text-white">
-        <div className="relative h-64 bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 animate-gradient-x">
+        <div className="relative h-48 sm:h-64 bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 animate-gradient-x">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30 backdrop-blur-sm"></div>
-          <div className="absolute top-4 right-4 flex items-center gap-4">
-            <Badge variant="secondary" className="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2">
-              <User className="w-4 h-4 mr-2" />
-              <span className="font-bold">{aiModelState.followerCount || 0} Followers</span>
+          <div className="absolute top-4 right-4 flex items-center gap-2 sm:gap-4">
+            <Badge variant="secondary" className="bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 sm:px-4 sm:py-2">
+              <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span className="text-xs sm:text-sm font-medium">{aiModelState.followerCount || 0} Followers</span>
             </Badge>
           </div>
-          <div className="absolute bottom-0 left-8 transform translate-y-1/2">
+          <div className="absolute -bottom-16 sm:-bottom-20 left-4 sm:left-8">
             <div className="relative group">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000"></div>
               <Avatar className="relative w-32 h-32 sm:w-40 sm:h-40 border-4 border-gray-900 group-hover:border-purple-500/50 transition-all duration-300">
@@ -244,7 +258,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
                   src={aiModelState.imageUrl || ''} 
                   className="object-cover" 
                   alt={`${aiModelState.name} avatar`} 
-                  sizes="(max-width: 768px) 100vw, 384px"
+                  sizes="(max-width: 768px) 128px, 160px"
                 />
                 <AvatarFallback>{aiModelState.name ? aiModelState.name[0] : 'A'}</AvatarFallback>
               </Avatar>
@@ -253,30 +267,30 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
         </div>
 
         <div className="px-4 sm:px-8 pt-20 sm:pt-24 pb-6">
-          <div className="mb-8">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-2 bg-gradient-to-r from-pink-500 to-purple-500 text-transparent bg-clip-text">{aiModelState.name}</h2>
-            <p className="text-sm flex items-center mb-6 text-gray-300">
-              <User className="w-4 h-4 mr-2" /> Created by: {getCreatorName()}
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-2xl sm:text-4xl font-bold mb-2 bg-gradient-to-r from-pink-500 to-purple-500 text-transparent bg-clip-text">{aiModelState.name}</h2>
+            <p className="text-sm flex items-center mb-4 sm:mb-6 text-gray-300">
+              <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /> Created by: {getCreatorName()}
             </p>
-            <div className="flex space-x-4">
+            <div className="flex flex-wrap gap-2 sm:gap-4">
               <Button 
                 onClick={handleMessage} 
                 variant="default" 
-                className="relative group overflow-hidden bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-500/25"
+                className="relative group flex-1 sm:flex-none overflow-hidden bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-full transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-500/25"
               >
                 <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <MessageCircle className="w-5 h-5 mr-2" /> Message
+                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" /> Message
               </Button>
               <Button 
                 variant={isFollowingState ? "secondary" : "outline"} 
                 onClick={handleFollow} 
-                className={`relative group overflow-hidden font-bold py-3 px-6 rounded-full transition-all duration-300 ease-in-out transform hover:-translate-y-1 ${
+                className={`relative group flex-1 sm:flex-none overflow-hidden font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-full transition-all duration-300 ease-in-out transform hover:-translate-y-1 ${
                   isFollowingState 
                     ? 'bg-gray-800 text-white hover:bg-gray-700' 
                     : 'bg-transparent border-2 border-purple-500 text-purple-500 hover:bg-purple-500/10'
                 }`}
               >
-                <Heart className={`w-4 h-4 mr-2 transition-colors duration-300 ${isFollowingState ? 'text-red-500 fill-current' : ''}`} /> 
+                <Heart className={`w-4 h-4 sm:w-5 sm:h-5 mr-2 transition-colors duration-300 ${isFollowingState ? 'text-red-500 fill-current' : ''}`} /> 
                 {isFollowingState ? 'Following' : 'Follow'}
               </Button>
               
@@ -284,9 +298,9 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
                 <DropdownMenuTrigger asChild>
                   <Button 
                     variant="outline" 
-                    className="relative group overflow-hidden font-bold py-3 px-6 rounded-full transition-all duration-300 ease-in-out transform hover:-translate-y-1 bg-transparent border-2 border-purple-500/50 text-purple-500 hover:bg-purple-500/10"
+                    className="relative group flex-1 sm:flex-none overflow-hidden font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-full transition-all duration-300 ease-in-out transform hover:-translate-y-1 bg-transparent border-2 border-purple-500/50 text-purple-500 hover:bg-purple-500/10"
                   >
-                    <Share2 className="w-4 h-4 mr-2" />
+                    <Share2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                     Share
                   </Button>
                 </DropdownMenuTrigger>
@@ -318,7 +332,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
           </div>
 
           <Tabs defaultValue="feed" className="w-full" onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2 mb-8 bg-gray-800/50 backdrop-blur-md p-1 rounded-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6 sm:mb-8 bg-gray-800/50 backdrop-blur-md p-1 rounded-full">
               <TabsTrigger value="feed" className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-purple-500">
                 <ImageIcon className="w-4 h-4 mr-2" />
                 Feed
@@ -331,7 +345,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
 
             <TabsContent value="feed" className="mt-0">
               {isLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <div 
                       key={i}
@@ -352,7 +366,7 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
                 </div>
               ) : displayedImages.length > 0 ? (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                     {displayedImages.map((image) => (
                       <div 
                         key={image.id}
@@ -383,12 +397,37 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
                           className="cursor-pointer relative aspect-square overflow-hidden group"
                         >
                           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={image.imageUrl}
-                            alt={`Generated by ${aiModelState.name}`}
-                            className="w-full h-full object-cover transform transition-transform duration-300 group-hover:scale-105"
-                          />
+                          <div className="relative w-full h-full">
+                            <ImageLoadingFallback />
+                            <Image
+                              src={image.imageUrl}
+                              alt={`Generated by ${aiModelState.name}`}
+                              fill
+                              className="object-cover transform transition-transform duration-300 group-hover:scale-105"
+                              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                              priority={image.id === 'profile'}
+                              onError={(e) => {
+                                const img = e.target as HTMLImageElement;
+                                const parent = img.parentElement;
+                                if (parent) {
+                                  const errorFallback = document.createElement('div');
+                                  errorFallback.className = 'absolute inset-0';
+                                  errorFallback.innerHTML = `
+                                    <div class="absolute inset-0 bg-gray-800/50 flex flex-col items-center justify-center text-white/50">
+                                      <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                        <polyline points="21 15 16 10 5 21"></polyline>
+                                      </svg>
+                                      <span class="text-sm">Failed to load image</span>
+                                    </div>
+                                  `;
+                                  parent.appendChild(errorFallback);
+                                }
+                                img.style.opacity = '0';
+                              }}
+                            />
+                          </div>
                           <div className="absolute bottom-0 inset-x-0 p-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                             <div className="flex justify-end gap-2">
                               <Button
@@ -444,8 +483,8 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
                   )}
                 </>
               ) : (
-                <div className="text-center py-12 bg-gray-800/50 rounded-lg">
-                  <ImageIcon className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+                <div className="text-center py-8 sm:py-12 bg-gray-800/50 rounded-lg">
+                  <ImageIcon className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 text-gray-600" />
                   <p className="text-gray-400">No images generated yet</p>
                   <p className="text-sm text-gray-500 mt-2">
                     Start a chat to generate images with {aiModelState.name}
@@ -455,8 +494,8 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
             </TabsContent>
 
             <TabsContent value="about" className="mt-0">
-              <div className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-6 sm:space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                   <InfoCard title="Personality" content={aiModelState.personality || ''} icon="👤" />
                   <InfoCard title="Appearance" content={aiModelState.appearance || ''} icon="✨" />
                   <InfoCard title="Backstory" content={aiModelState.backstory || ''} icon="📖" />
@@ -508,12 +547,20 @@ const AIModelProfile: React.FC<AIModelProfileProps> = React.memo(({
             {/* Image */}
             <div className="relative aspect-[4/3] w-full overflow-hidden bg-black/50">
               {selectedImage && (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={selectedImage.imageUrl}
-                  alt={`Generated by ${aiModelState.name}`}
-                  className="w-full h-full object-contain"
-                />
+                <div className="relative w-full h-full">
+                  <Image
+                    src={selectedImage.imageUrl}
+                    alt={`Generated by ${aiModelState.name}`}
+                    fill
+                    className="object-contain"
+                    sizes="95vw"
+                    priority
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.src = '/placeholder-failed.jpg';
+                    }}
+                  />
+                </div>
               )}
             </div>
 

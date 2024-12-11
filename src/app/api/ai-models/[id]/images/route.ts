@@ -4,6 +4,17 @@ import { generateImage } from '@/lib/ai-client'
 import prisma from '@/lib/prisma'
 import { z } from 'zod'
 
+interface MessageMetadata {
+  type: string;
+  imageUrl?: string;
+  prompt?: string;
+  status?: string;
+}
+
+function isMessageMetadata(value: unknown): value is MessageMetadata {
+  return typeof value === 'object' && value !== null && 'type' in value;
+}
+
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
@@ -150,25 +161,82 @@ export async function GET(
       );
     }
 
-    // Fetch images for the model
-    const images = await prisma.image.findMany({
-      where: {
-        aiModelId: params.id
-      },
-      select: {
-        id: true,
-        imageUrl: true,
-        createdAt: true,
-        aiModelId: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
+    // Fetch all images associated with the model
+    const [modelImages, chatImages] = await Promise.all([
+      // Get images from the Image table
+      prisma.image.findMany({
+        where: {
+          aiModelId: params.id
+        },
+        select: {
+          id: true,
+          imageUrl: true,
+          createdAt: true,
+          aiModelId: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      // Get images from messages
+      prisma.message.findMany({
+        where: {
+          aiModelId: params.id,
+          metadata: {
+            path: ['type'],
+            equals: 'image'
+          }
+        },
+        select: {
+          id: true,
+          metadata: true,
+          createdAt: true,
+          aiModelId: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+    ]);
 
-    console.log(`✨ Found ${images.length} images for model:`, params.id);
+    // Transform chat images to match the Image type
+    const transformedChatImages = chatImages.map(msg => {
+      const metadata = isMessageMetadata(msg.metadata) ? msg.metadata : { type: '', imageUrl: '' };
+      return {
+        id: msg.id,
+        imageUrl: metadata.imageUrl || '',
+        createdAt: msg.createdAt,
+        aiModelId: msg.aiModelId
+      };
+    }).filter(img => img.imageUrl);
+
+    // Add profile image if it exists and isn't already included
+    const allImages = [
+      // Add profile image if it exists
+      ...(aiModel.imageUrl ? [{
+        id: 'profile',
+        imageUrl: aiModel.imageUrl,
+        createdAt: aiModel.createdAt,
+        aiModelId: aiModel.id
+      }] : []),
+      // Add all other images
+      ...modelImages,
+      ...transformedChatImages
+    ];
+
+    // Remove duplicates based on imageUrl
+    const uniqueImages = allImages.filter((img, index, self) =>
+      index === self.findIndex((t) => t.imageUrl === img.imageUrl)
+    );
+
+    // Sort by creation date, newest first
+    const sortedImages = uniqueImages.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    console.log(`✨ Found ${sortedImages.length} images for model:`, params.id);
     
-    return NextResponse.json({ images });
+    return NextResponse.json({ images: sortedImages });
   } catch (error) {
     console.error('❌ Error fetching images:', error);
     return NextResponse.json(
