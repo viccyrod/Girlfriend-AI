@@ -440,6 +440,58 @@ export default function BillingSettings() {
       </div>
 
       {/* Manual Payment Section */}
+      <div className="p-6 rounded-lg bg-gray-900/50 border border-gray-800 mb-16">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-medium">Manual Payment</h3>
+            <p className="text-sm text-gray-400">You can send USD equivalent of Solana to the merchant wallet address below</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-4 rounded-md bg-gray-800/50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-medium">Merchant Wallet Address</span>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-8"
+                onClick={() => {
+                  navigator.clipboard.writeText('6PbPoFs9u4qkmGfx9YLMxqQBSTqxKsFaQZdkLWohxGbv');
+                  toast.success('Address copied to clipboard');
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy
+              </Button>
+            </div>
+            <code className="text-sm text-gray-400 break-all">6PbPoFs9u4qkmGfx9YLMxqQBSTqxKsFaQZdkLWohxGbv</code>
+          </div>
+
+          <SolanaConverter />
+
+          <div className="text-sm text-gray-400">
+            <p>After sending payment, please email your transaction confirmation to:</p>
+            <div className="flex items-center gap-2 mt-2">
+              <code className="text-primary">papi@girlfriend.cx</code>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-8"
+                onClick={() => {
+                  navigator.clipboard.writeText('papi@girlfriend.cx');
+                  toast.success('Email copied to clipboard');
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Share & Earn Program Section */}
       <div className="mb-12">
         <div className="p-6 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
