@@ -12,9 +12,9 @@ export function SolanaProvider({ children }: { children: React.ReactNode }) {
   // Using mainnet-beta for real transactions
   const network = WalletAdapterNetwork.Mainnet;
 
-  // Use a reliable RPC endpoint
+  // Use Alchemy RPC endpoint
   const endpoint = useMemo(() => 
-    "https://solana-mainnet.g.alchemy.com/v2/demo",
+    "https://solana-mainnet.g.alchemy.com/v2/_72BKJxKxcuPjZPhvx9w8qbKwfvZF3IX",
     []
   );
 

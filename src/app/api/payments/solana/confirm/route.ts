@@ -8,6 +8,9 @@ if (!MERCHANT_WALLET_ADDRESS) {
   throw new Error('MERCHANT_WALLET_ADDRESS environment variable is not set');
 }
 
+// Alchemy RPC endpoint
+const RPC_ENDPOINT = "https://solana-mainnet.g.alchemy.com/v2/_72BKJxKxcuPjZPhvx9w8qbKwfvZF3IX";
+
 export async function POST(req: Request) {
   try {
     const { getUser } = getKindeServerSession();
@@ -49,10 +52,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Payment already processed' }, { status: 400 });
     }
 
-    // Verify transaction on Solana
-    const connection = new Connection(
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com'
-    );
+    // Verify transaction on Solana using Alchemy endpoint
+    const connection = new Connection(RPC_ENDPOINT);
     
     console.log('Fetching transaction details from Solana...');
     const transaction = await connection.getTransaction(signature, {

@@ -16,6 +16,9 @@ if (!MERCHANT_WALLET_ADDRESS) {
   throw new Error('MERCHANT_WALLET_ADDRESS environment variable is not set');
 }
 
+// Alchemy RPC endpoint
+const RPC_ENDPOINT = "https://solana-mainnet.g.alchemy.com/v2/_72BKJxKxcuPjZPhvx9w8qbKwfvZF3IX";
+
 console.log('Using merchant wallet address:', MERCHANT_WALLET_ADDRESS);
 
 // Function to get real-time SOL price
@@ -55,10 +58,8 @@ export async function POST(req: Request) {
     // Calculate token amount including bonuses
     const tokenAmount = calculateTokens(amount);
 
-    // Create Solana connection
-    const connection = new Connection(
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com'
-    );
+    // Create Solana connection using Alchemy endpoint
+    const connection = new Connection(RPC_ENDPOINT);
 
     // Get real-time SOL price and convert USD amount to SOL
     const SOL_PRICE_USD = await getSolanaPrice();
