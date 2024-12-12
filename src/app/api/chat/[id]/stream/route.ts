@@ -211,10 +211,10 @@ Format Guidelines:
             model: 'grok-beta',
             messages,
             stream: true,
-            temperature: 0.7,
+            temperature: 1.0,
             max_tokens: 1000,
-            frequency_penalty: 0.8,
-            presence_penalty: 0.8,
+            frequency_penalty: 0.9,
+            presence_penalty: 0.9,
             top_p: 0.9
           });
 
