@@ -18,6 +18,7 @@ import { TokenCounter } from '@/components/TokenCounter';
 import { toast } from 'sonner';
 import { WalletButton } from '@/components/WalletButton';
 import { SolanaConverter } from '@/components/SolanaConverter';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
 interface UsageStats {
   currentPlan: string;
@@ -52,6 +53,7 @@ export default function BillingSettings() {
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
+  const [showPhantomGuide, setShowPhantomGuide] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -250,7 +252,41 @@ export default function BillingSettings() {
               </span>
             </div>
           </div>
-          <div className="w-full sm:w-auto">
+          <div className="flex items-center gap-4">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <img src="/phantom.svg" alt="Phantom" className="w-4 h-4" />
+                  How to Buy with Phantom
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">How to Buy with Phantom</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">1</div>
+                      <p className="text-sm text-gray-400">Download Phantom Wallet from <a href="https://phantom.app" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">phantom.app</a></p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">2</div>
+                      <p className="text-sm text-gray-400">Add funds to your wallet using a credit card or crypto</p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">3</div>
+                      <p className="text-sm text-gray-400">Connect your wallet using the button above</p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">4</div>
+                      <p className="text-sm text-gray-400">Click any package to purchase tokens instantly</p>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
             <WalletButton className="w-full sm:w-auto" />
           </div>
         </div>

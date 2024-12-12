@@ -5,11 +5,12 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function LoginPage() {
+function LoginContent() {
   const searchParams = useSearchParams();
   const claimCode = searchParams.get("claimCode");
-  const postLoginRedirect = claimCode ? `/settings/billing?claim=${claimCode}` : undefined;
+  const postLoginRedirect = claimCode ? `/?claim=${claimCode}` : undefined;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background/80 p-4">
@@ -113,5 +114,17 @@ export default function LoginPage() {
         </p>
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 } 
