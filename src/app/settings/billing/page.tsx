@@ -114,6 +114,14 @@ export default function BillingSettings() {
         Billing & Usage
       </h1>
 
+      {/* Current Plan / Manual Payment Section */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-2">Current Plan</h2>
+        <p className="text-sm text-gray-400 mb-6">Manage your subscription and billing information.</p>
+        
+        
+      </div>
+
       <TokenCounter />
 
       {/* Token System Explanation */}
@@ -152,7 +160,31 @@ export default function BillingSettings() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <TokenIcon className="w-8 h-8" animate />
-            <h2 className="text-2xl font-bold">Buy Tokens</h2>
+            <h2 className="text-2xl font-bold">Buy Tokens with</h2>
+            <div className="flex items-center gap-1">
+              <svg className="w-6 h-6" viewBox="0 0 128 128" fill="none">
+                <path d="M93.94 42.63H13.78c-1.76 0-2.64-2.13-1.4-3.38l19.23-19.23c.84-.84 1.99-1.31 3.18-1.31h80.16c1.76 0 2.64 2.13 1.4 3.38L97.12 41.32c-.84.84-1.99 1.31-3.18 1.31Z" fill="url(#solana_logo_gradient_1)"/>
+                <path d="M93.94 104.36H13.78c-1.76 0-2.64-2.13-1.4-3.38l19.23-19.23c.84-.84 1.99-1.31 3.18-1.31h80.16c1.76 0 2.64 2.13 1.4 3.38l-19.23 19.23c-.84.84-1.99 1.31-3.18 1.31Z" fill="url(#solana_logo_gradient_2)"/>
+                <path d="M34.79 73.5h80.16c1.76 0 2.64-2.13 1.4-3.38L97.12 50.89c-.84-.84-1.99-1.31-3.18-1.31H13.78c-1.76 0-2.64 2.13-1.4 3.38l19.23 19.23c.84.84 1.99 1.31 3.18 1.31Z" fill="url(#solana_logo_gradient_3)"/>
+                <defs>
+                  <linearGradient id="solana_logo_gradient_1" x1="73" y1="18.71" x2="73" y2="42.63" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#9945FF"/>
+                    <stop offset="1" stopColor="#14F195"/>
+                  </linearGradient>
+                  <linearGradient id="solana_logo_gradient_2" x1="73" y1="80.44" x2="73" y2="104.36" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#9945FF"/>
+                    <stop offset="1" stopColor="#14F195"/>
+                  </linearGradient>
+                  <linearGradient id="solana_logo_gradient_3" x1="73" y1="49.58" x2="73" y2="73.5" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#9945FF"/>
+                    <stop offset="1" stopColor="#14F195"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <span className="text-2xl font-bold bg-gradient-to-r from-[#9945FF] to-[#14F195] text-transparent bg-clip-text">
+                Solana
+              </span>
+            </div>
           </div>
           <WalletButton />
         </div>
@@ -304,87 +336,105 @@ export default function BillingSettings() {
           </div>
         </div>
       </div>
-
-      <div className="mb-12">
-        <div className="flex items-center gap-2 mb-6">
-          <Sparkles className="w-8 h-8 text-purple-400" />
-          <h2 className="text-2xl font-bold">Share & Earn Tokens</h2>
-        </div>
-
-        <div className="p-6 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-2">
-              <h3 className="text-xl font-semibold">Give 600, Get 600</h3>
-              <p className="text-gray-400">Share tokens with friends and earn the same amount back when they sign up</p>
-            </div>
-            
-            <div className="flex gap-3">
-              <Button
-                onClick={generateShareLink}
-                className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300"
-              >
-                Generate Link
-              </Button>
-              {shareLink && (
-                <Button
-                  onClick={() => {
-                    navigator.clipboard.writeText(shareLink);
-                    toast.success('Link copied to clipboard!');
-                  }}
-                  variant="outline"
-                  className="gap-2"
-                >
-                  <Copy className="w-4 h-4" />
-                  Copy Link
-                </Button>
-              )}
+      <div className="p-6 rounded-lg bg-gray-900/50 border border-gray-800">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-medium">Manual Payment</h3>
+              <p className="text-sm text-gray-400">You can send USD equivalent of Solana to the merchant wallet address below</p>
             </div>
           </div>
+          
+          <div className="space-y-4">
+            <div className="p-4 rounded-md bg-gray-800/50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium">Merchant Wallet Address</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="h-8"
+                  onClick={() => {
+                    navigator.clipboard.writeText('6PbPoFs9u4qkmGfx9YLMxqQBSTqxKsFaQZdkLWohxGbv');
+                    toast.success('Address copied to clipboard');
+                  }}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy
+                </Button>
+              </div>
+              <code className="text-sm text-gray-400 break-all">6PbPoFs9u4qkmGfx9YLMxqQBSTqxKsFaQZdkLWohxGbv</code>
+            </div>
 
-          {shareLink && (
-            <div className="mt-4 p-3 bg-purple-950/20 rounded-lg border border-purple-500/20 flex items-center justify-between">
-              <code className="text-sm text-purple-300">{shareLink}</code>
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <Users2 className="w-4 h-4" />
-                <span>{referralStats?.used || 0}/{referralStats?.total || 0} claimed</span>
+            <div className="text-sm text-gray-400">
+              <p>After sending payment, please email your transaction confirmation to:</p>
+              <div className="flex items-center gap-2 mt-2">
+                <code className="text-primary">papi@girlfriend.cx</code>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="h-8"
+                  onClick={() => {
+                    navigator.clipboard.writeText('papi@girlfriend.cx');
+                    toast.success('Email copied to clipboard');
+                  }}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy
+                </Button>
               </div>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+
+        {/* Share and Earn Tokens */}
+        <div className="mt-16 mb-12">
+          <div className="flex items-center gap-2 mb-6">
+            <Users2 className="w-8 h-8" />
+            <h2 className="text-2xl font-bold">Share & Earn Tokens</h2>
+          </div>
+
+          <div className="p-6 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold">Give 600, Get 600</h3>
+                <p className="text-gray-400">Share tokens with friends and earn the same amount back when they sign up</p>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={generateShareLink}
+                  className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300"
+                >
+                  Generate Link
+                </Button>
+                {shareLink && (
+                  <Button
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareLink);
+                      toast.success('Link copied to clipboard!');
+                    }}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy Link
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {shareLink && (
+              <div className="mt-4 p-3 bg-purple-950/20 rounded-lg border border-purple-500/20 flex items-center justify-between">
+                <code className="text-sm text-purple-300">{shareLink}</code>
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Users2 className="w-4 h-4" />
+                  <span>{referralStats?.used || 0}/{referralStats?.total || 0} claimed</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
       <div className="space-y-6">
-        {/* Current Plan Card */}
-        <Card className="bg-gray-900/50 border-gray-800">
-          <CardHeader>
-            <CardTitle>Current Plan</CardTitle>
-            <CardDescription>Manage your subscription and billing information.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold">{stats?.currentPlan || 'Free'} Plan</h3>
-                <p className="text-sm text-gray-400">
-                  {stats?.currentPlan === 'Premium' 
-                    ? 'Full access to all features'
-                    : 'Basic features and limited usage'}
-                </p>
-              </div>
-              {stats?.currentPlan !== 'Premium' && (
-                <SolanaPaymentButton 
-                  amount={49.99} 
-                  label="Buy Tokens"
-                  onSuccess={async () => {
-                    const response = await fetch('/api/settings/usage');
-                    const data = await response.json();
-                    setStats(data);
-                  }}
-                />
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Usage Statistics Card */}
         <Card className="bg-gray-900/50 border-gray-800">
           <CardHeader>

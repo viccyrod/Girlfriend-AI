@@ -11,7 +11,27 @@ import {
 import { calculateTokens } from '@/lib/tokens';
 
 // Make sure this is a valid Solana address
-const MERCHANT_WALLET_ADDRESS = process.env.MERCHANT_WALLET_ADDRESS || '11111111111111111111111111111111';
+const MERCHANT_WALLET_ADDRESS = process.env.MERCHANT_WALLET_ADDRESS;
+if (!MERCHANT_WALLET_ADDRESS) {
+  throw new Error('MERCHANT_WALLET_ADDRESS environment variable is not set');
+}
+
+console.log('Using merchant wallet address:', MERCHANT_WALLET_ADDRESS);
+
+// Function to get real-time SOL price
+async function getSolanaPrice(): Promise<number> {
+  try {
+    const response = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+      { next: { revalidate: 60 } } // Cache for 60 seconds
+    );
+    const data = await response.json();
+    return data.solana.usd;
+  } catch (error) {
+    console.error('Error fetching SOL price:', error);
+    throw new Error('Failed to fetch SOL price');
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -40,10 +60,9 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com'
     );
 
-    // Convert USD amount to SOL
-    // Using a fixed rate for demo. In production, fetch real-time price
-    const SOL_PRICE_USD = 100; // Example: 1 SOL = $100
-    const solAmount = amount / SOL_PRICE_USD;
+    // Get real-time SOL price and convert USD amount to SOL
+    const SOL_PRICE_USD = await getSolanaPrice();
+    const solAmount = parseFloat((amount / SOL_PRICE_USD).toFixed(4)); // Round to 4 decimal places
     const lamports = Math.floor(solAmount * LAMPORTS_PER_SOL);
 
     // Create payment record first
@@ -62,7 +81,11 @@ export async function POST(req: Request) {
     
     // Create PublicKey instances
     const senderPublicKey = new PublicKey(publicKey);
-    const merchantPublicKey = new PublicKey(MERCHANT_WALLET_ADDRESS);
+    const merchantPublicKey = new PublicKey(MERCHANT_WALLET_ADDRESS!); // Assert non-null since we checked above
+    
+    console.log('Sender public key:', senderPublicKey.toString());
+    console.log('Merchant public key:', merchantPublicKey.toString());
+    console.log('Amount in lamports:', lamports);
 
     // Add transfer instruction
     transaction.add(
@@ -78,10 +101,26 @@ export async function POST(req: Request) {
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = senderPublicKey;
 
-    // Return the serialized transaction
+    console.log('Transaction created with blockhash:', blockhash);
+    console.log('Transaction accounts:', transaction.instructions[0].keys.map(k => k.pubkey.toString()));
+
+    // Add transaction metadata for better UX
+    const metadata = {
+      name: "girlfriend.cx",
+      icon: "/logo-gradient-heart-hq.svg",
+      amount: {
+        value: solAmount,
+        currency: "SOL",
+        usdValue: amount,
+        solPrice: SOL_PRICE_USD
+      }
+    };
+
+    // Return the serialized transaction with metadata
     return NextResponse.json({ 
       transaction: transaction.serialize({ requireAllSignatures: false }), 
-      paymentId: payment.id 
+      paymentId: payment.id,
+      metadata
     });
 
   } catch (error) {
