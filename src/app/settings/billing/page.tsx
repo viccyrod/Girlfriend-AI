@@ -17,6 +17,7 @@ import { Sparkles } from 'lucide-react';
 import { TokenCounter } from '@/components/TokenCounter';
 import { toast } from 'sonner';
 import { WalletButton } from '@/components/WalletButton';
+import { SolanaConverter } from '@/components/SolanaConverter';
 
 interface UsageStats {
   currentPlan: string;
@@ -365,6 +366,8 @@ export default function BillingSettings() {
               </div>
               <code className="text-sm text-gray-400 break-all">6PbPoFs9u4qkmGfx9YLMxqQBSTqxKsFaQZdkLWohxGbv</code>
             </div>
+
+            <SolanaConverter />
 
             <div className="text-sm text-gray-400">
               <p>After sending payment, please email your transaction confirmation to:</p>

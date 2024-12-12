@@ -9,13 +9,13 @@ import { useMemo } from 'react';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 export function SolanaProvider({ children }: { children: React.ReactNode }) {
-  // Can be set to 'devnet', 'testnet', or 'mainnet-beta'
-  const network = WalletAdapterNetwork.Devnet;
+  // Using mainnet-beta for real transactions
+  const network = WalletAdapterNetwork.Mainnet;
 
-  // You can also provide a custom RPC endpoint
+  // Use a reliable RPC endpoint
   const endpoint = useMemo(() => 
-    process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl(network),
-    [network]
+    "https://solana-mainnet.g.alchemy.com/v2/demo",
+    []
   );
 
   // Initialize only Phantom wallet adapter
