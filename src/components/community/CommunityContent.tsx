@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from 'next/image';
 import { useEffect, useState } from "react";
 import { AIModel } from "@prisma/client";
+import { getOrCreateChatRoom } from '@/lib/actions/chat';
 
 interface ExtendedAIModel extends AIModel {
   createdBy: {
@@ -114,9 +115,18 @@ export default function CommunityContent({ filterIsAnime = false, initialModels 
                 {/* Chat Button */}
                 <button 
                   className="absolute top-2 sm:top-3 right-2 sm:right-3 z-20 bg-white/10 backdrop-blur-sm p-1.5 sm:p-2 rounded-full hover:bg-white/20 transition-all duration-300 border border-white/10"
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    router.push(`/chat/${aiModel.id}`);
+                    try {
+                      const chatRoom = await getOrCreateChatRoom(aiModel.id);
+                      if (chatRoom?.id) {
+                        window.sessionStorage.setItem('pendingChatRoomId', chatRoom.id);
+                        router.push('/chat');
+                        router.refresh();
+                      }
+                    } catch (error) {
+                      console.error('Failed to create chat room:', error);
+                    }
                   }}
                 >
                   <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-white" />

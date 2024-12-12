@@ -50,7 +50,7 @@ export async function POST(
         model: 'grok-beta',
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "assistant", content: "Greet the user in your unique personality style." }
+          { role: "assistant", content: "Greet the user in your unique personality style. Be flirty and fun. Use emojis and be casual." }
         ],
         stream: true,
         temperature: 1.0,

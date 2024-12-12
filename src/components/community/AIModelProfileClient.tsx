@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Heart, MessageCircle } from "lucide-react";
+import { useRouter } from 'next/navigation';
+import { getOrCreateChatRoom } from '@/lib/actions/chat';
 
 interface AIModelProfileClientProps {
   model: any;
@@ -17,10 +19,26 @@ interface AIModelProfileClientProps {
 
 export function AIModelProfileClient({ 
   model, 
-  onStartChat, 
+  onStartChat: _onStartChat, 
   onFollow, 
   isFollowing 
 }: AIModelProfileClientProps) {
+  const router = useRouter();
+
+  const handleStartChat = async () => {
+    try {
+      const chatRoom = await getOrCreateChatRoom(model.id);
+      if (chatRoom?.id) {
+        window.sessionStorage.setItem('pendingChatRoomId', chatRoom.id);
+        window.sessionStorage.setItem('selectedChatRoomId', chatRoom.id);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await router.push('/chat');
+      }
+    } catch (error) {
+      console.error('Failed to create chat room:', error);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -47,7 +65,7 @@ export function AIModelProfileClient({
           </div>
           <div className="flex gap-4">
             <Button 
-              onClick={onStartChat}
+              onClick={handleStartChat}
               className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600"
             >
               <MessageCircle className="w-4 h-4 mr-2" />
