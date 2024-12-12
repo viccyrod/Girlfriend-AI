@@ -343,7 +343,8 @@ export default function ClaimPage({ params }: Props) {
                 size="lg"
                 className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold py-6 px-8 rounded-xl w-full md:w-auto min-w-[200px]"
                 onClick={() => {
-                  window.location.href = `${process.env.NEXT_PUBLIC_KINDE_SITE_URL}/auth/login?post_login_redirect_url=/claim/${params.code}`;
+                  const redirectUrl = `/claim/${params.code}`;
+                  window.location.href = `${process.env.NEXT_PUBLIC_KINDE_SITE_URL}/auth/login?post_login_redirect_url=${encodeURIComponent(redirectUrl)}`;
                 }}
               >
                 <LogIn className="w-5 h-5 mr-2" />
