@@ -339,9 +339,10 @@ export function ClientChatMessages({
   return (
     <div className={cn(
       "flex flex-col",
-      "h-[calc(100vh-4rem)]",
+      "h-[calc(100dvh-3rem)]",
       "bg-[#0a0a0a]",
-      "relative"
+      "relative",
+      "pb-safe"
     )}>
       {/* Chat Info Bar */}
       <div className="shrink-0 bg-[#0a0a0a] border-b border-white/5">
@@ -366,7 +367,9 @@ export function ClientChatMessages({
         "shrink-0",
         "bg-[#0a0a0a]",
         "border-t border-white/5",
-        "px-2 md:px-4 py-2"
+        "px-2 md:px-4 py-2",
+        "sticky bottom-0",
+        "pb-[env(safe-area-inset-bottom)]"
       )}>
         <ChatInput
           value={state.newMessage}

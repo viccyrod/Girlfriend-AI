@@ -232,17 +232,16 @@ export default function ChatComponent({
       {backdropOverlay}
       {sidebarContent}
       
-      <div className="flex-1 flex flex-col h-full">
-        <div className="h-12 flex items-center px-4 md:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="h-8 w-8 -ml-2"
-          >
-            {isSidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-          </Button>
-        </div>
+      <div className="flex-1 flex flex-col h-full relative">
+        {/* Floating menu button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="md:hidden absolute top-3 left-3 z-10 h-8 w-8 bg-black/50 hover:bg-black/70"
+        >
+          {isSidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+        </Button>
 
         <div className="flex-1">
           <ClientChatMessages
