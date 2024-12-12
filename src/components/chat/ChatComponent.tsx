@@ -233,14 +233,14 @@ export default function ChatComponent({
       {sidebarContent}
       
       <div className="flex-1 flex flex-col h-full relative">
-        {/* Floating menu button */}
+        {/* Floating toggle button */}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="md:hidden absolute top-3 left-3 z-10 h-8 w-8 bg-black/50 hover:bg-black/70"
+          className="md:hidden fixed top-[4.5rem] left-4 z-[100] h-9 w-9 bg-[#0f0f0f] border border-white/10 shadow-lg rounded-full hover:bg-[#1a1a1a]"
         >
-          {isSidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          <ChevronRight className="h-5 w-5" />
         </Button>
 
         <div className="flex-1">

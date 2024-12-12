@@ -342,7 +342,7 @@ export function ClientChatMessages({
       "h-[calc(100dvh-3rem)]",
       "bg-[#0a0a0a]",
       "relative",
-      "pb-safe"
+      "pt-2"
     )}>
       {/* Chat Info Bar */}
       <div className="shrink-0 bg-[#0a0a0a] border-b border-white/5">
@@ -368,7 +368,6 @@ export function ClientChatMessages({
         "bg-[#0a0a0a]",
         "border-t border-white/5",
         "px-2 md:px-4 py-2",
-        "sticky bottom-0",
         "pb-[env(safe-area-inset-bottom)]"
       )}>
         <ChatInput
