@@ -171,6 +171,16 @@ export default function ChatComponent({
         .then(data => {
           const transformed = data.chatRooms.map(transformRoom);
           setChatRooms(transformed);
+          
+          // Check for pending room selection from sessionStorage
+          const pendingRoomId = window.sessionStorage.getItem('pendingChatRoomId');
+          if (pendingRoomId) {
+            const pendingRoom = transformed.find((room: ExtendedChatRoom) => room.id === pendingRoomId);
+            if (pendingRoom) {
+              handleRoomSelection(pendingRoom);
+              window.sessionStorage.removeItem('pendingChatRoomId');
+            }
+          }
         })
         .catch(error => {
           console.error('Error fetching chat rooms:', error);
@@ -178,7 +188,7 @@ export default function ChatComponent({
         })
         .finally(() => setIsLoading(false));
     }
-  }, [initialChatRoom, modelId, transformRoom, onError]);
+  }, [initialChatRoom, modelId, transformRoom, onError, handleRoomSelection]);
 
   // Memoized UI elements
   const sidebarContent = useMemo(() => (

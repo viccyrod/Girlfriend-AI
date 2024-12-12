@@ -20,8 +20,9 @@ export default function ChatButton({ modelId }: { modelId: string }) {
 
     try {
       const chatRoom = await getOrCreateChatRoom(modelId);
-      if (chatRoom) {
-        router.push(`/chat/${modelId}`);
+      if (chatRoom?.id) {
+        window.sessionStorage.setItem('pendingChatRoomId', chatRoom.id);
+        router.push('/chat');
         router.refresh();
       }
     } catch (error) {
