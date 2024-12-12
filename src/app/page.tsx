@@ -15,6 +15,7 @@ import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from 'framer-motion';
 import { Metadata } from "next";
+import { toast } from 'sonner';
 
 interface AIModel {
   id: string;
@@ -91,6 +92,40 @@ export default function Home() {
       sessionStorage.removeItem('isNewUser');
     }
   }, [user, userData]);
+
+  useEffect(() => {
+    const handleClaimCode = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const claimCode = params.get('claim');
+      
+      if (claimCode) {
+        try {
+          const response = await fetch('/api/claim', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code: claimCode }),
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            toast.success('Successfully claimed 600 tokens!');
+            // Remove claim code from URL without refreshing
+            window.history.replaceState({}, '', '/');
+          } else {
+            toast.error(data.error || 'Failed to claim tokens');
+          }
+        } catch (error) {
+          console.error('Error claiming tokens:', error);
+          toast.error('Failed to claim tokens');
+        }
+      }
+    };
+
+    handleClaimCode();
+  }, []); // Run once on mount
 
   return (
     <AuthWrapper isAuthenticated={!!user}>

@@ -3,13 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
 import { Button } from '@/components/ui/button';
-import { Sparkles, LogIn, Share2, QrCode } from 'lucide-react';
+import { Sparkles, LogIn, Share2 } from 'lucide-react';
 import Image from 'next/image';
 import confetti from 'canvas-confetti';
 import { useEffect, useState } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import prisma from '@/lib/prisma';
 
 interface ClaimData {
   amount: number;
@@ -67,12 +64,12 @@ export default function ClaimPage({ params }: { params: { code: string } }) {
 
   // If user is already logged in, we can handle the claim
   if (isAuthenticated) {
-    router.push('/settings/billing?claim=' + params.code);
+    router.push(`/?claim=${params.code}`);
     return null;
   }
 
   const handleSignUp = () => {
-    router.push(`/login?claimCode=${params.code}`);
+    router.push(`/auth/login?claimCode=${params.code}`);
   };
 
   return (
@@ -95,10 +92,13 @@ export default function ClaimPage({ params }: { params: { code: string } }) {
           <div className="flex items-center justify-center gap-2">
             <Sparkles className="w-8 h-8 text-purple-400" />
             <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">
-              1,800 GOON Tokens
+              600 GOON Tokens
             </h1>
           </div>
           <p className="text-xl font-medium">Are Waiting For You!</p>
+          <p className="text-sm text-gray-400">
+            Plus, your friend will receive 600 tokens too!
+          </p>
         </div>
 
         {/* Countdown Timer */}
@@ -141,12 +141,23 @@ export default function ClaimPage({ params }: { params: { code: string } }) {
 
         {/* Value Breakdown */}
         <div className="bg-purple-500/10 rounded-lg p-4 space-y-2 border border-purple-500/20">
-          <p className="text-sm text-gray-400">What you can do with 1,800 tokens:</p>
+          <p className="text-sm text-gray-400">What you can do with 600 tokens:</p>
           <ul className="text-sm space-y-1">
-            <li className="text-gray-300">• 1,800 chat messages</li>
-            <li className="text-gray-300">• Generate 18 unique images</li>
-            <li className="text-gray-300">• Create 3 custom AI characters</li>
+            <li className="text-gray-300">• 600 chat messages</li>
+            <li className="text-gray-300">• Generate 6 unique images</li>
+            <li className="text-gray-300">• Create 1 custom AI character</li>
           </ul>
+        </div>
+
+        {/* Referral Info */}
+        <div className="bg-purple-500/10 rounded-lg p-4 space-y-2 border border-purple-500/20">
+          <div className="flex items-center gap-2 justify-center">
+            <Share2 className="w-4 h-4 text-purple-400" />
+            <p className="text-sm font-medium text-purple-400">Share & Earn Program</p>
+          </div>
+          <p className="text-sm text-gray-300">
+            When you claim your tokens, the person who shared this with you will also receive 600 tokens as a thank you!
+          </p>
         </div>
 
         {/* Description - Moved closer to CTA */}

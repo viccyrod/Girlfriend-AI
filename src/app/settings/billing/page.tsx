@@ -5,7 +5,7 @@ import BaseLayout from '@/components/BaseLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { CreditCard, MessageCircle, Image as ImageIcon, UserCircle, Plus, Calculator, Copy, Users2 } from 'lucide-react';
+import { CreditCard, MessageCircle, Image as ImageIcon, UserCircle, Plus, Calculator, Copy, Users2, Share2 } from 'lucide-react';
 import { SolanaPaymentButton } from '@/components/SolanaPaymentButton';
 import { SolanaProvider } from '@/providers/SolanaProvider';
 import { CREDIT_PACKAGES, TOKEN_COSTS } from '@/lib/constants';
@@ -38,13 +38,20 @@ interface UsageStats {
   };
 }
 
+interface ReferralStats {
+  totalReferrals: number;
+  pendingReferrals: number;
+  completedReferrals: number;
+  totalTokensEarned: number;
+}
+
 export default function BillingSettings() {
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [customAmount, setCustomAmount] = useState<number>(1000);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
-  const [referralStats, setReferralStats] = useState<{ used: number; total: number } | null>(null);
+  const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -64,6 +71,57 @@ export default function BillingSettings() {
 
     fetchStats();
   }, []);
+
+  useEffect(() => {
+    const fetchReferralStats = async () => {
+      try {
+        const response = await fetch('/api/referral/stats');
+        if (response.ok) {
+          const data = await response.json();
+          setReferralStats(data);
+        }
+      } catch (error) {
+        console.error('Error fetching referral stats:', error);
+      }
+    };
+
+    fetchReferralStats();
+  }, []);
+
+  // Add claim code handling
+  useEffect(() => {
+    const handleClaimCode = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const claimCode = params.get('claim');
+      
+      if (claimCode) {
+        try {
+          const response = await fetch('/api/claim', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code: claimCode }),
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            toast.success('Successfully claimed tokens!');
+            // Remove claim code from URL without refreshing
+            window.history.replaceState({}, '', '/settings/billing');
+          } else {
+            toast.error(data.error || 'Failed to claim tokens');
+          }
+        } catch (error) {
+          console.error('Error claiming tokens:', error);
+          toast.error('Failed to claim tokens');
+        }
+      }
+    };
+
+    handleClaimCode();
+  }, []); // Run once on mount
 
   // Calculate tokens based on amount with bonus tiers
   const calculateTokens = (amount: number) => {
@@ -109,6 +167,13 @@ export default function BillingSettings() {
     }
   };
 
+  const copyShareLink = async () => {
+    if (shareLink) {
+      await navigator.clipboard.writeText(shareLink);
+      toast.success('Share link copied to clipboard!');
+    }
+  };
+
   const content = (
     <div className="container max-w-4xl mx-auto py-8 px-4">
       <h1 className="text-3xl font-bold mb-8 bg-gradient-to-r from-pink-500 to-purple-500 text-transparent bg-clip-text">
@@ -119,8 +184,6 @@ export default function BillingSettings() {
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-2">Current Plan</h2>
         <p className="text-sm text-gray-400 mb-6">Manage your subscription and billing information.</p>
-        
-        
       </div>
 
       <TokenCounter />
@@ -339,105 +402,109 @@ export default function BillingSettings() {
           </div>
         </div>
       </div>
-      <div className="p-6 rounded-lg bg-gray-900/50 border border-gray-800">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-medium">Manual Payment</h3>
-              <p className="text-sm text-gray-400">You can send USD equivalent of Solana to the merchant wallet address below</p>
+
+      {/* Manual Payment Section */}
+      <div className="mb-12">
+        <div className="p-6 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-2">
+              <h3 className="text-xl font-semibold">Give 600, Get 600</h3>
+              <p className="text-gray-400">Share tokens with friends and earn the same amount back when they sign up</p>
             </div>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="p-4 rounded-md bg-gray-800/50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">Merchant Wallet Address</span>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="h-8"
-                  onClick={() => {
-                    navigator.clipboard.writeText('6PbPoFs9u4qkmGfx9YLMxqQBSTqxKsFaQZdkLWohxGbv');
-                    toast.success('Address copied to clipboard');
-                  }}
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy
-                </Button>
-              </div>
-              <code className="text-sm text-gray-400 break-all">6PbPoFs9u4qkmGfx9YLMxqQBSTqxKsFaQZdkLWohxGbv</code>
-            </div>
-
-            <SolanaConverter />
-
-            <div className="text-sm text-gray-400">
-              <p>After sending payment, please email your transaction confirmation to:</p>
-              <div className="flex items-center gap-2 mt-2">
-                <code className="text-primary">papi@girlfriend.cx</code>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="h-8"
-                  onClick={() => {
-                    navigator.clipboard.writeText('papi@girlfriend.cx');
-                    toast.success('Email copied to clipboard');
-                  }}
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Share and Earn Tokens */}
-        <div className="mt-16 mb-12">
-          <div className="flex items-center gap-2 mb-6">
-            <Users2 className="w-8 h-8" />
-            <h2 className="text-2xl font-bold">Share & Earn Tokens</h2>
-          </div>
-
-          <div className="p-6 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="space-y-2">
-                <h3 className="text-xl font-semibold">Give 600, Get 600</h3>
-                <p className="text-gray-400">Share tokens with friends and earn the same amount back when they sign up</p>
-              </div>
-              
-              <div className="flex gap-3">
+            
+            <div className="flex gap-3">
+              <Button
+                onClick={generateShareLink}
+                className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300"
+              >
+                Generate Link
+              </Button>
+              {shareLink && (
                 <Button
-                  onClick={generateShareLink}
-                  className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300"
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareLink);
+                    toast.success('Link copied to clipboard!');
+                  }}
+                  variant="outline"
+                  className="gap-2"
                 >
-                  Generate Link
+                  <Copy className="w-4 h-4" />
+                  Copy Link
                 </Button>
-                {shareLink && (
-                  <Button
-                    onClick={() => {
-                      navigator.clipboard.writeText(shareLink);
-                      toast.success('Link copied to clipboard!');
-                    }}
-                    variant="outline"
-                    className="gap-2"
-                  >
-                    <Copy className="w-4 h-4" />
-                    Copy Link
-                  </Button>
-                )}
+              )}
+            </div>
+          </div>
+
+          {shareLink && (
+            <div className="mt-4 p-3 bg-purple-950/20 rounded-lg border border-purple-500/20 flex items-center justify-between">
+              <code className="text-sm text-purple-300">{shareLink}</code>
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Users2 className="w-4 h-4" />
+                <span>{referralStats?.completedReferrals || 0}/{referralStats?.totalReferrals || 0} claimed</span>
               </div>
             </div>
+          )}
+        </div>
+      </div>
 
-            {shareLink && (
-              <div className="mt-4 p-3 bg-purple-950/20 rounded-lg border border-purple-500/20 flex items-center justify-between">
-                <code className="text-sm text-purple-300">{shareLink}</code>
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <Users2 className="w-4 h-4" />
-                  <span>{referralStats?.used || 0}/{referralStats?.total || 0} claimed</span>
+      {/* Share & Earn Program Stats */}
+      <div className="mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Your Referral Stats</CardTitle>
+              <CardDescription>Track your referral earnings and progress</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {referralStats ? (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Total Referrals</span>
+                    <span className="font-medium">{referralStats.totalReferrals}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Pending Invites</span>
+                    <span className="font-medium">{referralStats.pendingReferrals}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Completed Referrals</span>
+                    <span className="font-medium">{referralStats.completedReferrals}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Tokens Earned</span>
+                    <span className="font-medium text-primary">{referralStats.totalTokensEarned}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400">Loading stats...</div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">How It Works</CardTitle>
+              <CardDescription>Simple steps to earn tokens</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">1</div>
+                  <p className="text-sm text-gray-400">Generate and share your unique referral link with friends</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">2</div>
+                  <p className="text-sm text-gray-400">Friends sign up and get 600 tokens</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">3</div>
+                  <p className="text-sm text-gray-400">You automatically receive 600 tokens as a reward</p>
                 </div>
               </div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
         </div>
+      </div>
 
       <div className="space-y-6">
         {/* Usage Statistics Card */}

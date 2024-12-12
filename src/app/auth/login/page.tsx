@@ -4,8 +4,13 @@ import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import { useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const claimCode = searchParams.get("claimCode");
+  const postLoginRedirect = claimCode ? `/settings/billing?claim=${claimCode}` : undefined;
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background/80 p-4">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(45%_40%_at_50%_60%,var(--tw-gradient-from)_10%,var(--tw-gradient-to)_90%)] from-pink-400/20 via-purple-400/10 to-background"></div>
@@ -31,20 +36,20 @@ export default function LoginPage() {
         {/* Welcome Text */}
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">
-            Your Perfect AI Companion
+            {claimCode ? "Claim Your Tokens" : "Your Perfect AI Companion"}
           </h1>
           <p className="text-muted-foreground">
-            Create intimate, uncensored connections with AI companions
+            {claimCode ? "Sign up to claim your tokens and start chatting" : "Create intimate, uncensored connections with AI companions"}
           </p>
         </div>
 
         {/* Auth Buttons */}
         <div className="space-y-6">
-          <RegisterLink>
+          <RegisterLink postLoginRedirectURL={postLoginRedirect}>
             <Button 
               className="w-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 text-white font-medium py-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 border-0 text-lg"
             >
-              Get Started
+              {claimCode ? "Sign Up to Claim Tokens" : "Get Started"}
             </Button>
           </RegisterLink>
 
@@ -57,7 +62,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <LoginLink>
+          <LoginLink postLoginRedirectURL={postLoginRedirect}>
             <Button 
               variant="outline"
               className="w-full py-6 rounded-xl text-lg hover:bg-primary/5"

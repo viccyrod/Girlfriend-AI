@@ -12,20 +12,35 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const code = nanoid(10);
-    
-    await prisma.tokenClaim.create({
+    // Check if user already has an active claim code
+    const existingClaim = await prisma.tokenClaim.findFirst({
+      where: {
+        createdById: user.id,
+        claimed: false
+      }
+    });
+
+    if (existingClaim) {
+      return NextResponse.json({ code: existingClaim.code });
+    }
+
+    // Generate a new claim code
+    const code = nanoid(8); // 8 character unique code
+    const claim = await prisma.tokenClaim.create({
       data: {
         code,
         amount: 600,
         createdById: user.id,
-        referralReward: 600
+        referralReward: 600 // The amount the referrer gets
       }
     });
 
-    return NextResponse.json({ code });
+    return NextResponse.json({ code: claim.code });
   } catch (error) {
-    console.error('Failed to generate referral:', error);
-    return NextResponse.json({ error: 'Failed to generate referral' }, { status: 500 });
+    console.error('Failed to generate referral link:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate referral link' },
+      { status: 500 }
+    );
   }
 } 
