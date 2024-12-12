@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -33,6 +33,7 @@ export default function ChatComponent({
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [loadingRoomId, setLoadingRoomId] = useState<string | null>(null);
   const [isDeletingRoom, setIsDeletingRoom] = useState<string | null>(null);
+  const handleRoomSelectionRef = useRef<(room: ExtendedChatRoom) => Promise<void>>();
 
   const router = useRouter();
   const { toast } = useToast();
@@ -84,17 +85,166 @@ export default function ChatComponent({
   }), [modelId]);
 
   // Memoized handlers
+  const generateGreeting = (aiModel: any): string => {
+    if (!aiModel) return "Hi there! How can I help you today?";
+
+    // Create a personalized greeting based on the AI's characteristics
+    const greetings = [
+      // Base greeting with name and a key personality trait
+      `Hey! I'm ${aiModel.name}! ${aiModel.personality.split('.')[0]}.`,
+      
+      // Add a personal touch based on their characteristics
+      aiModel.hobbies ? 
+        `I love ${aiModel.hobbies.split(',')[0].toLowerCase()}` : '',
+      
+      // Add a conversation starter based on their interests
+      aiModel.likes ? 
+        `We should chat about ${aiModel.likes.split(',')[0].toLowerCase()}!` : '',
+      
+      // End with an inviting question
+      "What's on your mind?"
+    ];
+
+    return greetings.filter(Boolean).join(' ');
+  };
+
+  // Fetch chat rooms only once on mount or when modelId changes
+  useEffect(() => {
+    const fetchChatRooms = async () => {
+      try {
+        const response = await fetch('/api/chat/rooms');
+        const data = await response.json();
+        const transformed = data.chatRooms.map(transformRoom);
+        setChatRooms(transformed);
+
+        // Check for pending room selection from sessionStorage
+        const pendingRoomId = window.sessionStorage.getItem('pendingChatRoomId');
+        if (pendingRoomId && handleRoomSelectionRef.current) {
+          const pendingRoom = transformed.find((room: ExtendedChatRoom) => room.id === pendingRoomId);
+          if (pendingRoom) {
+            handleRoomSelectionRef.current(pendingRoom);
+            window.sessionStorage.removeItem('pendingChatRoomId');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching chat rooms:', error);
+        if (onError) onError(error as Error);
+      }
+    };
+
+    if (!initialChatRoom && !modelId) {
+      fetchChatRooms();
+    }
+  }, [initialChatRoom, modelId, transformRoom, onError]);
+
+  // Handle initial chat room or model ID
+  useEffect(() => {
+    const initializeChat = async () => {
+      if (initialChatRoom) {
+        const transformed = transformRoom(initialChatRoom);
+        setChatRooms([transformed]);
+        setSelectedRoom(transformed);
+        setMessages(transformed.messages);
+      } else if (modelId) {
+        setIsLoading(true);
+        try {
+          const room = await getOrCreateChatRoom(modelId);
+          if (room) {
+            const transformed = transformRoom(room);
+            setChatRooms([transformed]);
+            setSelectedRoom(transformed);
+            setMessages(transformed.messages);
+          }
+        } catch (error) {
+          console.error('Error creating chat room:', error);
+          if (onError) onError(error as Error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initializeChat();
+  }, [initialChatRoom, modelId, transformRoom, onError]);
+
   const handleRoomSelection = useCallback(async (room: ExtendedChatRoom) => {
     if (loadingRoomId || room.id === selectedRoom?.id) return;
     setLoadingRoomId(room.id);
     
     try {
+      setSelectedRoom(room);
+
       const response = await fetch(`/api/chat/${room.id}/messages`);
       if (!response.ok) throw new Error('Failed to fetch messages');
       
       const data = await response.json();
-      setMessages(data.messages?.map(transformMessage) || []);
-      setSelectedRoom(room);
+      const roomMessages = data.messages?.map(transformMessage) || [];
+      const sortedMessages = roomMessages.sort((a: any, b: any) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      
+      setMessages(sortedMessages);
+
+      // Always send greeting when entering a room
+      if (room.aiModel) {
+        try {
+          const greetingResponse = await fetch(`/api/chat/${room.id}/greeting`, {
+            method: 'POST',
+          });
+
+          if (greetingResponse.ok) {
+            let accumulatedContent = '';
+            const reader = greetingResponse.body?.getReader();
+            
+            if (reader) {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = new TextDecoder().decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                  if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    if (data === '[DONE]') continue;
+
+                    try {
+                      const parsed = JSON.parse(data);
+                      accumulatedContent = parsed.content || accumulatedContent;
+                      
+                      const streamingMessage = {
+                        ...parsed,
+                        content: accumulatedContent,
+                        createdAt: new Date().toISOString(),
+                        isAIMessage: true,
+                        role: 'assistant',
+                        metadata: { type: 'greeting' }
+                      };
+
+                      setMessages(prev => {
+                        const existing = prev.find(m => m.id === parsed.id);
+                        if (existing) {
+                          return prev.map(m => 
+                            m.id === parsed.id ? transformMessage(streamingMessage) : m
+                          );
+                        } else {
+                          return [transformMessage(streamingMessage), ...prev];
+                        }
+                      });
+                    } catch (e) {
+                      console.error('Error parsing greeting response:', e);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error sending greeting:', error);
+        }
+      }
+
       if (window.innerWidth < 768) {
         setIsSidebarOpen(false);
       }
@@ -110,6 +260,11 @@ export default function ChatComponent({
       setLoadingRoomId(null);
     }
   }, [loadingRoomId, selectedRoom?.id, onError, toast, transformMessage]);
+
+  // Store the latest handleRoomSelection in ref
+  useEffect(() => {
+    handleRoomSelectionRef.current = handleRoomSelection;
+  }, [handleRoomSelection]);
 
   const handleDeleteRoom = useCallback(async (roomId: string) => {
     if (isDeletingRoom) return;
@@ -139,56 +294,6 @@ export default function ChatComponent({
       setIsDeletingRoom(null);
     }
   }, [isDeletingRoom, selectedRoom?.id, toast]);
-
-  // Effects
-  useEffect(() => {
-    if (initialChatRoom) {
-      const transformed = transformRoom(initialChatRoom);
-      setChatRooms([transformed]);
-      setSelectedRoom(transformed);
-      setMessages(transformed.messages);
-    } else if (modelId) {
-      setIsLoading(true);
-      getOrCreateChatRoom(modelId)
-        .then(room => {
-          if (room) {
-            const transformed = transformRoom(room);
-            setChatRooms([transformed]);
-            setSelectedRoom(transformed);
-            setMessages(transformed.messages);
-          }
-        })
-        .catch(error => {
-          console.error('Error creating chat room:', error);
-          if (onError) onError(error);
-        })
-        .finally(() => setIsLoading(false));
-    } else {
-      // Load all chat rooms if no specific room or model is provided
-      setIsLoading(true);
-      fetch('/api/chat/rooms')
-        .then(res => res.json())
-        .then(data => {
-          const transformed = data.chatRooms.map(transformRoom);
-          setChatRooms(transformed);
-          
-          // Check for pending room selection from sessionStorage
-          const pendingRoomId = window.sessionStorage.getItem('pendingChatRoomId');
-          if (pendingRoomId) {
-            const pendingRoom = transformed.find((room: ExtendedChatRoom) => room.id === pendingRoomId);
-            if (pendingRoom) {
-              handleRoomSelection(pendingRoom);
-              window.sessionStorage.removeItem('pendingChatRoomId');
-            }
-          }
-        })
-        .catch(error => {
-          console.error('Error fetching chat rooms:', error);
-          if (onError) onError(error);
-        })
-        .finally(() => setIsLoading(false));
-    }
-  }, [initialChatRoom, modelId, transformRoom, onError, handleRoomSelection]);
 
   // Memoized UI elements
   const sidebarContent = useMemo(() => (
