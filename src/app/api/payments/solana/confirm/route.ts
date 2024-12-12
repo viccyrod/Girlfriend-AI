@@ -8,25 +8,40 @@ if (!MERCHANT_WALLET_ADDRESS) {
   throw new Error('MERCHANT_WALLET_ADDRESS environment variable is not set');
 }
 
-// Alchemy RPC endpoint
 const RPC_ENDPOINT = "https://solana-mainnet.g.alchemy.com/v2/_72BKJxKxcuPjZPhvx9w8qbKwfvZF3IX";
+
+async function getSolanaPrice(): Promise<number> {
+  try {
+    const response = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+      { next: { revalidate: 60 } }
+    );
+    const data = await response.json();
+    return data.solana.usd;
+  } catch (error) {
+    console.error('Error fetching SOL price:', error);
+    throw new Error('Failed to fetch SOL price');
+  }
+}
 
 export async function POST(req: Request) {
   try {
+    console.log('Starting payment confirmation...');
     const { getUser } = getKindeServerSession();
     const user = await getUser();
     
     if (!user?.id) {
+      console.log('Unauthorized: No user ID');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { paymentId, signature } = await req.json();
+    console.log('Confirmation request:', { paymentId, signature });
 
     if (!paymentId || !signature) {
+      console.log('Missing required fields:', { paymentId, signature });
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
-
-    console.log(`Processing payment confirmation: ${paymentId} with signature: ${signature}`);
 
     // Get payment record
     const payment = await prisma.payment.findUnique({
@@ -41,21 +56,24 @@ export async function POST(req: Request) {
     });
 
     if (!payment) {
+      console.log('Payment not found:', paymentId);
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
 
     if (payment.userId !== user.id) {
+      console.log('Unauthorized: Payment belongs to different user');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     if (payment.status === 'completed') {
+      console.log('Payment already processed:', paymentId);
       return NextResponse.json({ error: 'Payment already processed' }, { status: 400 });
     }
 
-    // Verify transaction on Solana using Alchemy endpoint
+    // Verify transaction on Solana
     const connection = new Connection(RPC_ENDPOINT);
+    console.log('Fetching transaction details for signature:', signature);
     
-    console.log('Fetching transaction details from Solana...');
     const transaction = await connection.getTransaction(signature, {
       commitment: 'confirmed',
       maxSupportedTransactionVersion: 0
@@ -66,20 +84,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
     }
 
+    if (transaction.meta?.err) {
+      console.error('Transaction failed on Solana:', transaction.meta.err);
+      return NextResponse.json({ 
+        error: 'Transaction failed on Solana',
+        details: transaction.meta.err 
+      }, { status: 400 });
+    }
+
     // Verify the transaction is to the merchant wallet
     const merchantPubKey = new PublicKey(MERCHANT_WALLET_ADDRESS!);
     const postBalances = transaction.meta?.postBalances || [];
     const preBalances = transaction.meta?.preBalances || [];
     const accountKeys = transaction.transaction.message.staticAccountKeys;
     
-    console.log('Transaction accounts:', accountKeys.map(k => k.toString()));
-    console.log('Merchant wallet:', merchantPubKey.toString());
-    console.log('Pre-balances:', preBalances);
-    console.log('Post-balances:', postBalances);
-    
     const merchantIndex = accountKeys.findIndex(key => key.equals(merchantPubKey));
-    console.log('Merchant index in accounts:', merchantIndex);
-    
     if (merchantIndex === -1) {
       console.error('Transaction not sent to merchant wallet');
       return NextResponse.json({ error: 'Invalid transaction recipient' }, { status: 400 });
@@ -87,31 +106,43 @@ export async function POST(req: Request) {
 
     // Verify the amount received
     const amountReceived = (postBalances[merchantIndex] - preBalances[merchantIndex]) / LAMPORTS_PER_SOL;
-    console.log(`Amount received: ${amountReceived} SOL`);
+    const solPrice = await getSolanaPrice();
+    console.log('Amount verification:', {
+      received: amountReceived,
+      expected: payment.amount,
+      solPrice
+    });
 
-    // Update payment status and add tokens in a transaction
-    console.log(`Crediting ${payment.tokenAmount} tokens to user ${user.id}`);
-    const result = await prisma.$transaction([
-      // Update payment status
-      prisma.payment.update({
-        where: { id: paymentId },
-        data: {
-          status: 'completed',
-          transactionSignature: signature
-        }
-      }),
-      // Add tokens to user's balance
-      prisma.user.update({
-        where: { id: user.id },
-        data: {
-          tokens: {
-            increment: payment.tokenAmount
+    // Update payment status and add tokens
+    let result;
+    try {
+      result = await prisma.$transaction([
+        prisma.payment.update({
+          where: { id: paymentId },
+          data: {
+            status: 'completed',
+            transactionSignature: signature
           }
-        }
-      })
-    ]);
+        }),
+        prisma.user.update({
+          where: { id: user.id },
+          data: {
+            tokens: {
+              increment: payment.tokenAmount
+            }
+          }
+        })
+      ]);
+      
+      console.log('Transaction completed successfully:', {
+        paymentUpdate: result[0],
+        userUpdate: result[1]
+      });
+    } catch (error) {
+      console.error('Database transaction failed:', error);
+      throw error;
+    }
 
-    console.log('Payment processed successfully');
     return NextResponse.json({ 
       success: true,
       tokenAmount: payment.tokenAmount,

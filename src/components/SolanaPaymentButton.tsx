@@ -64,35 +64,79 @@ export function SolanaPaymentButton({
       // Step 2: Deserialize and send transaction
       const transaction = Transaction.from(Buffer.from(serializedTransaction, 'base64'));
       const signature = await sendTransaction(transaction, connection);
+      console.log('Transaction sent:', signature);
       
       // Step 3: Wait for confirmation and update tokens
       await toast.promise(
         (async () => {
-          // Wait for transaction confirmation
-          await connection.confirmTransaction(signature);
-          
-          // Update payment status and add tokens
-          const confirmResponse = await fetch('/api/payments/solana/confirm', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              paymentId,
-              signature 
-            }),
-          });
+          try {
+            console.log('Waiting for transaction confirmation...', signature);
+            
+            // Wait for confirmation with retries
+            let confirmed = false;
+            let retries = 0;
+            const maxRetries = 30;
+            
+            while (!confirmed && retries < maxRetries) {
+              try {
+                const response = await connection.getSignatureStatus(signature);
+                console.log('Signature status:', response);
+                
+                if (response?.value?.confirmationStatus === 'confirmed' || response?.value?.confirmationStatus === 'finalized') {
+                  confirmed = true;
+                  break;
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                retries++;
+              } catch (error) {
+                console.warn('Retry error:', error);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                retries++;
+              }
+            }
 
-          if (!confirmResponse.ok) {
-            throw new Error('Failed to confirm payment');
+            if (!confirmed) {
+              throw new Error('Transaction confirmation timeout');
+            }
+
+            console.log('Transaction confirmed after', retries, 'retries');
+            
+            // Update payment status and add tokens
+            console.log('Sending confirmation to server...', { paymentId, signature });
+            const confirmResponse = await fetch('/api/payments/solana/confirm', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                paymentId,
+                signature 
+              }),
+            });
+
+            if (!confirmResponse.ok) {
+              const errorData = await confirmResponse.json();
+              console.error('Confirmation failed:', {
+                status: confirmResponse.status,
+                error: errorData
+              });
+              throw new Error(errorData.error || 'Failed to confirm payment');
+            }
+
+            const confirmResult = await confirmResponse.json();
+            console.log('Payment confirmed:', confirmResult);
+
+            // Call success callback
+            onSuccess?.();
+            refreshGenerations();
+          } catch (error) {
+            console.error('Confirmation error:', error);
+            throw error;
           }
-
-          // Call success callback
-          onSuccess?.();
-          refreshGenerations();
         })(),
         {
           loading: 'Processing payment...',
           success: 'Payment successful! Tokens added to your account.',
-          error: 'Transaction failed. Please try again.'
+          error: (error) => `Transaction failed: ${error instanceof Error ? error.message : 'Please try again'}`
         }
       );
 
