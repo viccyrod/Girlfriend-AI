@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Sparkles } from 'lucide-react';
 import { TokenCounter } from '@/components/TokenCounter';
 import { toast } from 'sonner';
+import { WalletButton } from '@/components/WalletButton';
 
 interface UsageStats {
   currentPlan: string;
@@ -148,9 +149,12 @@ export default function BillingSettings() {
 
       {/* Token Packages Section */}
       <div className="mb-12">
-        <div className="flex items-center gap-2 mb-6">
-          <TokenIcon className="w-8 h-8" animate />
-          <h2 className="text-2xl font-bold">Buy Tokens</h2>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <TokenIcon className="w-8 h-8" animate />
+            <h2 className="text-2xl font-bold">Buy Tokens</h2>
+          </div>
+          <WalletButton />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">

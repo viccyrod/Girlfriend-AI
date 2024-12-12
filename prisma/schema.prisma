@@ -274,18 +274,19 @@ model AIModelCustomization {
 }
 
 model Payment {
-  id          String   @id @default(cuid())
-  userId      String
-  orderId     String?
-  amount      Int
-  currency    String
-  status      String   @default("pending")
-  paymentDate DateTime @default(now())
-  order       Order?   @relation(fields: [orderId], references: [id])
-  user        User     @relation(fields: [userId], references: [id])
+  id                   String   @id @default(cuid())
+  userId               String
+  orderId              String?
+  amount               Float
+  currency             String
+  status               String   @default("pending")
+  tokenAmount          Int      @default(0)
+  transactionSignature String?
+  paymentDate          DateTime @default(now())
+  user                 User     @relation(fields: [userId], references: [id])
+  Order                Order?   @relation(fields: [orderId], references: [id])
 
   @@index([userId])
-  @@index([orderId])
 }
 
 model InteractionLog {
