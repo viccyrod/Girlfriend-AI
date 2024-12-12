@@ -339,14 +339,12 @@ export function ClientChatMessages({
   return (
     <div className={cn(
       "flex flex-col",
-      "h-[calc(100vh-6rem)]",
-      "md:h-[calc(100vh-3rem)]",
+      "h-[calc(100vh-4rem)]",
       "bg-[#0a0a0a]",
-      "relative",
-      "safe-area-inset-bottom"
+      "relative"
     )}>
       {/* Chat Info Bar */}
-      <div className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-white/5">
+      <div className="shrink-0 bg-[#0a0a0a] border-b border-white/5">
         <ChatInfoBar
           modelImage={model?.imageUrl || selectedRoom?.aiModel?.imageUrl}
           modelName={model?.name || selectedRoom?.aiModel?.name || 'AI Assistant'}
@@ -355,21 +353,20 @@ export function ClientChatMessages({
         />
       </div>
 
-      {/* Message List - with touch momentum scrolling */}
-      <div className="flex-1 overflow-hidden">
+      {/* Message List */}
+      <div className="flex-1 overflow-y-auto">
         <ChatMessageList
           messages={messages}
           modelImage={selectedRoom?.aiModel?.imageUrl}
         />
       </div>
 
-      {/* Chat Input - with mobile optimizations */}
+      {/* Chat Input */}
       <div className={cn(
-        "sticky bottom-0",
-        "z-10 bg-[#0a0a0a]",
+        "shrink-0",
+        "bg-[#0a0a0a]",
         "border-t border-white/5",
-        "pb-safe",
-        "px-2 md:px-4"
+        "px-2 md:px-4 py-2"
       )}>
         <ChatInput
           value={state.newMessage}
