@@ -295,6 +295,62 @@ export default function ChatComponent({
     }
   }, [isDeletingRoom, selectedRoom?.id, toast]);
 
+  // Add polling for chat updates
+  useEffect(() => {
+    if (!selectedRoom?.id) return;
+
+    let isPolling = true;
+    const pollInterval = 3000; // 3 seconds
+
+    const pollUpdates = async () => {
+      if (!isPolling) return;
+
+      try {
+        const response = await fetch(`/api/chat/${selectedRoom.id}/updates?lastUpdate=${selectedRoom.updatedAt}`);
+        if (!response.ok) throw new Error('Failed to fetch updates');
+
+        const data = await response.json();
+        
+        if (data.hasUpdates) {
+          // Update chat rooms if there are changes
+          if (data.rooms) {
+            setChatRooms(prev => {
+              const updatedRooms = [...prev];
+              data.rooms.forEach((updatedRoom: any) => {
+                const index = updatedRooms.findIndex(r => r.id === updatedRoom.id);
+                if (index !== -1) {
+                  updatedRooms[index] = transformRoom(updatedRoom);
+                }
+              });
+              return updatedRooms;
+            });
+          }
+
+          // Update messages if there are new ones
+          if (data.messages) {
+            setMessages(prev => {
+              const newMessages = data.messages.map(transformMessage);
+              return [...newMessages, ...prev];
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error polling updates:', error);
+      }
+
+      // Schedule next poll
+      setTimeout(pollUpdates, pollInterval);
+    };
+
+    // Start polling
+    pollUpdates();
+
+    // Cleanup
+    return () => {
+      isPolling = false;
+    };
+  }, [selectedRoom?.id, selectedRoom?.updatedAt, transformMessage, transformRoom]);
+
   // Memoized UI elements
   const sidebarContent = useMemo(() => (
     <div className={cn(

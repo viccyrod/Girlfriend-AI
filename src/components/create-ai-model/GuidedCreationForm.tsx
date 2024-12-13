@@ -14,6 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createPortal } from 'react-dom';
+import { useTokens } from '@/providers/TokensProvider';
+import { TOKEN_COSTS } from '@/lib/constants';
 
 interface GuidedCreationFormProps {
   user: User;
@@ -63,7 +65,7 @@ const HEIGHTS = [
   { id: 'petite', label: 'Petite (4\'11" - 5\'3")', icon: '👧' },
   { id: 'average', label: 'Average (5\'4" - 5\'7")', icon: '👩' },
   { id: 'tall', label: 'Tall (5\'8" - 5\'11")', icon: '👱‍♀️' },
-  { id: 'very-tall', label: 'Very Tall (6\'+)', icon: '🦒' },
+  { id: 'very-tall', label: 'Very Tall (6\'+)', icon: '���' },
 ];
 
 const GENDERS = [
@@ -114,7 +116,7 @@ const EMOTIONAL_RANGES = [
 const OCCUPATIONS = [
   { id: 'student', label: 'Student', icon: '📚', description: 'Currently studying' },
   { id: 'professional', label: 'Professional', icon: '💼', description: 'Career-focused' },
-  { id: 'creative', label: 'Creative', icon: '🎨', description: 'Artist or creator' },
+  { id: 'creative', label: 'Creative', icon: '���', description: 'Artist or creator' },
   { id: 'entrepreneur', label: 'Entrepreneur', icon: '🚀', description: 'Business-minded' },
 ];
 
@@ -286,6 +288,7 @@ const MAX_POLLING_DURATION = 180000; // 3 minutes
 export function GuidedCreationForm({ user, setParentLoading }: GuidedCreationFormProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const { tokens, showNoTokensDialog } = useTokens();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -369,6 +372,13 @@ export function GuidedCreationForm({ user, setParentLoading }: GuidedCreationFor
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if user has enough tokens
+    if (tokens < TOKEN_COSTS.CHARACTER) {
+      showNoTokensDialog();
+      return;
+    }
+
     setIsSubmitting(true);
     setPollAttempt(0);
 
@@ -411,39 +421,33 @@ Please expand on these details and create a rich, engaging character profile.`;
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate detailed profile');
+        const errorData = await response.json();
+        if (errorData.details?.includes('max daily request limit exceeded')) {
+          toast({
+            title: 'Service Temporarily Unavailable',
+            description: 'We\'ve reached our daily limit for AI model creation. Please try again tomorrow.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        throw new Error('Failed to create AI model');
       }
 
-      const { id } = await response.json();
+      const data = await response.json();
       
-      // Start polling with interval
-      const startTime = Date.now();
-      const pollInterval = setInterval(async () => {
-        try {
-          const isComplete = await pollModelStatus(id, startTime);
-          if (isComplete) {
-            clearInterval(pollInterval);
-          }
-        } catch (error) {
-          clearInterval(pollInterval);
-          setIsSubmitting(false);
-          toast({
-            title: 'Error',
-            description: error instanceof Error ? error.message : 'Failed to check model status',
-            variant: 'destructive'
-          });
-        }
-      }, INITIAL_POLLING_INTERVAL);
-
-      // Cleanup interval on unmount
-      return () => clearInterval(pollInterval);
+      if (data.id) {
+        router.push(`/community/AIModelProfile/${data.id}`);
+      } else {
+        throw new Error('No model ID returned');
+      }
     } catch (error) {
-      console.error('Creation error:', error);
+      console.error('Failed to create AI model:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to create AI model. Please try again.',
         variant: 'destructive'
       });
+    } finally {
       setIsSubmitting(false);
     }
   };

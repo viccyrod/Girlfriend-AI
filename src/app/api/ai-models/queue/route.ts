@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
+import { redis } from '@/lib/clients/redis';
 import prisma from '@/lib/clients/prisma';
 import { getDbUser } from '@/lib/actions/server/auth';
 import { z } from 'zod';
@@ -11,14 +11,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// Initialize Redis with connection pooling
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!
-});
-
 // Cache TTL in seconds
-const CACHE_TTL = 60;
+const CACHE_TTL = 300; // Increased to 5 minutes to reduce Redis operations
 
 // Request validation schema
 const RequestSchema = z.object({
@@ -31,7 +25,11 @@ async function getCachedJobStatus(jobId: string) {
   const cacheKey = `job_status:${jobId}`;
   const cachedStatus = await redis.get(cacheKey);
   if (cachedStatus) {
-    return JSON.parse(cachedStatus as string);
+    try {
+      return JSON.parse(cachedStatus as string);
+    } catch {
+      return null;
+    }
   }
   return null;
 }
@@ -56,36 +54,18 @@ export async function POST(request: Request) {
 
     const { customPrompt, isPrivate = false } = result.data;
 
-    // Get user and check tokens in parallel
-    const [currentUser, hasTokens] = await Promise.all([
-      getDbUser(),
-      getDbUser().then(user => 
-        user ? checkTokenBalance(user.id, GenerationType.CHARACTER) : false
-      )
-    ]);
-
+    const currentUser = await getDbUser();
     if (!currentUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check token balance first
+    const hasTokens = await checkTokenBalance(currentUser.id, GenerationType.CHARACTER);
     if (!hasTokens) {
       return NextResponse.json({ 
         error: 'Insufficient tokens',
         action: 'PURCHASE_TOKENS',
-        redirect: '/settings/billing',
-        title: '✨ Unlock Character Creation',
-        message: 'Creating a new AI companion requires 500 tokens',
-        details: {
-          required: TOKEN_COSTS.CHARACTER,
-          actionLabel: 'Get Tokens',
-          description: 'Get tokens now to create your perfect AI companion! Your progress will be saved.',
-          benefits: [
-            'Create unique AI companions',
-            'Customize their personality',
-            'Generate profile pictures',
-            'Chat unlimited with your creation'
-          ]
-        }
+        redirect: '/settings/billing'
       }, { status: 402 });
     }
 
@@ -122,9 +102,6 @@ export async function POST(request: Request) {
         id: true,
         status: true
       }
-    }).catch(error => {
-      console.error('Failed to create AIModel:', error);
-      throw new Error('Failed to create AI model');
     });
 
     // Add job to queue with batched Redis operations
@@ -138,11 +115,12 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString()
     };
 
-    await Promise.all([
-      redis.hset(jobId, jobData),
-      redis.lpush('model_gen_queue', jobId),
-      setCachedJobStatus(jobId, jobData)
-    ]);
+    // Batch Redis operations into a pipeline
+    const pipeline = redis.pipeline();
+    pipeline.hset(jobId, jobData);
+    pipeline.lpush('model_gen_queue', jobId);
+    pipeline.setex(`job_status:${jobId}`, CACHE_TTL, JSON.stringify(jobData));
+    await pipeline.exec();
 
     return NextResponse.json({ 
       id: pendingModel.id,
