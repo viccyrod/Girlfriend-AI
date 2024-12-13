@@ -7,6 +7,7 @@ import { Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Message } from '@/types/message';
+import { formatDistanceToNow } from 'date-fns';
 
 interface ChatRoomListProps {
   rooms: ExtendedChatRoom[];
@@ -64,22 +65,22 @@ export function ChatRoomList({
         </button>
       </div>
       
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
         {rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-4">
             <p className="text-sm text-white/50">No chats yet</p>
             <p className="text-xs text-white/30 mt-1">Start a new conversation to begin</p>
           </div>
         ) : (
-          <div className="py-2 px-3">
+          <div className="py-2 px-3 space-y-1">
             {rooms.map((room) => (
               <button
                 key={room.id}
                 onClick={() => onRoomSelect(room)}
                 disabled={loadingRoomId === room.id}
                 className={cn(
-                  "w-full text-left p-3.5 rounded-lg mb-2",
-                  "flex items-center gap-4",
+                  "w-full text-left p-3 rounded-lg",
+                  "flex items-center gap-3",
                   "transition-all duration-200",
                   "group relative",
                   selectedRoom?.id === room.id
@@ -110,17 +111,19 @@ export function ChatRoomList({
                     <p className="text-[15px] font-medium text-white truncate">
                       {room.aiModel?.name || 'AI Assistant'}
                     </p>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mt-0.5">
+                    <p className="text-sm text-white/50 truncate">
+                      {room.messages && room.messages.length > 0
+                        ? getLastMessagePreview(room.messages[0])
+                        : 'No messages yet'}
+                    </p>
                     {room.messages && room.messages.length > 0 && (
-                      <span className="text-xs text-white/30">
-                        {new Date(room.messages[0].createdAt).toLocaleDateString()}
+                      <span className="text-xs text-white/30 whitespace-nowrap">
+                        {formatDistanceToNow(new Date(room.messages[0].createdAt), { addSuffix: true })}
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-white/50 truncate mt-0.5">
-                    {room.messages && room.messages.length > 0
-                      ? getLastMessagePreview(room.messages[0])
-                      : 'No messages yet'}
-                  </p>
                 </div>
 
                 {/* Loading State */}

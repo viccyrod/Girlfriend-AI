@@ -1,17 +1,13 @@
 'use client';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from 'next-themes';
-import { ToastProvider } from '@/components/ui/toast';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { TokensProvider } from '@/providers/TokensProvider';
+import { Toaster } from '@/components/ui/toaster';
 
 const queryClient = new QueryClient();
 
-export default function ClientProviders({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider
@@ -19,10 +15,10 @@ export default function ClientProviders({
         defaultTheme="dark"
         enableSystem={false}
       >
-        <ToastProvider>
+        <TokensProvider>
           {children}
           <Toaster />
-        </ToastProvider>
+        </TokensProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

@@ -74,6 +74,15 @@ export function ChatInput({
                 className="w-full resize-none bg-[#1a1a1a] rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500/20"
                 style={{ minHeight: '44px', maxHeight: '200px' }}
               />
+              {onGenerateImage && (
+                <button
+                  type="button"
+                  onClick={() => setIsImageMenuOpen(true)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors duration-200"
+                >
+                  <ImageIcon className="w-5 h-5" />
+                </button>
+              )}
             </div>
             <button
               type="submit"

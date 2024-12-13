@@ -9,6 +9,7 @@ import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
 import { cn } from '@/lib/utils';
 import { generateImage } from '@/lib/chat-client';
+import { useTokens } from '@/providers/TokensProvider';
 
 // Message state interface and reducer
 interface MessageState {
@@ -89,6 +90,7 @@ export function ClientChatMessages({
     isLoading: false
   });
   const [sseConnected, setSseConnected] = useState(false);
+  const { tokens, showNoTokensDialog } = useTokens();
 
   // Memoize message groups
   const messageGroups = useMemo(() => groupMessagesByDate(messages), [messages]);
@@ -97,6 +99,12 @@ export function ClientChatMessages({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (state.isLoading || !state.newMessage.trim()) return;
+    
+    // Check if user has enough tokens
+    if (tokens === 0) {
+      showNoTokensDialog();
+      return;
+    }
     
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
@@ -115,13 +123,20 @@ export function ClientChatMessages({
   const handleGenerateImage = async (prompt: string) => {
     if (!selectedRoom) return;
     
+    // Check if user has enough tokens
+    if (tokens === 0) {
+      showNoTokensDialog();
+      return;
+    }
+    
     console.log('🎨 Starting image generation...');
     setIsGenerating(true);
 
     try {
-      // Create a temporary message
+      // Create a temporary message with server-style ID
+      const messageId = `server-${Date.now()}`;
       const tempMessage: Message = {
-        id: `temp-${Date.now()}`,
+        id: messageId,
         content: prompt,
         chatRoomId: selectedRoom.id,
         createdAt: new Date(),
@@ -145,7 +160,7 @@ export function ClientChatMessages({
       generateImage(prompt, selectedRoom.id).catch(error => {
         console.error('❌ Failed to generate image:', error);
         setMessages(prev => prev.map(msg => 
-          msg.id === tempMessage.id
+          msg.id === messageId
             ? { ...msg, metadata: { ...msg.metadata, status: 'error' } }
             : msg
         ));
@@ -250,7 +265,7 @@ export function ClientChatMessages({
     if (!selectedRoom?.id) return;
 
     console.log('🔌 Setting up SSE connection...');
-    const eventSource = new EventSource(`/api/chat/${selectedRoom.id}/stream`);
+    const eventSource = new EventSource(`/api/chat/${selectedRoom.id}/updates`);
 
     eventSource.onopen = () => {
       console.log('📡 SSE connection opened');
@@ -262,47 +277,26 @@ export function ClientChatMessages({
         const data = JSON.parse(event.data);
         console.log('📨 Received SSE message:', data);
         
-        if (data.type === 'image_generation') {
+        if (data.type === 'image_update' || data.type === 'image_generation') {
           console.log('🖼️ Processing image update:', {
-            messageId: data.message.id,
-            metadata: data.message.metadata,
-            imageUrl: data.message.metadata?.imageUrl
+            messageId: data.messageId || data.message?.id,
+            imageUrl: data.imageUrl || data.message?.metadata?.imageUrl
           });
           
-          setMessages(prev => {
-            // Find any temporary or generating message to replace
-            const index = prev.findIndex(m => 
-              (m.metadata?.type === 'image' && !m.metadata.imageUrl) ||
-              m.id.startsWith('temp-') ||
-              m.id === data.message.id
-            );
-            
-            if (index !== -1) {
-              const newMessages = [...prev];
-              // Replace the message directly
-              newMessages[index] = {
-                ...data.message,
-                metadata: {
-                  ...data.message.metadata,
-                  type: 'image',
-                  status: data.message.metadata?.imageUrl ? 'completed' : 'generating'
-                }
-              };
-              console.log('📝 Updated message at index', index, {
-                id: newMessages[index].id,
-                metadata: newMessages[index].metadata,
-                hasImage: !!newMessages[index].metadata?.imageUrl
-              });
-              return newMessages;
-            }
-            
-            console.log('➕ Adding new message:', {
-              id: data.message.id,
-              metadata: data.message.metadata,
-              hasImage: !!data.message.metadata?.imageUrl
-            });
-            return [...prev, data.message];
-          });
+          setMessages(prev => prev.map(msg => {
+            const isTargetMessage = msg.id === (data.messageId || data.message?.id);
+            if (!isTargetMessage) return msg;
+
+            const imageUrl = data.imageUrl || data.message?.metadata?.imageUrl;
+            return {
+              ...msg,
+              metadata: {
+                ...msg.metadata,
+                status: imageUrl ? 'completed' : 'generating',
+                imageUrl: imageUrl || null
+              }
+            };
+          }));
         }
       } catch (error) {
         console.error('❌ Error processing SSE message:', error);
@@ -316,7 +310,7 @@ export function ClientChatMessages({
       setTimeout(() => {
         console.log('🔄 Attempting to reconnect SSE...');
         eventSource.close();
-        const newEventSource = new EventSource(`/api/chat/${selectedRoom.id}/stream`);
+        const newEventSource = new EventSource(`/api/chat/${selectedRoom.id}/updates`);
         eventSource.onopen = () => setSseConnected(true);
       }, 1000);
     });
@@ -356,10 +350,8 @@ export function ClientChatMessages({
 
       {/* Message List */}
       <div className="flex-1 overflow-y-auto">
-        <ChatMessageList
-          messages={messages}
-          modelImage={selectedRoom?.aiModel?.imageUrl}
-        />
+        <ChatMessageList messages={messages} />
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Chat Input */}
@@ -376,8 +368,7 @@ export function ClientChatMessages({
           onSubmit={handleSubmit}
           onKeyDown={handleKeyDown}
           onGenerateImage={handleGenerateImage}
-          isLoading={state.isLoading}
-          maxLength={4000}
+          isLoading={state.isLoading || isGenerating}
         />
       </div>
     </div>
